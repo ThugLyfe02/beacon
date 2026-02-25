@@ -1,11 +1,5 @@
-// =============================================================================
-// Beacon MVP — Auth Service
-// auth_method: otp
-// =============================================================================
 import { Session, User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface SignInResult {
   error: AuthError | null;
@@ -26,41 +20,45 @@ export interface SignOutResult {
   error: AuthError | null;
 }
 
-// ─── Service Functions ────────────────────────────────────────────────────────
-
-/**
- * Send a one-time password (OTP) to the provided email address.
- * auth_method = "otp": uses signInWithOtp without magic link redirect.
- */
 export async function signInWithOtp(email: string): Promise<SignInResult> {
+  console.log('Sending OTP to:', email);
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
     options: {
       shouldCreateUser: true,
     },
   });
+
+  if (error) {
+    console.error('signInWithOtp error:', error);
+  } else {
+    console.log('OTP sent successfully');
+  }
+  
   return { error };
 }
 
-/**
- * Verify the OTP token the user received via email.
- * Only included when auth_method = "otp".
- */
 export async function verifyOtp(
   email: string,
   token: string
 ): Promise<VerifyOtpResult> {
+  console.log('auth.service: Verifying OTP for:', email);
+  
   const { data, error } = await supabase.auth.verifyOtp({
     email: email.trim().toLowerCase(),
     token: token.trim(),
     type: 'email',
   });
+  
+  if (error) {
+    console.error('auth.service: verifyOtp error:', error.message);
+  } else {
+    console.log('auth.service: OTP verified successfully!');
+  }
+  
   return { data, error };
 }
 
-/**
- * Retrieve the current session and user from the Supabase client.
- */
 export async function getSession(): Promise<SessionResult> {
   const { data, error } = await supabase.auth.getSession();
   return {
@@ -70,9 +68,6 @@ export async function getSession(): Promise<SessionResult> {
   };
 }
 
-/**
- * Sign the current user out and clear the local session.
- */
 export async function signOut(): Promise<SignOutResult> {
   const { error } = await supabase.auth.signOut();
   return { error };

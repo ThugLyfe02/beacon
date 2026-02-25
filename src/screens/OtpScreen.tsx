@@ -1,7 +1,4 @@
-// =============================================================================
-// Beacon MVP — OTP Screen
-// =============================================================================
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,11 +11,20 @@ import {
 import { useAuth } from '../hooks/useAuth';
 
 export function OtpScreen() {
-  const { signInWithOtp, verifyOtp } = useAuth();
+  const { signInWithOtp, verifyOtp, user } = useAuth();
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [loading, setLoading] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const verifyingRef = useRef(false);
+
+  // Don't allow verification if already verified or user is authenticated
+  useEffect(() => {
+    if (user) {
+      console.log('User authenticated, OTP flow complete');
+    }
+  }, [user]);
 
   const handleSendOtp = async () => {
     if (!email.trim()) {
@@ -27,34 +33,68 @@ export function OtpScreen() {
     }
 
     setLoading(true);
+    console.log('Requesting OTP for email:', email.trim().toLowerCase());
     const { error } = await signInWithOtp(email);
     setLoading(false);
 
     if (error) {
+      console.error('Send OTP error:', error);
       Alert.alert('Error', error.message);
       return;
     }
 
+    console.log('OTP request successful, moving to verification step');
     setStep('otp');
   };
 
   const handleVerifyOtp = async () => {
-    if (!otp.trim()) {
+    // Prevent duplicate calls
+    if (verifyingRef.current || verified) {
+      console.log('Already verifying or verified, skipping');
+      return;
+    }
+
+    const trimmedOtp = otp.trim();
+    
+    if (!trimmedOtp) {
       Alert.alert('Error', 'Please enter the 6-digit code');
       return;
     }
 
+    console.log('Verifying OTP:', {
+      email: email.trim().toLowerCase(),
+      token: trimmedOtp,
+      tokenLength: trimmedOtp.length,
+    });
+
+    verifyingRef.current = true;
     setLoading(true);
-    const { error } = await verifyOtp(email, otp);
+    
+    const { error } = await verifyOtp(email, trimmedOtp);
+    
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error', error.message);
+      verifyingRef.current = false;
+      console.error('Verify OTP error:', error);
+      Alert.alert('Verification Failed', error.message);
       return;
     }
 
-    // Navigation handled by RootNavigator based on auth state
+    console.log('OTP verified successfully!');
+    setVerified(true);
+    // Don't reset verifyingRef - keep it locked to prevent duplicate calls
+    // Navigation will be handled automatically by RootNavigator
   };
+
+  if (verified || user) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.subtitle}>Signing you in...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -70,14 +110,12 @@ export function OtpScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            autoCorrect={false}
-            editable={!loading}
           />
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[styles.button, loading ? styles.buttonDisabled : null]}
             onPress={handleSendOtp}
-            disabled={loading}
+            activeOpacity={0.7}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -100,13 +138,12 @@ export function OtpScreen() {
             onChangeText={setOtp}
             keyboardType="number-pad"
             maxLength={6}
-            editable={!loading}
           />
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[styles.button, loading ? styles.buttonDisabled : null]}
             onPress={handleVerifyOtp}
-            disabled={loading}
+            activeOpacity={0.7}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -115,7 +152,15 @@ export function OtpScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setStep('email')} disabled={loading}>
+          <TouchableOpacity 
+            onPress={() => {
+              setStep('email');
+              setOtp('');
+              setVerified(false);
+              verifyingRef.current = false;
+            }} 
+            activeOpacity={0.7}
+          >
             <Text style={styles.linkText}>Use a different email</Text>
           </TouchableOpacity>
         </>

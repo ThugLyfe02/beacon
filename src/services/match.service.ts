@@ -3,13 +3,23 @@
 // =============================================================================
 import { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { MatchRow } from '../types/database';
+import {
+  MatchRow,
+  ConnectionRequestRow,
+  MutualMatchResult,
+} from '../types/database';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ListMatchesResult {
   data: MatchRow[];
   error: PostgrestError | null;
+}
+
+export interface SendConnectionRequestResult {
+  request: ConnectionRequestRow | null;
+  match: MatchRow | null;
+  error: PostgrestError | { message: string } | null;
 }
 
 export interface PostEventSummaryInput {
@@ -79,7 +89,60 @@ export function getPostEventSummaryStub(input: PostEventSummaryInput): string {
 
   return [greeting, '', intro, body, footer].join('\n');
 }
+/**
+ * Create a connection request from requester → recipient and, if there's
+ * already a reciprocal pending request, record a mutual match.
+ */
+export async function sendConnectionRequest(
+  eventId: string,
+  requesterId: string,
+  recipientId: string
+): Promise<SendConnectionRequestResult> {
+  // 1) Insert connection request
+  const { data: request, error: requestError } = await supabase
+    .from('connection_requests')
+    .insert({
+      event_id: eventId,
+      requester_id: requesterId,
+      recipient_id: recipientId,
+    })
+    .select('*')
+    .single();
 
-export function sendConnectionRequest(eventId: string, requesterId: string, recipientId: string): { request: any; match: any; error: any; } | PromiseLike<{ request: any; match: any; error: any; }> {
-  throw new Error('Function not implemented.');
+  if (requestError || !request) {
+    return {
+      request: null,
+      match: null,
+      error: requestError ?? { message: 'Failed to send connection request.' },
+    };
+  }
+
+  // 2) Check for mutual match via RPC (may or may not create a row)
+  const { data: rpcResult, error: rpcError } = await supabase
+    .rpc('detect_mutual_match', {
+      p_event_id: eventId,
+      p_requester_id: requesterId,
+      p_recipient_id: recipientId,
+    })
+    .returns<MutualMatchResult[]>();
+
+  if (rpcError) {
+    // Request succeeded, but we couldn't determine match state.
+    // Surface as non-fatal: the UI will just show "Sent".
+    return {
+      request,
+      match: null,
+      error: null,
+    };
+  }
+
+  const mutualMatch = Array.isArray(rpcResult) && rpcResult.length > 0
+    ? (rpcResult[0] as MatchRow)
+    : null;
+
+  return {
+    request,
+    match: mutualMatch,
+    error: null,
+  };
 }
