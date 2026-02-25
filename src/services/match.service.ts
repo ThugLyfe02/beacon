@@ -79,3 +79,7 @@ export function getPostEventSummaryStub(input: PostEventSummaryInput): string {
 
   return [greeting, '', intro, body, footer].join('\n');
 }
+
+export function sendConnectionRequest(eventId: string, requesterId: string, recipientId: string): { request: any; match: any; error: any; } | PromiseLike<{ request: any; match: any; error: any; }> {
+  throw new Error('Function not implemented.');
+}
