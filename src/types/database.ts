@@ -10,6 +10,8 @@ export type UUID = string;
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 export type RequestStatus = 'pending' | 'withdrawn';
+export type LocationType = 'live' | 'fixed';
+export type ParticipantStatus = 'pending' | 'approved' | 'rejected';
 
 // ─── Row Interfaces ───────────────────────────────────────────────────────────
 
@@ -29,8 +31,17 @@ export interface UserRow {
 
 export interface EventRow {
   id: UUID;
+  host_id: UUID;
   name: string;
+  description: string | null;
   join_code: string;
+  location_type: LocationType;
+  latitude: number | null;
+  longitude: number | null;
+  address: string | null;
+  requires_approval: boolean;
+  access_code: string | null;
+  show_participant_count: boolean;
   starts_at: Timestamp | null;
   ends_at: Timestamp | null;
   created_at: Timestamp;
@@ -44,7 +55,7 @@ export interface EventParticipantRow {
   id: UUID;
   event_id: UUID;
   user_id: UUID;
-  is_discoverable: boolean;
+  status: ParticipantStatus;
   joined_at: Timestamp;
 }
 
@@ -70,11 +81,14 @@ export interface MatchRow {
 export type UserInsert = Omit<UserRow, 'created_at' | 'updated_at'>;
 export type UserUpdate = Partial<Pick<UserRow, 'name' | 'role' | 'one_liner'>>;
 
+export type EventInsert = Omit<EventRow, 'id' | 'created_at' | 'join_code'>;
+export type EventUpdate = Partial<Omit<EventRow, 'id' | 'host_id' | 'created_at' | 'join_code'>>;
+
 export type EventParticipantInsert = Pick<
   EventParticipantRow,
-  'event_id' | 'user_id' | 'is_discoverable'
+  'event_id' | 'user_id'
 >;
-export type EventParticipantUpdate = Pick<EventParticipantRow, 'is_discoverable'>;
+export type EventParticipantUpdate = Pick<EventParticipantRow, 'status'>;
 
 export type ConnectionRequestInsert = Pick<
   ConnectionRequestRow,
@@ -98,11 +112,30 @@ export interface DiscoverableParticipant {
   participant_id: UUID;     // event_participants.id
   user_id: UUID;
   event_id: UUID;
-  is_discoverable: boolean;
+  status: ParticipantStatus;
   joined_at: Timestamp;
   // User profile fields (global scope)
   email: string;
   name: string | null;
+  role: string | null;
+  one_liner: string | null;
+}
+
+/** Event with host user information */
+export interface EventWithHost {
+  event: EventRow;
+  host: UserRow;
+}
+
+/** Join request pending host approval */
+export interface PendingJoinRequest {
+  participant_id: UUID;
+  user_id: UUID;
+  event_id: UUID;
+  joined_at: Timestamp;
+  // User info
+  name: string | null;
+  email: string;
   role: string | null;
   one_liner: string | null;
 }
@@ -125,8 +158,8 @@ export interface Database {
       };
       events: {
         Row: EventRow;
-        Insert: never; // admin-only; no client insert
-        Update: never;
+        Insert: EventInsert; // hosts can create events
+        Update: EventUpdate; // hosts can update their events
       };
       event_participants: {
         Row: EventParticipantRow;
@@ -153,9 +186,19 @@ export interface Database {
         };
         Returns: MutualMatchResult[];
       };
+      approve_participant_with_code: {
+        Args: {
+          p_event_id: UUID;
+          p_user_id: UUID;
+          p_access_code: string;
+        };
+        Returns: boolean;
+      };
     };
     Enums: {
       request_status: RequestStatus;
+      location_type: LocationType;
+      participant_status: ParticipantStatus;
     };
   };
 }

@@ -1,39 +1,64 @@
 // =============================================================================
-// Beacon MVP — Matches Screen
+// MatchesScreen.tsx
+// View mutual matches from your events
 // =============================================================================
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { useAuth } from '../hooks/useAuth';
-import { useEvent } from '../hooks/useEvent';
-import { useMatches } from '../hooks/useMatches';
-import { MatchRow } from '../types/database';
+import { getUserEvents } from '../services/event.service';
+import { listMatches } from '../services/match.service';
+import type { MatchRow, EventRow } from '../types/database';
 
-export function MatchesScreen() {
-  const { user } = useAuth();
-  const { activeEvent } = useEvent();
-  const { matches, loading, loadMatches } = useMatches();
+interface MatchesScreenProps {
+  userId: string;
+}
+
+export function MatchesScreen({ userId }: MatchesScreenProps) {
+  const [event, setEvent] = useState<EventRow | null>(null);
+  const [matches, setMatches] = useState<MatchRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (activeEvent && user) {
-      loadMatches(activeEvent.event.id, user.id);
+    loadData();
+  }, [userId]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Get user's first event
+      const events = await getUserEvents(userId);
+      if (events.length > 0) {
+        const firstEvent = events[0];
+        setEvent(firstEvent);
+
+        // Load matches for that event
+        const eventMatches = await listMatches(firstEvent.id, userId);
+        setMatches(eventMatches);
+      }
+    } catch (error) {
+      console.error('Failed to load matches:', error);
+      Alert.alert('Error', 'Failed to load matches');
+    } finally {
+      setLoading(false);
     }
-  }, [activeEvent, user, loadMatches]);
+  };
 
   const renderMatch = ({ item }: { item: MatchRow }) => {
     // Determine which user ID is the "other" person
     const otherUserId =
-      item.user_a_id === user?.id ? item.user_b_id : item.user_a_id;
+      item.user_a_id === userId ? item.user_b_id : item.user_a_id;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardContent}>
-          <Text style={styles.matchLabel}>Match</Text>
+          <Text style={styles.matchLabel}>🤝 Match</Text>
           <Text style={styles.userId}>User ID: {otherUserId.slice(0, 8)}...</Text>
           <Text style={styles.timestamp}>
             {new Date(item.created_at).toLocaleDateString('en-US', {
@@ -48,10 +73,19 @@ export function MatchesScreen() {
     );
   };
 
-  if (!activeEvent) {
+  if (loading) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.emptyText}>No active event</Text>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  if (!event) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.emptyText}>No events found</Text>
+        <Text style={styles.emptySubtext}>Join an event to make matches</Text>
       </View>
     );
   }
@@ -60,14 +94,10 @@ export function MatchesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Your Matches</Text>
-        <Text style={styles.subtitle}>{activeEvent.event.name}</Text>
+        <Text style={styles.subtitle}>{event.name}</Text>
       </View>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" />
-        </View>
-      ) : matches.length === 0 ? (
+      {matches.length === 0 ? (
         <View style={styles.centered}>
           <Text style={styles.emptyText}>
             No matches yet.{'\n'}
@@ -89,30 +119,38 @@ export function MatchesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
-  },
-  header: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
+    backgroundColor: '#000',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  header: {
+    backgroundColor: '#1A1A1A',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#999',
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    color: '#FFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: '#999',
     textAlign: 'center',
   },
@@ -120,29 +158,26 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1A1A',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#333',
   },
   cardContent: {
     flex: 1,
   },
   matchLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#4CAF50',
-    textTransform: 'uppercase',
+    color: '#00CC00',
     marginBottom: 8,
   },
   userId: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFF',
     marginBottom: 4,
   },
   timestamp: {

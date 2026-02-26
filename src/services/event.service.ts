@@ -1,111 +1,250 @@
 // =============================================================================
-// Beacon MVP — Event Service
+// event.service.ts
+// Event management service - create, update, delete, and discover events
 // =============================================================================
-import { PostgrestError } from '@supabase/supabase-js';
+
 import { supabase } from '../lib/supabase';
-import { ActiveEventContext, EventParticipantRow, EventRow } from '../types/database';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface GetEventResult {
-  data: EventRow | null;
-  error: PostgrestError | null;
-}
-
-export interface JoinEventResult {
-  data: EventParticipantRow | null;
-  error: PostgrestError | null;
-}
-
-export interface JoinEventByCodeResult {
-  data: ActiveEventContext | null;
-  error: PostgrestError | { message: string } | null;
-}
-
-// ─── Service Functions ────────────────────────────────────────────────────────
+import type {
+  EventRow,
+  EventInsert,
+  EventUpdate,
+  EventWithHost,
+  LocationType,
+} from '../types/database';
 
 /**
- * Look up an event by its join code (case-insensitive, trimmed).
+ * Generate a unique 6-character join code
  */
-export async function getEventByCode(joinCode: string): Promise<GetEventResult> {
+function generateJoinCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+/**
+ * Create a new event (host only)
+ */
+export async function createEvent(
+  hostId: string,
+  eventData: {
+    name: string;
+    description?: string;
+    location_type: LocationType;
+    latitude?: number;
+    longitude?: number;
+    address?: string;
+    requires_approval?: boolean;
+    access_code?: string;
+    show_participant_count?: boolean;
+    starts_at?: string;
+    ends_at?: string;
+  }
+): Promise<EventRow> {
+  const joinCode = generateJoinCode();
+
+  const insert: EventInsert = {
+    host_id: hostId,
+    name: eventData.name,
+    description: eventData.description || null,
+    location_type: eventData.location_type,
+    latitude: eventData.latitude || null,
+    longitude: eventData.longitude || null,
+    address: eventData.address || null,
+    requires_approval: eventData.requires_approval ?? true,
+    access_code: eventData.access_code || null,
+    show_participant_count: eventData.show_participant_count ?? false,
+    starts_at: eventData.starts_at || null,
+    ends_at: eventData.ends_at || null,
+  };
+
   const { data, error } = await supabase
     .from('events')
-    .select('*')
-    .eq('join_code', joinCode.trim().toUpperCase())
-    .single();
-
-  return { data, error };
-}
-
-/**
- * Join a user to an event. If the user is already a participant
- * (UNIQUE conflict / error code 23505), returns the existing row.
- */
-export async function joinEvent(
-  eventId: string,
-  userId: string
-): Promise<JoinEventResult> {
-  const { data, error } = await supabase
-    .from('event_participants')
-    .insert({ event_id: eventId, user_id: userId, is_discoverable: false })
+    .insert({ ...insert, join_code: joinCode })
     .select()
     .single();
 
-  // On unique-constraint violation, fetch the existing participant row
-  if (error && error.code === '23505') {
-    const { data: existing, error: fetchError } = await supabase
-      .from('event_participants')
-      .select('*')
-      .eq('event_id', eventId)
-      .eq('user_id', userId)
-      .single();
-
-    return { data: existing, error: fetchError };
+  if (error) {
+    console.error('[event.service] Error creating event:', error);
+    throw new Error('Failed to create event');
   }
 
-  return { data, error };
+  // Auto-approve host as participant
+  await supabase
+    .from('event_participants')
+    .insert({
+      event_id: data.id,
+      user_id: hostId,
+      status: 'approved',
+    });
+
+  return data;
 }
 
 /**
- * High-level helper: look up an event by code and join it atomically.
- * Returns an ActiveEventContext containing both the event and participant rows.
+ * Update an existing event (host only)
  */
-export async function joinEventByCode(
-  joinCode: string,
-  userId: string
-): Promise<JoinEventByCodeResult> {
-  console.log('[event.service] joinEventByCode called:', { joinCode, userId });
+export async function updateEvent(
+  eventId: string,
+  hostId: string,
+  updates: EventUpdate
+): Promise<EventRow> {
+  const { data, error } = await supabase
+    .from('events')
+    .update(updates)
+    .eq('id', eventId)
+    .eq('host_id', hostId)
+    .select()
+    .single();
 
-  const { data: event, error: eventError } = await getEventByCode(joinCode);
-  console.log('[event.service] getEventByCode result:', { event, eventError });
+  if (error) {
+    console.error('[event.service] Error updating event:', error);
+    throw new Error('Failed to update event');
+  }
+
+  return data;
+}
+
+/**
+ * Update event location (live broadcasting)
+ */
+export async function updateEventLocation(
+  eventId: string,
+  hostId: string,
+  latitude: number,
+  longitude: number
+): Promise<EventRow> {
+  return updateEvent(eventId, hostId, { latitude, longitude });
+}
+
+/**
+ * Delete an event (host only)
+ */
+export async function deleteEvent(eventId: string, hostId: string): Promise<void> {
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId)
+    .eq('host_id', hostId);
+
+  if (error) {
+    console.error('[event.service] Error deleting event:', error);
+    throw new Error('Failed to delete event');
+  }
+}
+
+/**
+ * Get event by ID
+ */
+export async function getEventById(eventId: string): Promise<EventRow | null> {
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', eventId)
+    .single();
+
+  if (error) {
+    console.error('[event.service] Error fetching event:', error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Get event by join code
+ * Uses a SECURITY DEFINER function to bypass RLS (users need to see events before joining)
+ */
+export async function getEventByCode(joinCode: string): Promise<EventRow | null> {
+  const { data, error } = await supabase
+    .rpc('get_event_by_join_code', { p_join_code: joinCode.trim() })
+    .single();
+
+  if (error) {
+    console.error('[event.service] Error fetching event by code:', error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Get all events user has joined (approved only)
+ */
+export async function getUserEvents(userId: string): Promise<EventRow[]> {
+  const { data, error } = await supabase
+    .from('event_participants')
+    .select('events(*)')
+    .eq('user_id', userId)
+    .eq('status', 'approved');
+
+  if (error) {
+    console.error('[event.service] Error fetching user events:', error);
+    throw new Error('Failed to fetch events');
+  }
+
+  return (data || []).map((row: any) => row.events).filter(Boolean);
+}
+
+/**
+ * Get event user is currently hosting
+ */
+export async function getHostedEvent(hostId: string): Promise<EventRow | null> {
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('host_id', hostId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned
+      return null;
+    }
+    console.error('[event.service] Error fetching hosted event:', error);
+    throw new Error('Failed to fetch hosted event');
+  }
+
+  return data;
+}
+
+/**
+ * Get event with host information
+ */
+export async function getEventWithHost(eventId: string): Promise<EventWithHost | null> {
+  const { data: event, error: eventError } = await supabase
+    .from('events')
+    .select('*, users(*)')
+    .eq('id', eventId)
+    .single();
 
   if (eventError || !event) {
-    const error = eventError ?? { message: 'Event not found for the provided join code.' };
-    console.log('[event.service] Event lookup failed:', error);
-    return {
-      data: null,
-      error,
-    };
+    console.error('[event.service] Error fetching event with host:', eventError);
+    return null;
   }
 
-  const { data: participant, error: participantError } = await joinEvent(
-    event.id,
-    userId
-  );
-  console.log('[event.service] joinEvent result:', { participant, participantError });
-
-  if (participantError || !participant) {
-    const error = participantError ?? { message: 'Failed to join event.' };
-    console.log('[event.service] Join failed:', error);
-    return {
-      data: null,
-      error,
-    };
-  }
-
-  console.log('[event.service] Success! Returning:', { event, participant });
   return {
-    data: { event, participant },
-    error: null,
+    event: event as unknown as EventRow,
+    host: (event as any).users,
   };
+}
+
+/**
+ * Get participant count for an event
+ */
+export async function getParticipantCount(eventId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('event_participants')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .eq('status', 'approved');
+
+  if (error) {
+    console.error('[event.service] Error fetching participant count:', error);
+    return 0;
+  }
+
+  return count || 0;
 }

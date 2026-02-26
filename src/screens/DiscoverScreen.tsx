@@ -1,6 +1,8 @@
 // =============================================================================
-// Beacon MVP — Discover Screen
+// DiscoverScreen.tsx
+// Discover and network with other participants at your events
 // =============================================================================
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -8,76 +10,70 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Switch,
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useAuth } from '../hooks/useAuth';
-import { useEvent } from '../hooks/useEvent';
-import { useParticipants } from '../hooks/useParticipants';
-import { useMatches } from '../hooks/useMatches';
-import { DiscoverableParticipant } from '../types/database';
+import { getUserEvents } from '../services/event.service';
+import { getApprovedParticipants } from '../services/participant.service';
+import { sendConnectionRequest as sendRequest } from '../services/match.service';
+import type { DiscoverableParticipant, EventRow } from '../types/database';
 
-export function DiscoverScreen() {
-  const { user } = useAuth();
-  const { activeEvent } = useEvent();
-  const {
-    participants,
-    loading,
-    isDiscoverable,
-    loadDiscoverableParticipants,
-    toggleDiscoverable,
-  } = useParticipants();
-  const { sendConnectionRequest } = useMatches();
+interface DiscoverScreenProps {
+  userId: string;
+}
 
+export function DiscoverScreen({ userId }: DiscoverScreenProps) {
+  const [event, setEvent] = useState<EventRow | null>(null);
+  const [participants, setParticipants] = useState<DiscoverableParticipant[]>([]);
+  const [loading, setLoading] = useState(true);
   const [sendingRequestTo, setSendingRequestTo] = useState<string | null>(null);
 
   useEffect(() => {
-    if (activeEvent && user) {
-      loadDiscoverableParticipants(activeEvent.event.id, user.id);
-    }
-  }, [activeEvent, user, loadDiscoverableParticipants]);
+    loadData();
+  }, [userId]);
 
-  const handleToggleDiscoverable = async (value: boolean) => {
-    if (!activeEvent || !user) return;
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Get user's first event
+      const events = await getUserEvents(userId);
+      if (events.length > 0) {
+        const firstEvent = events[0];
+        setEvent(firstEvent);
 
-    const { error } = await toggleDiscoverable(
-      activeEvent.event.id,
-      user.id,
-      value
-    );
-
-    if (error) {
-      Alert.alert('Error', error.message || 'Failed to update visibility');
+        // Load participants for that event
+        const approvedParticipants = await getApprovedParticipants(
+          firstEvent.id,
+          userId
+        );
+        setParticipants(approvedParticipants);
+      }
+    } catch (error) {
+      console.error('Failed to load discover data:', error);
+      Alert.alert('Error', 'Failed to load participants');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSendRequest = async (participant: DiscoverableParticipant) => {
-    if (!activeEvent || !user) return;
+    if (!event) return;
 
     setSendingRequestTo(participant.user_id);
 
-    const { match, error } = await sendConnectionRequest(
-      activeEvent.event.id,
-      user.id,
-      participant.user_id
-    );
+    try {
+      const match = await sendRequest(event.id, userId, participant.user_id);
 
-    setSendingRequestTo(null);
-
-    if (error) {
-      const errorMsg =
-        typeof error === 'object' && 'message' in error
-          ? error.message
-          : 'Failed to send request';
-      Alert.alert('Error', errorMsg);
-      return;
-    }
-
-    if (match) {
-      Alert.alert('Match!', `You matched with ${participant.name || 'this person'}!`);
-    } else {
-      Alert.alert('Sent', 'Connection request sent');
+      if (match) {
+        Alert.alert('Match!', `You matched with ${participant.name || 'this person'}!`);
+      } else {
+        Alert.alert('Sent', 'Connection request sent');
+      }
+    } catch (error) {
+      console.error('Failed to send request:', error);
+      Alert.alert('Error', 'Failed to send connection request');
+    } finally {
+      setSendingRequestTo(null);
     }
   };
 
@@ -106,10 +102,19 @@ export function DiscoverScreen() {
     </View>
   );
 
-  if (!activeEvent) {
+  if (loading) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.emptyText}>No active event</Text>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  if (!event) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.emptyText}>No events found</Text>
+        <Text style={styles.emptySubtext}>Join an event to discover people</Text>
       </View>
     );
   }
@@ -117,25 +122,14 @@ export function DiscoverScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.eventName}>{activeEvent.event.name}</Text>
-
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Make me discoverable</Text>
-          <Switch
-            value={isDiscoverable}
-            onValueChange={handleToggleDiscoverable}
-          />
-        </View>
+        <Text style={styles.eventName}>{event.name}</Text>
+        <Text style={styles.subtitle}>Network with other participants</Text>
       </View>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" />
-        </View>
-      ) : participants.length === 0 ? (
+      {participants.length === 0 ? (
         <View style={styles.centered}>
           <Text style={styles.emptyText}>
-            No discoverable participants yet.{'\n'}
+            No participants yet.{'\n'}
             Check back soon!
           </Text>
         </View>
@@ -154,34 +148,38 @@ export function DiscoverScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
-  },
-  header: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  eventName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  toggleLabel: {
-    fontSize: 16,
+    backgroundColor: '#000',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  header: {
+    backgroundColor: '#1A1A1A',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  eventName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#999',
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    color: '#FFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: '#999',
     textAlign: 'center',
   },
@@ -189,17 +187,14 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1A1A1A',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#333',
   },
   cardContent: {
     flex: 1,
@@ -207,19 +202,20 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#FFF',
     marginBottom: 4,
   },
   role: {
     fontSize: 14,
-    color: '#666',
+    color: '#007AFF',
     marginBottom: 4,
   },
   oneLiner: {
     fontSize: 14,
-    color: '#333',
+    color: '#999',
   },
   connectButton: {
-    backgroundColor: '#000',
+    backgroundColor: '#007AFF',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -227,7 +223,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   connectButtonDisabled: {
-    backgroundColor: '#999',
+    opacity: 0.5,
   },
   connectButtonText: {
     color: '#fff',
