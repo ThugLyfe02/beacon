@@ -74,12 +74,17 @@ export async function joinEventByCode(
   joinCode: string,
   userId: string
 ): Promise<JoinEventByCodeResult> {
+  console.log('[event.service] joinEventByCode called:', { joinCode, userId });
+
   const { data: event, error: eventError } = await getEventByCode(joinCode);
+  console.log('[event.service] getEventByCode result:', { event, eventError });
 
   if (eventError || !event) {
+    const error = eventError ?? { message: 'Event not found for the provided join code.' };
+    console.log('[event.service] Event lookup failed:', error);
     return {
       data: null,
-      error: eventError ?? { message: 'Event not found for the provided join code.' },
+      error,
     };
   }
 
@@ -87,14 +92,18 @@ export async function joinEventByCode(
     event.id,
     userId
   );
+  console.log('[event.service] joinEvent result:', { participant, participantError });
 
   if (participantError || !participant) {
+    const error = participantError ?? { message: 'Failed to join event.' };
+    console.log('[event.service] Join failed:', error);
     return {
       data: null,
-      error: participantError ?? { message: 'Failed to join event.' },
+      error,
     };
   }
 
+  console.log('[event.service] Success! Returning:', { event, participant });
   return {
     data: { event, participant },
     error: null,

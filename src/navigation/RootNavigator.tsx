@@ -37,7 +37,10 @@ export function RootNavigator() {
   const { user, loading: authLoading } = useAuth();
   const { activeEvent } = useEvent();
 
+  console.log('[RootNavigator] Render:', { user: user?.id, authLoading, activeEvent });
+
   if (authLoading) {
+    console.log('[RootNavigator] Showing loading screen');
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" />
@@ -47,6 +50,7 @@ export function RootNavigator() {
   }
 
   if (!user) {
+    console.log('[RootNavigator] No user, showing OTP screen');
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Otp" component={OtpScreen} />
@@ -55,17 +59,25 @@ export function RootNavigator() {
   }
 
   if (!activeEvent) {
+    console.log('[RootNavigator] No active event, showing JoinEventScreen');
     return (
       <Stack.Navigator>
         <Stack.Screen name="JoinEvent" options={{ title: 'Join Event' }}>
-          {(props) => <JoinEventScreen onEventJoined={function (): void {
-            throw new Error('Function not implemented.');
-          } } {...props} />}
+          {(props) => (
+            <JoinEventScreen
+              onEventJoined={() => {
+                console.log('[RootNavigator] onEventJoined callback called');
+                // Navigation happens automatically when activeEvent updates via Context
+              }}
+              {...props}
+            />
+          )}
         </Stack.Screen>
       </Stack.Navigator>
     );
   }
 
+  console.log('[RootNavigator] Active event exists, showing EventTabs');
   return <EventTabs />;
 }
 

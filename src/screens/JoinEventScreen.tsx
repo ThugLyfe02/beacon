@@ -24,6 +24,10 @@ export function JoinEventScreen({ onEventJoined }: JoinEventScreenProps) {
   const [joinCode, setJoinCode] = useState('');
 
   const handleJoinEvent = async () => {
+    console.log('[JoinEventScreen] handleJoinEvent called');
+    console.log('[JoinEventScreen] user:', user?.id);
+    console.log('[JoinEventScreen] joinCode:', joinCode);
+
     if (!user) {
       Alert.alert('Error', 'You must be logged in to join an event');
       return;
@@ -34,7 +38,9 @@ export function JoinEventScreen({ onEventJoined }: JoinEventScreenProps) {
       return;
     }
 
+    console.log('[JoinEventScreen] Calling joinEventByCode...');
     const { data, error } = await joinEventByCode(joinCode, user.id);
+    console.log('[JoinEventScreen] Result:', { data, error });
 
     if (error) {
       Alert.alert('Error', error);
@@ -42,6 +48,7 @@ export function JoinEventScreen({ onEventJoined }: JoinEventScreenProps) {
     }
 
     if (data) {
+      console.log('[JoinEventScreen] Success! Event joined:', data);
       onEventJoined();
     }
   };
