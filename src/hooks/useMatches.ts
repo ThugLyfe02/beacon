@@ -4,6 +4,7 @@
 import { useState, useCallback } from 'react';
 import { MatchRow } from '../types/database';
 import * as matchService from '../services/match.service';
+import * as connectionService from '../services/connection.service';
 
 export function useMatches() {
   const [matches, setMatches] = useState<MatchRow[]>([]);
@@ -27,7 +28,7 @@ export function useMatches() {
     requesterId: string,
     recipientId: string
   ) => {
-    const { request, match, error } = await matchService.sendConnectionRequest(
+    const { request, match, error } = await connectionService.sendConnectionRequest(
       eventId,
       requesterId,
       recipientId
