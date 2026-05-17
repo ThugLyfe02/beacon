@@ -1,82 +1,55 @@
-// =============================================================================
-// MatchesScreen.tsx
-// View mutual matches from your events
-// =============================================================================
-
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { getUserEvents } from '../services/event.service';
 import { listMatches } from '../services/match.service';
+import {
+  GridBackground,
+  Loader,
+  NeonText,
+  Pill,
+  Surface,
+} from '../components/ui';
+import { palette, radii, spacing } from '../theme';
 import type { MatchRow, EventRow } from '../types/database';
 
 interface MatchesScreenProps {
   userId: string;
 }
 
-export function MatchesScreen({ userId }: MatchesScreenProps) {
+export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
   const [event, setEvent] = useState<EventRow | null>(null);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, [userId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      // Get user's first event
       const events = await getUserEvents(userId);
       if (events.length > 0) {
         const firstEvent = events[0];
         setEvent(firstEvent);
-
-        // Load matches for that event
-        const eventMatches = await listMatches(firstEvent.id, userId);
-        setMatches(eventMatches);
+        setMatches(await listMatches(firstEvent.id, userId));
       }
     } catch (error) {
       console.error('Failed to load matches:', error);
-      Alert.alert('Error', 'Failed to load matches');
+      Alert.alert('Signal lost', 'Could not load matches.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
-  const renderMatch = ({ item }: { item: MatchRow }) => {
-    // Determine which user ID is the "other" person
-    const otherUserId =
-      item.user_a_id === userId ? item.user_b_id : item.user_a_id;
-
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardContent}>
-          <Text style={styles.matchLabel}>🤝 Match</Text>
-          <Text style={styles.userId}>User ID: {otherUserId.slice(0, 8)}...</Text>
-          <Text style={styles.timestamp}>
-            {new Date(item.created_at).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-            })}
-          </Text>
-        </View>
-      </View>
-    );
-  };
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <GridBackground />
+        <Loader size={56} />
+        <NeonText variant="label" tone="accent" style={{ marginTop: spacing.lg }}>
+          Loading matches
+        </NeonText>
       </View>
     );
   }
@@ -84,32 +57,65 @@ export function MatchesScreen({ userId }: MatchesScreenProps) {
   if (!event) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.emptyText}>No events found</Text>
-        <Text style={styles.emptySubtext}>Join an event to make matches</Text>
+        <GridBackground />
+        <Surface elevated padded glow style={styles.emptyCard}>
+          <Pill label="No event" tone="neutral" dot />
+          <NeonText variant="h1" style={{ marginTop: spacing.md }}>No connections yet.</NeonText>
+          <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
+            Join an event to start making matches.
+          </NeonText>
+        </Surface>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <GridBackground intensity={0.5} />
       <View style={styles.header}>
-        <Text style={styles.title}>Your Matches</Text>
-        <Text style={styles.subtitle}>{event.name}</Text>
+        <Pill label={`${matches.length} mutual`} tone="success" dot />
+        <NeonText variant="h1" glow style={{ marginTop: spacing.sm }}>
+          Connections
+        </NeonText>
+        <NeonText variant="bodyMuted" style={{ marginTop: spacing.xs }}>
+          {event.name}
+        </NeonText>
       </View>
 
       {matches.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>
-            No matches yet.{'\n'}
-            Start connecting with people on the Discover tab!
-          </Text>
+          <NeonText variant="h2" tone="muted">No matches yet.</NeonText>
+          <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, textAlign: 'center' }}>
+            Send a few signals from Discover — mutuals show up here.
+          </NeonText>
         </View>
       ) : (
         <FlatList
           data={matches}
           keyExtractor={(item) => item.id}
-          renderItem={renderMatch}
+          renderItem={({ item }) => {
+            const otherUserId = item.user_a_id === userId ? item.user_b_id : item.user_a_id;
+            return (
+              <Surface elevated padded style={styles.card}>
+                <View style={{ gap: spacing.xs }}>
+                  <Pill label="Synced" tone="success" dot />
+                  <NeonText variant="h2" style={{ marginTop: spacing.xs }}>
+                    {otherUserId.slice(0, 8)}…
+                  </NeonText>
+                  <NeonText variant="label" tone="dim">
+                    {new Date(item.created_at).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </NeonText>
+                </View>
+              </Surface>
+            );
+          }}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
@@ -117,71 +123,21 @@ export function MatchesScreen({ userId }: MatchesScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
+  container: { flex: 1, backgroundColor: palette.void },
   centered: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    justifyContent: 'center',
+    backgroundColor: palette.void,
+    paddingHorizontal: spacing.xl,
   },
   header: {
-    backgroundColor: '#1A1A1A',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: 2,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#999',
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#FFF',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-  },
-  list: {
-    padding: 16,
-  },
-  card: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  cardContent: {
-    flex: 1,
-  },
-  matchLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#00CC00',
-    marginBottom: 8,
-  },
-  userId: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#999',
-  },
+  list: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl },
+  card: { borderRadius: radii.lg, marginBottom: spacing.md },
+  emptyCard: { width: '100%', borderRadius: radii.xl, gap: spacing.xs },
 });

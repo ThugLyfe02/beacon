@@ -1,14 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
+import {
+  GlowButton,
+  GlowInput,
+  GridBackground,
+  Loader,
+  NeonText,
+  Pill,
+} from '../components/ui';
+import { palette, spacing } from '../theme';
 
 export function OtpScreen() {
   const { signInWithOtp, verifyOtp, user } = useAuth();
@@ -19,7 +30,6 @@ export function OtpScreen() {
   const [verified, setVerified] = useState(false);
   const verifyingRef = useRef(false);
 
-  // Don't allow verification if already verified or user is authenticated
   useEffect(() => {
     if (user) {
       console.log('User authenticated, OTP flow complete');
@@ -28,201 +38,174 @@ export function OtpScreen() {
 
   const handleSendOtp = async () => {
     if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
+      Alert.alert('Hold up', 'Enter your email to continue.');
       return;
     }
-
     setLoading(true);
-    console.log('Requesting OTP for email:', email.trim().toLowerCase());
     const { error } = await signInWithOtp(email);
     setLoading(false);
-
     if (error) {
-      console.error('Send OTP error:', error);
-      Alert.alert('Error', error.message);
+      Alert.alert('Could not send code', error.message);
       return;
     }
-
-    console.log('OTP request successful, moving to verification step');
     setStep('otp');
   };
 
   const handleVerifyOtp = async () => {
-    // Prevent duplicate calls
-    if (verifyingRef.current || verified) {
-      console.log('Already verifying or verified, skipping');
-      return;
-    }
-
+    if (verifyingRef.current || verified) return;
     const trimmedOtp = otp.trim();
-    
     if (!trimmedOtp) {
-      Alert.alert('Error', 'Please enter the 6-digit code');
+      Alert.alert('Hold up', 'Enter the 6-digit code.');
       return;
     }
-
-    console.log('Verifying OTP:', {
-      email: email.trim().toLowerCase(),
-      token: trimmedOtp,
-      tokenLength: trimmedOtp.length,
-    });
-
     verifyingRef.current = true;
     setLoading(true);
-    
     const { error } = await verifyOtp(email, trimmedOtp);
-    
     setLoading(false);
-
     if (error) {
       verifyingRef.current = false;
-      console.error('Verify OTP error:', error);
-      Alert.alert('Verification Failed', error.message);
+      Alert.alert('Verification failed', error.message);
       return;
     }
-
-    console.log('OTP verified successfully!');
     setVerified(true);
-    // Don't reset verifyingRef - keep it locked to prevent duplicate calls
-    // Navigation will be handled automatically by RootNavigator
   };
 
   if (verified || user) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" />
-        <Text style={styles.subtitle}>Signing you in...</Text>
+        <StatusBar barStyle="light-content" />
+        <GridBackground />
+        <View style={styles.signingIn}>
+          <Loader size={64} />
+          <NeonText variant="label" tone="accent" style={{ marginTop: spacing.lg }}>
+            Establishing signal
+          </NeonText>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Beacon</Text>
-      <Text style={styles.subtitle}>Privacy-first professional networking</Text>
-
-      {step === 'email' ? (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder="Email address"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          <TouchableOpacity
-            style={[styles.button, loading ? styles.buttonDisabled : null]}
-            onPress={handleSendOtp}
-            activeOpacity={0.7}
+      <StatusBar barStyle="light-content" />
+      <GridBackground />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Send Code</Text>
-            )}
-          </TouchableOpacity>
-        </>
-      ) : (
-        <>
-          <Text style={styles.instruction}>
-            Enter the 6-digit code sent to{'\n'}
-            <Text style={styles.emailBold}>{email}</Text>
-          </Text>
+            <View style={styles.brand}>
+              <Pill label="Beta · v0" tone="accent" dot />
+              <NeonText variant="display" tone="accent" glow style={styles.wordmark}>
+                BEACON
+              </NeonText>
+              <NeonText variant="bodyMuted" style={styles.tagline}>
+                Signal-grade networking{'\n'}for the people in the room.
+              </NeonText>
+            </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="000000"
-            value={otp}
-            onChangeText={setOtp}
-            keyboardType="number-pad"
-            maxLength={6}
-          />
+            <View style={styles.form}>
+              {step === 'email' ? (
+                <>
+                  <GlowInput
+                    label="Identity"
+                    placeholder="you@domain.com"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoCorrect={false}
+                  />
+                  <GlowButton
+                    label="Send access code"
+                    onPress={handleSendOtp}
+                    loading={loading}
+                    fullWidth
+                    size="lg"
+                  />
+                </>
+              ) : (
+                <>
+                  <View style={styles.codeHeader}>
+                    <NeonText variant="label" tone="accent">
+                      Code sent to
+                    </NeonText>
+                    <NeonText variant="mono" tone="text" glow>
+                      {email.trim().toLowerCase()}
+                    </NeonText>
+                  </View>
+                  <GlowInput
+                    label="6-digit access code"
+                    placeholder="• • • • • •"
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    style={styles.codeInput}
+                  />
+                  <GlowButton
+                    label="Verify & enter"
+                    onPress={handleVerifyOtp}
+                    loading={loading}
+                    fullWidth
+                    size="lg"
+                  />
+                  <Pressable
+                    onPress={() => {
+                      setStep('email');
+                      setOtp('');
+                      setVerified(false);
+                      verifyingRef.current = false;
+                    }}
+                    style={styles.linkRow}
+                  >
+                    <NeonText variant="label" tone="muted">
+                      ← use a different email
+                    </NeonText>
+                  </Pressable>
+                </>
+              )}
+            </View>
 
-          <TouchableOpacity
-            style={[styles.button, loading ? styles.buttonDisabled : null]}
-            onPress={handleVerifyOtp}
-            activeOpacity={0.7}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Verify</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            onPress={() => {
-              setStep('email');
-              setOtp('');
-              setVerified(false);
-              verifyingRef.current = false;
-            }} 
-            activeOpacity={0.7}
-          >
-            <Text style={styles.linkText}>Use a different email</Text>
-          </TouchableOpacity>
-        </>
-      )}
+            <View style={styles.footer}>
+              <NeonText variant="label" tone="dim">
+                privacy first · no passwords · no spam
+              </NeonText>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+  container: { flex: 1, backgroundColor: palette.void },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxxl,
+    paddingBottom: spacing.xl,
+    justifyContent: 'space-between',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 40,
-  },
-  instruction: {
-    fontSize: 14,
-    color: '#333',
+  brand: { alignItems: 'flex-start', gap: spacing.md, marginTop: spacing.xl },
+  wordmark: { fontSize: 48, letterSpacing: 4, fontWeight: '900' },
+  tagline: { marginTop: spacing.sm, lineHeight: 22 },
+  form: { gap: spacing.lg, marginTop: spacing.xxl },
+  codeHeader: { gap: spacing.xs, marginBottom: spacing.xs },
+  codeInput: {
+    fontSize: 22,
+    letterSpacing: 8,
     textAlign: 'center',
-    marginBottom: 20,
-  },
-  emailBold: {
     fontWeight: '600',
   },
-  input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  button: {
-    width: '100%',
-    backgroundColor: '#000',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#999',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  linkText: {
-    marginTop: 16,
-    color: '#007AFF',
-    fontSize: 14,
-  },
+  linkRow: { alignSelf: 'center', paddingVertical: spacing.md },
+  footer: { alignItems: 'center', paddingTop: spacing.xl },
+  signingIn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

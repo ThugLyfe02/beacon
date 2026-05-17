@@ -1,22 +1,13 @@
-// =============================================================================
-// HostManagementScreen.tsx
-// Host management screen for managing active event and approving join requests
-// =============================================================================
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Alert,
-  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
   Switch,
+  View,
 } from 'react-native';
 import {
   getHostedEvent,
-  updateEvent,
   deleteEvent,
   updateEventLocation,
 } from '../services/event.service';
@@ -25,96 +16,92 @@ import {
   approveJoinRequest,
   rejectJoinRequest,
 } from '../services/participant.service';
-import { watchLocation, getCurrentLocation } from '../services/location.service';
+import { watchLocation } from '../services/location.service';
 import type { EventRow, PendingJoinRequest } from '../types/database';
 import type { LocationSubscription } from 'expo-location';
+import {
+  GlowButton,
+  GridBackground,
+  Loader,
+  NeonText,
+  Pill,
+  Surface,
+} from '../components/ui';
+import { palette, radii, spacing } from '../theme';
 
 interface HostManagementScreenProps {
   userId: string;
   onEventEnded: () => void;
 }
 
-export default function HostManagementScreen({ userId, onEventEnded }: HostManagementScreenProps) {
+export default function HostManagementScreen({
+  userId,
+  onEventEnded,
+}: Readonly<HostManagementScreenProps>) {
   const [event, setEvent] = useState<EventRow | null>(null);
   const [requests, setRequests] = useState<PendingJoinRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [locationSubscription, setLocationSubscription] = useState<LocationSubscription | null>(null);
 
-  useEffect(() => {
-    loadEventData();
-  }, [userId]);
-
-  useEffect(() => {
-    if (event?.location_type === 'live' && isBroadcasting) {
-      startLocationBroadcast();
-    } else {
-      stopLocationBroadcast();
-    }
-
-    return () => {
-      stopLocationBroadcast();
-    };
-  }, [isBroadcasting, event?.location_type]);
-
-  const loadEventData = async () => {
+  const loadEventData = useCallback(async () => {
     try {
       setIsLoading(true);
-      console.log('[HostManagement] Loading event data for user:', userId);
-
       const hostedEvent = await getHostedEvent(userId);
-      console.log('[HostManagement] Hosted event:', hostedEvent);
       setEvent(hostedEvent);
-
       if (hostedEvent) {
-        console.log('[HostManagement] Fetching pending requests for event:', hostedEvent.id);
-        const pendingRequests = await getPendingJoinRequests(hostedEvent.id);
-        console.log('[HostManagement] Pending requests:', pendingRequests);
-        console.log('[HostManagement] Number of pending requests:', pendingRequests.length);
-        setRequests(pendingRequests);
-
-        if (hostedEvent.location_type === 'live') {
-          setIsBroadcasting(true);
-        }
+        setRequests(await getPendingJoinRequests(hostedEvent.id));
+        if (hostedEvent.location_type === 'live') setIsBroadcasting(true);
       }
     } catch (error) {
       console.error('[HostManagement] Failed to load event data:', error);
-      Alert.alert('Error', 'Failed to load event data');
+      Alert.alert('Signal lost', 'Could not load event data.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId]);
 
-  const startLocationBroadcast = async () => {
-    if (!event) return;
+  useEffect(() => {
+    loadEventData();
+  }, [loadEventData]);
 
-    const subscription = await watchLocation(async (coords) => {
-      try {
-        await updateEventLocation(event.id, userId, coords.latitude, coords.longitude);
-        console.log('Location updated:', coords);
-      } catch (error) {
-        console.error('Failed to update location:', error);
+  useEffect(() => {
+    let active = true;
+    const stop = () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+        setLocationSubscription(null);
       }
-    });
-
-    setLocationSubscription(subscription);
-  };
-
-  const stopLocationBroadcast = () => {
-    if (locationSubscription) {
-      locationSubscription.remove();
-      setLocationSubscription(null);
+    };
+    if (event?.location_type === 'live' && isBroadcasting) {
+      (async () => {
+        const sub = await watchLocation(async (coords) => {
+          try {
+            await updateEventLocation(event.id, userId, coords.latitude, coords.longitude);
+          } catch (error) {
+            console.error('Failed to update location:', error);
+          }
+        });
+        if (active) setLocationSubscription(sub);
+        else sub?.remove();
+      })();
+    } else {
+      stop();
     }
-  };
+    return () => {
+      active = false;
+      stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBroadcasting, event?.location_type, event?.id, userId]);
 
   const handleApprove = async (participantId: string) => {
     try {
       await approveJoinRequest(participantId);
       setRequests((prev) => prev.filter((r) => r.participant_id !== participantId));
-      Alert.alert('Success', 'Join request approved');
     } catch (error) {
       console.error('Failed to approve request:', error);
-      Alert.alert('Error', 'Failed to approve request');
+      Alert.alert('Action failed', 'Could not approve.');
     }
   };
 
@@ -122,21 +109,20 @@ export default function HostManagementScreen({ userId, onEventEnded }: HostManag
     try {
       await rejectJoinRequest(participantId);
       setRequests((prev) => prev.filter((r) => r.participant_id !== participantId));
-      Alert.alert('Success', 'Join request rejected');
     } catch (error) {
       console.error('Failed to reject request:', error);
-      Alert.alert('Error', 'Failed to reject request');
+      Alert.alert('Action failed', 'Could not reject.');
     }
   };
 
   const handleEndEvent = () => {
     Alert.alert(
-      'End Event',
-      'Are you sure you want to end this event? This will delete the event and remove all participants.',
+      'End beacon?',
+      'This deletes the event and removes everyone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'End Event',
+          text: 'End event',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -146,7 +132,7 @@ export default function HostManagementScreen({ userId, onEventEnded }: HostManag
               }
             } catch (error) {
               console.error('Failed to end event:', error);
-              Alert.alert('Error', 'Failed to end event');
+              Alert.alert('Action failed', 'Could not end event.');
             }
           },
         },
@@ -156,257 +142,167 @@ export default function HostManagementScreen({ userId, onEventEnded }: HostManag
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={styles.centered}>
+        <GridBackground />
+        <Loader size={56} />
+        <NeonText variant="label" tone="accent" style={{ marginTop: spacing.lg }}>
+          Loading control deck
+        </NeonText>
       </View>
     );
   }
 
   if (!event) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No active event</Text>
-        <Text style={styles.emptySubtext}>Create an event to get started</Text>
+      <View style={styles.centered}>
+        <GridBackground />
+        <Surface elevated padded glow style={styles.emptyCard}>
+          <Pill label="No active event" tone="neutral" dot />
+          <NeonText variant="h1" style={{ marginTop: spacing.md }}>Dark room.</NeonText>
+          <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
+            Create an event to start broadcasting.
+          </NeonText>
+        </Surface>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View style={styles.headerInfo}>
-            <Text style={styles.title}>{event.name}</Text>
-            <Text style={styles.joinCode}>Join Code: {event.join_code}</Text>
-            {event.access_code && (
-              <Text style={styles.accessCode}>Access Code: {event.access_code}</Text>
-            )}
-          </View>
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={loadEventData}
-          >
-            <Text style={styles.refreshButtonText}>🔄</Text>
-          </TouchableOpacity>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: spacing.xxxl }}
+      showsVerticalScrollIndicator={false}
+    >
+      <GridBackground intensity={0.4} />
+      <View style={styles.section}>
+        <Pill label="Live · hosting" tone="accent" dot />
+        <NeonText variant="display" tone="text" glow style={{ marginTop: spacing.sm }}>
+          {event.name}
+        </NeonText>
+        <View style={styles.codeRow}>
+          <Surface padded style={styles.codeCard}>
+            <NeonText variant="label" tone="muted">JOIN CODE</NeonText>
+            <NeonText variant="mono" tone="accent" glow style={styles.codeValue}>
+              {event.join_code}
+            </NeonText>
+          </Surface>
+          {event.access_code ? (
+            <Surface padded style={styles.codeCard}>
+              <NeonText variant="label" tone="muted">ACCESS</NeonText>
+              <NeonText variant="mono" tone="text" style={styles.codeValue}>
+                {event.access_code}
+              </NeonText>
+            </Surface>
+          ) : null}
         </View>
       </View>
 
-      {event.location_type === 'live' && (
-        <View style={styles.broadcastSection}>
-          <View style={styles.broadcastHeader}>
+      {event.location_type === 'live' ? (
+        <View style={styles.section}>
+          <Surface elevated padded style={styles.row}>
             <View>
-              <Text style={styles.sectionTitle}>Location Broadcasting</Text>
-              <Text style={styles.broadcastStatus}>
-                {isBroadcasting ? '🟢 Active' : '⚪ Paused'}
-              </Text>
+              <NeonText variant="h2">Live location</NeonText>
+              <NeonText variant="label" tone={isBroadcasting ? 'success' : 'muted'} style={{ marginTop: 4 }}>
+                {isBroadcasting ? '● BROADCASTING' : '○ PAUSED'}
+              </NeonText>
             </View>
             <Switch
               value={isBroadcasting}
               onValueChange={setIsBroadcasting}
-              trackColor={{ false: '#333', true: '#00CC00' }}
-              thumbColor="#FFF"
+              trackColor={{ false: palette.hairlineStrong, true: palette.accentDim }}
+              thumbColor={isBroadcasting ? palette.accent : palette.textMuted}
+              ios_backgroundColor={palette.hairlineStrong}
             />
-          </View>
+          </Surface>
         </View>
-      )}
-
-      {requests.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Pending Requests ({requests.length})
-          </Text>
-          {requests.map((request) => (
-            <View key={request.participant_id} style={styles.requestCard}>
-              <View style={styles.requestInfo}>
-                <Text style={styles.requestName}>
-                  {request.name || 'Anonymous'}
-                </Text>
-                {request.role && (
-                  <Text style={styles.requestRole}>{request.role}</Text>
-                )}
-                {request.one_liner && (
-                  <Text style={styles.requestOneLiner}>{request.one_liner}</Text>
-                )}
-              </View>
-              <View style={styles.requestActions}>
-                <TouchableOpacity
-                  style={styles.approveButton}
-                  onPress={() => handleApprove(request.participant_id)}
-                >
-                  <Text style={styles.approveButtonText}>✓</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.rejectButton}
-                  onPress={() => handleReject(request.participant_id)}
-                >
-                  <Text style={styles.rejectButtonText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
+      ) : null}
 
       <View style={styles.section}>
-        <TouchableOpacity style={styles.endButton} onPress={handleEndEvent}>
-          <Text style={styles.endButtonText}>End Event</Text>
-        </TouchableOpacity>
+        <View style={styles.sectionHeader}>
+          <NeonText variant="label" tone="accent">PENDING REQUESTS</NeonText>
+          <Pill label={`${requests.length}`} tone={requests.length ? 'accent' : 'neutral'} />
+        </View>
+
+        {requests.length === 0 ? (
+          <Surface padded style={{ marginTop: spacing.md }}>
+            <NeonText variant="bodyMuted">No requests right now.</NeonText>
+          </Surface>
+        ) : (
+          requests.map((request) => (
+            <Surface elevated padded key={request.participant_id} style={styles.requestCard}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <NeonText variant="h2">{request.name || 'Anonymous'}</NeonText>
+                {request.role ? (
+                  <NeonText variant="label" tone="accent">{request.role}</NeonText>
+                ) : null}
+                {request.one_liner ? (
+                  <NeonText variant="bodyMuted">{request.one_liner}</NeonText>
+                ) : null}
+              </View>
+              <View style={styles.requestActions}>
+                <GlowButton
+                  label="✓"
+                  onPress={() => handleApprove(request.participant_id)}
+                  size="sm"
+                  variant="primary"
+                />
+                <GlowButton
+                  label="✕"
+                  onPress={() => handleReject(request.participant_id)}
+                  size="sm"
+                  variant="ghost"
+                />
+              </View>
+            </Surface>
+          ))
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <GlowButton
+          label="End event"
+          onPress={handleEndEvent}
+          variant="ghost"
+          fullWidth
+          style={styles.dangerBtn}
+        />
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: palette.void },
+  centered: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-  emptyContainer: {
-    flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#000',
+    backgroundColor: palette.void,
+    paddingHorizontal: spacing.xl,
   },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 16,
-    color: '#999',
-  },
-  header: {
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFF',
-    marginBottom: 12,
-  },
-  joinCode: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  accessCode: {
-    fontSize: 14,
-    color: '#999',
-  },
-  headerTop: {
+  section: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.md },
+  sectionHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
   },
-  headerInfo: {
-    flex: 1,
-  },
-  refreshButton: {
-    padding: 8,
-    marginLeft: 12,
-  },
-  refreshButtonText: {
-    fontSize: 24,
-  },
-  broadcastSection: {
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  broadcastHeader: {
+  codeRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+  codeCard: { flex: 1, borderRadius: radii.lg, gap: 4 },
+  codeValue: { fontSize: 22, letterSpacing: 2, marginTop: 4 },
+  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  broadcastStatus: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
-  },
-  section: {
-    padding: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 16,
   },
   requestCard: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
+    gap: spacing.md,
+    marginTop: spacing.md,
   },
-  requestInfo: {
-    flex: 1,
-    marginRight: 12,
+  requestActions: { flexDirection: 'row', gap: spacing.sm },
+  dangerBtn: {
+    borderColor: palette.danger,
   },
-  requestName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  requestRole: {
-    fontSize: 14,
-    color: '#007AFF',
-    marginBottom: 4,
-  },
-  requestOneLiner: {
-    fontSize: 14,
-    color: '#999',
-  },
-  requestActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  approveButton: {
-    backgroundColor: '#00CC00',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  approveButtonText: {
-    fontSize: 20,
-    color: '#FFF',
-    fontWeight: '700',
-  },
-  rejectButton: {
-    backgroundColor: '#FF4444',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rejectButtonText: {
-    fontSize: 20,
-    color: '#FFF',
-    fontWeight: '700',
-  },
-  endButton: {
-    backgroundColor: '#FF4444',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  endButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  emptyCard: { width: '100%', borderRadius: radii.xl, gap: spacing.xs },
 });

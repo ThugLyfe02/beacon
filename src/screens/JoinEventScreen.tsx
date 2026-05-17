@@ -1,20 +1,12 @@
-// =============================================================================
-// JoinEventScreen.tsx
-// Join event screen with request-based joining and optional access code
-// =============================================================================
-
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
   Alert,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from 'react-native';
 import { getEventByCode } from '../services/event.service';
 import {
@@ -22,13 +14,21 @@ import {
   joinEventWithCode,
   getParticipantStatus,
 } from '../services/participant.service';
+import {
+  GlowButton,
+  GlowInput,
+  GridBackground,
+  NeonText,
+  Pill,
+} from '../components/ui';
+import { palette, spacing } from '../theme';
 
 interface JoinEventScreenProps {
   userId: string;
   onEventJoined: () => void;
 }
 
-export function JoinEventScreen({ userId, onEventJoined }: JoinEventScreenProps) {
+export function JoinEventScreen({ userId, onEventJoined }: Readonly<JoinEventScreenProps>) {
   const [joinCode, setJoinCode] = useState('');
   const [accessCode, setAccessCode] = useState('');
   const [showAccessCode, setShowAccessCode] = useState(false);
@@ -36,231 +36,135 @@ export function JoinEventScreen({ userId, onEventJoined }: JoinEventScreenProps)
 
   const handleJoinEvent = async () => {
     if (!joinCode.trim()) {
-      Alert.alert('Required', 'Please enter an event code');
+      Alert.alert('Hold up', 'Enter an event code.');
       return;
     }
-
     setIsSubmitting(true);
     try {
-      // First, get the event details
       const event = await getEventByCode(joinCode.trim());
       if (!event) {
-        Alert.alert('Error', 'Event not found. Please check the code and try again.');
+        Alert.alert('Not found', 'No event with that code.');
         return;
       }
-
-      // Check if user already joined
       const existingStatus = await getParticipantStatus(event.id, userId);
       if (existingStatus) {
         if (existingStatus === 'approved') {
-          Alert.alert('Already Joined', 'You have already joined this event.');
           onEventJoined();
         } else if (existingStatus === 'pending') {
-          Alert.alert('Pending', 'Your join request is pending approval from the host.');
-        } else if (existingStatus === 'rejected') {
-          Alert.alert('Rejected', 'Your join request was rejected by the host.');
+          Alert.alert('Pending', 'Your request is waiting for the host.');
+        } else {
+          Alert.alert('Rejected', 'Your join request was declined.');
         }
         return;
       }
-
-      // If access code provided, use it for auto-approval
       if (accessCode.trim()) {
         try {
           await joinEventWithCode(event.id, userId, accessCode.trim());
-          Alert.alert('Success', 'You have joined the event!');
           onEventJoined();
-        } catch (error) {
-          Alert.alert('Invalid Code', 'The access code is incorrect. Try again or request to join.');
+        } catch {
+          Alert.alert('Invalid code', 'That access code didn’t match.');
         }
         return;
       }
-
-      // Otherwise, request to join
-      console.log('[JoinEvent] Requesting to join event:', event.id);
-      console.log('[JoinEvent] Requires approval:', event.requires_approval);
-
       await requestToJoinEvent(event.id, userId);
-
-      if (event.requires_approval) {
-        console.log('[JoinEvent] Join request sent, waiting for approval');
-        Alert.alert(
-          'Request Sent',
-          'Your join request has been sent to the host. You will be notified when approved.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                console.log('[JoinEvent] Calling onEventJoined for pending request');
-                onEventJoined();
-              }
-            }
-          ]
-        );
-      } else {
-        console.log('[JoinEvent] Auto-approved, joining event');
-        Alert.alert('Success', 'You have joined the event!', [
-          {
-            text: 'OK',
-            onPress: () => {
-              console.log('[JoinEvent] Calling onEventJoined for auto-approved');
-              onEventJoined();
-            }
-          }
-        ]);
-      }
+      Alert.alert(
+        event.requires_approval ? 'Request sent' : 'You’re in',
+        event.requires_approval
+          ? 'Waiting for host approval.'
+          : 'You have joined the event.',
+        [{ text: 'OK', onPress: onEventJoined }]
+      );
     } catch (error) {
       console.error('Failed to join event:', error);
-      Alert.alert('Error', 'Failed to join event. Please try again.');
+      Alert.alert('Join failed', 'Could not join. Try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Join an Event</Text>
-          <Text style={styles.subtitle}>
-            Enter the event code provided by the host
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Event Code</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="ABC123"
-              value={joinCode}
-              onChangeText={(text) => setJoinCode(text.toUpperCase())}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              placeholderTextColor="#999"
-              maxLength={6}
-              editable={!isSubmitting}
-            />
+    <View style={styles.container}>
+      <GridBackground />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Pill label="Join · enter code" tone="accent" dot />
+            <NeonText variant="display" tone="text" glow style={{ marginTop: spacing.md }}>
+              Drop the code.
+            </NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 22 }}>
+              Six characters from the host. We'll do the rest.
+            </NeonText>
           </View>
 
-          {showAccessCode ? (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Access Code (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter access code"
-                value={accessCode}
-                onChangeText={(text) => setAccessCode(text.toUpperCase())}
-                autoCapitalize="characters"
-                placeholderTextColor="#999"
-                editable={!isSubmitting}
-              />
-              <Text style={styles.hint}>
-                Skip approval by using the host's access code
-              </Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.accessCodeLink}
-              onPress={() => setShowAccessCode(true)}
-            >
-              <Text style={styles.accessCodeLinkText}>
-                Have an access code? Click here
-              </Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.form}>
+            <GlowInput
+              label="Event code"
+              placeholder="ABC123"
+              value={joinCode}
+              onChangeText={(t) => setJoinCode(t.toUpperCase())}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={6}
+              editable={!isSubmitting}
+              style={styles.codeInput}
+            />
 
-          <TouchableOpacity
-            style={[styles.joinButton, isSubmitting && styles.joinButtonDisabled]}
-            onPress={handleJoinEvent}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFF" />
+            {showAccessCode ? (
+              <GlowInput
+                label="Access code"
+                placeholder="Bypass approval"
+                value={accessCode}
+                onChangeText={(t) => setAccessCode(t.toUpperCase())}
+                autoCapitalize="characters"
+                editable={!isSubmitting}
+                hint="Skip approval if the host gave you this."
+                style={styles.codeInput}
+              />
             ) : (
-              <Text style={styles.joinButtonText}>Request to Join</Text>
+              <Pressable onPress={() => setShowAccessCode(true)} style={styles.linkRow}>
+                <NeonText variant="label" tone="accent">+ have an access code?</NeonText>
+              </Pressable>
             )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+            <GlowButton
+              label={isSubmitting ? 'Joining…' : 'Request to join'}
+              onPress={handleJoinEvent}
+              loading={isSubmitting}
+              fullWidth
+              size="lg"
+              style={{ marginTop: spacing.md }}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  scrollContent: {
+  container: { flex: 1, backgroundColor: palette.void },
+  scroll: {
     flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xl,
     justifyContent: 'center',
-    paddingHorizontal: 24,
   },
-  header: {
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 32,
+  header: { marginBottom: spacing.xxl },
+  form: { gap: spacing.lg },
+  codeInput: {
+    fontSize: 22,
+    letterSpacing: 8,
+    textAlign: 'center',
     fontWeight: '700',
-    color: '#FFF',
-    marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#999',
-    lineHeight: 22,
-  },
-  form: {
-    gap: 24,
-  },
-  inputGroup: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  input: {
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 18,
-    color: '#FFF',
-    letterSpacing: 2,
-    textAlign: 'center',
-  },
-  hint: {
-    fontSize: 12,
-    color: '#999',
-  },
-  accessCodeLink: {
-    paddingVertical: 8,
-  },
-  accessCodeLinkText: {
-    fontSize: 14,
-    color: '#007AFF',
-    textAlign: 'center',
-  },
-  joinButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  joinButtonDisabled: {
-    opacity: 0.5,
-  },
-  joinButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  linkRow: { alignSelf: 'center', paddingVertical: spacing.sm },
 });

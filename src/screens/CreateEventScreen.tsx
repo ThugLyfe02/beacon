@@ -1,24 +1,26 @@
-// =============================================================================
-// CreateEventScreen.tsx
-// Event creation screen for hosts
-// =============================================================================
-
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
   Alert,
-  ScrollView,
-  Switch,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
 } from 'react-native';
 import { createEvent } from '../services/event.service';
 import { getCurrentLocation, geocodeAddress } from '../services/location.service';
 import type { LocationType } from '../types/database';
+import {
+  GlowButton,
+  GlowInput,
+  GridBackground,
+  NeonText,
+  Pill,
+  Surface,
+} from '../components/ui';
+import { palette, radii, spacing } from '../theme';
 
 interface CreateEventScreenProps {
   userId: string;
@@ -30,7 +32,7 @@ export default function CreateEventScreen({
   userId,
   onEventCreated,
   onCancel,
-}: CreateEventScreenProps) {
+}: Readonly<CreateEventScreenProps>) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [locationType, setLocationType] = useState<LocationType>('live');
@@ -42,42 +44,36 @@ export default function CreateEventScreen({
 
   const handleCreateEvent = async () => {
     if (!name.trim()) {
-      Alert.alert('Required', 'Please enter an event name');
+      Alert.alert('Hold up', 'Enter an event name.');
       return;
     }
-
     if (locationType === 'fixed' && !address.trim()) {
-      Alert.alert('Required', 'Please enter an address for fixed location');
+      Alert.alert('Hold up', 'Enter an address for a fixed location.');
       return;
     }
-
     setIsSubmitting(true);
     try {
       let latitude: number | undefined;
       let longitude: number | undefined;
-
       if (locationType === 'live') {
-        // Get current location
         const currentLocation = await getCurrentLocation();
         if (!currentLocation) {
-          Alert.alert('Error', 'Failed to get current location. Please enable location services.');
+          Alert.alert('Location off', 'Enable location services to broadcast live.');
           setIsSubmitting(false);
           return;
         }
         latitude = currentLocation.latitude;
         longitude = currentLocation.longitude;
-      } else if (locationType === 'fixed' && address.trim()) {
-        // Geocode address
+      } else {
         const coords = await geocodeAddress(address.trim());
         if (!coords) {
-          Alert.alert('Error', 'Could not find the address. Please enter a valid address.');
+          Alert.alert('Address not found', 'Try a more specific address.');
           setIsSubmitting(false);
           return;
         }
         latitude = coords.latitude;
         longitude = coords.longitude;
       }
-
       const event = await createEvent(userId, {
         name: name.trim(),
         description: description.trim() || undefined,
@@ -89,300 +85,209 @@ export default function CreateEventScreen({
         access_code: accessCode.trim() || undefined,
         show_participant_count: showParticipantCount,
       });
-
-      Alert.alert('Success', `Event created! Join code: ${event.join_code}`);
+      Alert.alert('Beacon lit', `Join code: ${event.join_code}`);
       onEventCreated(event.id);
     } catch (error) {
       console.error('Failed to create event:', error);
-      Alert.alert('Error', 'Failed to create event. Please try again.');
+      Alert.alert('Create failed', 'Could not create event. Try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Create Event</Text>
-          <TouchableOpacity onPress={onCancel}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+    <View style={styles.container}>
+      <GridBackground />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <View style={styles.headerRow}>
+              <Pill label="Host · new beacon" tone="accent" dot />
+              <Pressable onPress={onCancel}>
+                <NeonText variant="label" tone="muted">CANCEL</NeonText>
+              </Pressable>
+            </View>
+            <NeonText variant="display" tone="text" glow style={{ marginTop: spacing.md }}>
+              Light a beacon.
+            </NeonText>
+          </View>
 
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Event Name <Text style={styles.required}>*</Text>
-            </Text>
-            <TextInput
-              style={styles.input}
+          <View style={styles.form}>
+            <GlowInput
+              label="Event name *"
               value={name}
               onChangeText={setName}
               placeholder="e.g., Tech Meetup"
-              placeholderTextColor="#999"
               maxLength={100}
             />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Description</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
+            <GlowInput
+              label="Description"
               value={description}
               onChangeText={setDescription}
-              placeholder="What's this event about?"
-              placeholderTextColor="#999"
+              placeholder="What's this beacon about?"
               multiline
               numberOfLines={3}
               maxLength={500}
             />
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Location Type</Text>
-            <View style={styles.buttonGroup}>
-              <TouchableOpacity
-                style={[
-                  styles.optionButton,
-                  locationType === 'live' && styles.optionButtonActive,
-                ]}
-                onPress={() => setLocationType('live')}
-              >
-                <Text
-                  style={[
-                    styles.optionButtonText,
-                    locationType === 'live' && styles.optionButtonTextActive,
-                  ]}
-                >
-                  📍 Live (Broadcast my location)
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.optionButton,
-                  locationType === 'fixed' && styles.optionButtonActive,
-                ]}
-                onPress={() => setLocationType('fixed')}
-              >
-                <Text
-                  style={[
-                    styles.optionButtonText,
-                    locationType === 'fixed' && styles.optionButtonTextActive,
-                  ]}
-                >
-                  📌 Fixed Address
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {locationType === 'fixed' && (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                Address <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
+              <NeonText variant="label" tone="accent">LOCATION MODE</NeonText>
+              <View style={styles.buttonGroup}>
+                <TypeOption
+                  active={locationType === 'live'}
+                  onPress={() => setLocationType('live')}
+                  glyph="◉"
+                  title="Live"
+                  description="Broadcast my live position"
+                />
+                <TypeOption
+                  active={locationType === 'fixed'}
+                  onPress={() => setLocationType('fixed')}
+                  glyph="◇"
+                  title="Fixed"
+                  description="Pin to a single address"
+                />
+              </View>
+            </View>
+
+            {locationType === 'fixed' ? (
+              <GlowInput
+                label="Address *"
                 value={address}
                 onChangeText={setAddress}
                 placeholder="123 Main St, City, State"
-                placeholderTextColor="#999"
                 maxLength={200}
               />
-            </View>
-          )}
+            ) : null}
 
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Require Approval</Text>
-              <Text style={styles.settingDescription}>
-                Approve join requests manually
-              </Text>
-            </View>
-            <Switch
+            <SettingRow
+              title="Require approval"
+              description="Approve join requests manually"
               value={requiresApproval}
               onValueChange={setRequiresApproval}
-              trackColor={{ false: '#333', true: '#007AFF' }}
-              thumbColor="#FFF"
             />
-          </View>
 
-          {requiresApproval && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                Access Code (Optional)
-              </Text>
-              <TextInput
-                style={styles.input}
+            {requiresApproval ? (
+              <GlowInput
+                label="Access code (optional)"
                 value={accessCode}
-                onChangeText={(text) => setAccessCode(text.toUpperCase())}
-                placeholder="Optional bypass code"
-                placeholderTextColor="#999"
+                onChangeText={(t) => setAccessCode(t.toUpperCase())}
+                placeholder="Bypass code"
                 autoCapitalize="characters"
                 maxLength={20}
+                hint="Anyone with this code skips approval."
               />
-              <Text style={styles.hint}>
-                Users with this code can join without approval
-              </Text>
-            </View>
-          )}
+            ) : null}
 
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Show Participant Count</Text>
-              <Text style={styles.settingDescription}>
-                Display how many people joined
-              </Text>
-            </View>
-            <Switch
+            <SettingRow
+              title="Show participant count"
+              description="Display headcount on the map marker"
               value={showParticipantCount}
               onValueChange={setShowParticipantCount}
-              trackColor={{ false: '#333', true: '#007AFF' }}
-              thumbColor="#FFF"
+            />
+
+            <GlowButton
+              label={isSubmitting ? 'Lighting…' : 'Light beacon'}
+              onPress={handleCreateEvent}
+              loading={isSubmitting}
+              fullWidth
+              size="lg"
+              style={{ marginTop: spacing.md }}
             />
           </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
 
-          <TouchableOpacity
-            style={[styles.createButton, isSubmitting && styles.createButtonDisabled]}
-            onPress={handleCreateEvent}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.createButtonText}>
-              {isSubmitting ? 'Creating...' : 'Create Event'}
-            </Text>
-          </TouchableOpacity>
+function TypeOption({
+  active,
+  onPress,
+  glyph,
+  title,
+  description,
+}: Readonly<{
+  active: boolean;
+  onPress: () => void;
+  glyph: string;
+  title: string;
+  description: string;
+}>) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+      <Surface elevated={active} padded style={[styles.option, active && styles.optionActive]}>
+        <NeonText variant="h1" tone={active ? 'accent' : 'muted'} glow={active}>
+          {glyph}
+        </NeonText>
+        <View style={{ flex: 1 }}>
+          <NeonText variant="h2" tone={active ? 'text' : 'muted'}>{title}</NeonText>
+          <NeonText variant="bodyMuted">{description}</NeonText>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </Surface>
+    </Pressable>
+  );
+}
+
+function SettingRow({
+  title,
+  description,
+  value,
+  onValueChange,
+}: Readonly<{
+  title: string;
+  description: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}>) {
+  return (
+    <Surface elevated padded style={styles.settingRow}>
+      <View style={{ flex: 1, marginRight: spacing.md }}>
+        <NeonText variant="h2" style={{ fontSize: 16 }}>{title}</NeonText>
+        <NeonText variant="bodyMuted">{description}</NeonText>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: palette.hairlineStrong, true: palette.accentDim }}
+        thumbColor={value ? palette.accent : palette.textMuted}
+        ios_backgroundColor={palette.hairlineStrong}
+      />
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  scrollContent: {
+  container: { flex: 1, backgroundColor: palette.void },
+  scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxxl,
+    paddingBottom: spacing.xl,
   },
-  header: {
+  header: { marginBottom: spacing.xxl },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  form: { gap: spacing.lg },
+  inputGroup: { gap: spacing.sm },
+  buttonGroup: { gap: spacing.sm },
+  option: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 32,
+    gap: spacing.md,
+    borderRadius: radii.lg,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFF',
-  },
-  cancelText: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  form: {
-    gap: 24,
-  },
-  inputGroup: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  required: {
-    color: '#FF4444',
-  },
-  input: {
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#FFF',
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  hint: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: -4,
-  },
-  buttonGroup: {
-    gap: 12,
-  },
-  optionButton: {
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  optionButtonActive: {
-    backgroundColor: '#007AFF20',
-    borderColor: '#007AFF',
-  },
-  optionButtonText: {
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-  },
-  optionButtonTextActive: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
+  optionActive: { borderColor: palette.accent },
   settingRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: 16,
-  },
-  settingLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 4,
-  },
-  settingDescription: {
-    fontSize: 14,
-    color: '#999',
-  },
-  createButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  createButtonDisabled: {
-    opacity: 0.5,
-  },
-  createButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
+    borderRadius: radii.lg,
   },
 });

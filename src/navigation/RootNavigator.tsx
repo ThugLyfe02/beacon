@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 
+import { GridBackground, Loader, NeonTabBar, NeonText } from '../components/ui';
+import { palette, spacing } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { hasCompletedProfile } from '../services/user.service';
 import { getUserEvents, getHostedEvent } from '../services/event.service';
@@ -31,24 +33,24 @@ function EventTabs({
 }) {
   return (
     <Tab.Navigator
+      tabBar={NeonTabBar}
       screenOptions={{
         headerShown: true,
-        tabBarStyle: { backgroundColor: '#000', borderTopColor: '#333' },
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#999',
+        headerStyle: { backgroundColor: palette.space },
+        headerTitleStyle: { color: palette.text, fontWeight: '700', letterSpacing: 1 },
+        headerTintColor: palette.accent,
+        headerShadowVisible: false,
+        sceneStyle: { backgroundColor: palette.void },
       }}
     >
-      <Tab.Screen
-        name="Map"
-        options={{ tabBarLabel: '🗺️ Map' }}
-      >
+      <Tab.Screen name="Map" options={{ tabBarLabel: 'MAP' }}>
         {(props) => <MapScreen {...props} userId={userId} />}
       </Tab.Screen>
 
       {isHost && (
         <Tab.Screen
           name="Host"
-          options={{ tabBarLabel: '⚙️ Manage', title: 'Event Management' }}
+          options={{ tabBarLabel: 'HOST', title: 'Event Management' }}
         >
           {(props) => (
             <HostManagementScreen
@@ -60,17 +62,11 @@ function EventTabs({
         </Tab.Screen>
       )}
 
-      <Tab.Screen
-        name="Discover"
-        options={{ tabBarLabel: '🔍 Discover' }}
-      >
+      <Tab.Screen name="Discover" options={{ tabBarLabel: 'DISCOVER' }}>
         {(props) => <DiscoverScreen {...props} userId={userId} />}
       </Tab.Screen>
 
-      <Tab.Screen
-        name="Matches"
-        options={{ tabBarLabel: '🤝 Matches' }}
-      >
+      <Tab.Screen name="Matches" options={{ tabBarLabel: 'MATCHES' }}>
         {(props) => <MatchesScreen {...props} userId={userId} />}
       </Tab.Screen>
     </Tab.Navigator>
@@ -139,8 +135,13 @@ export function RootNavigator() {
   if (authLoading || checkingProfile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <GridBackground />
+        <View style={styles.loadingInner}>
+          <Loader size={64} />
+          <NeonText variant="label" tone="accent" style={styles.loadingText}>
+            Calibrating signal
+          </NeonText>
+        </View>
       </View>
     );
   }
@@ -271,13 +272,14 @@ export function RootNavigator() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: palette.void,
+  },
+  loadingInner: {
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: '#000',
+    justifyContent: 'center',
   },
   loadingText: {
-    marginTop: 10,
-    color: '#FFF',
-    fontSize: 16,
+    marginTop: spacing.lg,
   },
 });
