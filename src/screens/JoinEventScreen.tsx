@@ -8,6 +8,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getEventByCode } from '../services/event.service';
 import {
   requestToJoinEvent,
@@ -21,14 +22,19 @@ import {
   NeonText,
   Pill,
 } from '../components/ui';
-import { palette, spacing } from '../theme';
+import { palette, radii, spacing } from '../theme';
 
 interface JoinEventScreenProps {
   userId: string;
   onEventJoined: () => void;
+  onCancel?: () => void;
 }
 
-export function JoinEventScreen({ userId, onEventJoined }: Readonly<JoinEventScreenProps>) {
+export function JoinEventScreen({
+  userId,
+  onEventJoined,
+  onCancel,
+}: Readonly<JoinEventScreenProps>) {
   const [joinCode, setJoinCode] = useState('');
   const [accessCode, setAccessCode] = useState('');
   const [showAccessCode, setShowAccessCode] = useState(false);
@@ -85,24 +91,37 @@ export function JoinEventScreen({ userId, onEventJoined }: Readonly<JoinEventScr
   return (
     <View style={styles.container}>
       <GridBackground />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <Pill label="Join · enter code" tone="accent" dot />
-            <NeonText variant="display" tone="text" glow style={{ marginTop: spacing.md }}>
-              Drop the code.
-            </NeonText>
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 22 }}>
-              Six characters from the host. We'll do the rest.
-            </NeonText>
+      <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1 }}>
+        {onCancel ? (
+          <View style={styles.topBar}>
+            <Pressable
+              onPress={onCancel}
+              hitSlop={12}
+              style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7 }]}
+              accessibilityLabel="Close"
+            >
+              <NeonText variant="h2" tone="muted" style={styles.closeGlyph}>✕</NeonText>
+            </Pressable>
           </View>
+        ) : null}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.header}>
+              <Pill label="Join · enter code" tone="accent" dot />
+              <NeonText variant="display" tone="text" glow style={{ marginTop: spacing.md }}>
+                Drop the code.
+              </NeonText>
+              <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 22 }}>
+                Six characters from the host. We'll do the rest.
+              </NeonText>
+            </View>
 
           <View style={styles.form}>
             <GlowInput
@@ -143,18 +162,36 @@ export function JoinEventScreen({ userId, onEventJoined }: Readonly<JoinEventScr
               style={{ marginTop: spacing.md }}
             />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.void },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.hairlineStrong,
+  },
+  closeGlyph: { fontSize: 18, lineHeight: 22 },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
     justifyContent: 'center',
   },

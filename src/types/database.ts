@@ -95,6 +95,45 @@ export interface MatchRow {
   created_at: Timestamp;
 }
 
+// ─── Social feed ────────────────────────────────────────────────────────────
+
+export interface PostRow {
+  id: UUID;
+  author_id: UUID;
+  event_id: UUID | null;
+  body: string;
+  image_path: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface FollowRow {
+  follower_id: UUID;
+  followed_id: UUID;
+  created_at: Timestamp;
+}
+
+export interface PostLikeRow {
+  post_id: UUID;
+  user_id: UUID;
+  created_at: Timestamp;
+}
+
+/** Denormalized post row from get_home_feed / get_event_feed / get_user_posts */
+export interface FeedPost {
+  id: UUID;
+  author_id: UUID;
+  event_id: UUID | null;
+  body: string;
+  image_path: string | null;
+  created_at: Timestamp;
+  author_name: string | null;
+  author_role: string | null;
+  author_is_premium: boolean;
+  like_count: number;
+  viewer_liked: boolean;
+}
+
 // ─── Insert / Update Payload Types ───────────────────────────────────────────
 
 export type UserInsert = Omit<UserRow, 'created_at' | 'updated_at'>;
@@ -207,6 +246,22 @@ export interface Database {
         Insert: never; // SECURITY DEFINER function only
         Update: never;
       };
+      posts: {
+        Row: PostRow;
+        Insert: Pick<PostRow, 'author_id' | 'body'> &
+          Partial<Pick<PostRow, 'event_id' | 'image_path'>>;
+        Update: Partial<Pick<PostRow, 'body' | 'image_path'>>;
+      };
+      follows: {
+        Row: FollowRow;
+        Insert: Pick<FollowRow, 'follower_id' | 'followed_id'>;
+        Update: never;
+      };
+      post_likes: {
+        Row: PostLikeRow;
+        Insert: never; // toggle via RPC
+        Update: never;
+      };
     };
     Functions: {
       detect_mutual_match: {
@@ -232,6 +287,22 @@ export interface Database {
       get_nearby_premium: {
         Args: { p_event_id: UUID };
         Returns: NearbyPremiumUser[];
+      };
+      get_home_feed: {
+        Args: { p_limit?: number; p_before?: Timestamp };
+        Returns: FeedPost[];
+      };
+      get_event_feed: {
+        Args: { p_event_id: UUID; p_limit?: number; p_before?: Timestamp };
+        Returns: FeedPost[];
+      };
+      get_user_posts: {
+        Args: { p_user_id: UUID; p_limit?: number; p_before?: Timestamp };
+        Returns: FeedPost[];
+      };
+      toggle_post_like: {
+        Args: { p_post_id: UUID };
+        Returns: { liked: boolean; like_count: number }[];
       };
     };
     Enums: {

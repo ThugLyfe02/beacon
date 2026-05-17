@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import type { NavigationProp } from '@react-navigation/native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { getUserEvents, getParticipantCount } from '../services/event.service';
 import { getCurrentLocation, watchLocation } from '../services/location.service';
 import { getNearbyPremium, pushMyLocation } from '../services/premium.service';
@@ -10,6 +10,7 @@ import { usePremium } from '../hooks/usePremium';
 import { DARK_MAP_STYLE } from '../lib/mapStyle';
 import {
   BeaconMarker,
+  GlowButton,
   GridBackground,
   Loader,
   NeonText,
@@ -61,7 +62,6 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
   }, [userId]);
 
   useEffect(() => {
-    loadEvents();
     (async () => {
       const location = await getCurrentLocation();
       if (location) {
@@ -69,7 +69,14 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
         pushMyLocation(userId, location.latitude, location.longitude).catch(() => {});
       }
     })();
-  }, [loadEvents, userId]);
+  }, [userId]);
+
+  // Reload events whenever the Map tab regains focus (after JoinEvent/CreateEvent modals)
+  useFocusEffect(
+    useCallback(() => {
+      loadEvents();
+    }, [loadEvents])
+  );
 
   // Stream location → DB so other premium users can see us
   const handleLocationFix = useCallback(
@@ -165,9 +172,24 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
           <NeonText variant="h1" tone="text" style={{ marginTop: spacing.md }}>
             The room is quiet.
           </NeonText>
-          <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
+          <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, marginBottom: spacing.lg }}>
             Join an event with a code, or light your own beacon to see it pulse on the map.
           </NeonText>
+          <GlowButton
+            label="Join with a code"
+            onPress={() => navigation.navigate('JoinEvent')}
+            variant="secondary"
+            fullWidth
+            size="md"
+          />
+          <GlowButton
+            label="Light a beacon"
+            onPress={() => navigation.navigate('CreateEvent')}
+            variant="primary"
+            fullWidth
+            size="md"
+            style={{ marginTop: spacing.sm }}
+          />
         </Surface>
       </View>
     );
@@ -195,8 +217,14 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
               key={event.id}
               coordinate={{ latitude: event.latitude, longitude: event.longitude }}
               title={event.name}
-              description={event.description || undefined}
-              onCalloutPress={() => onEventPress?.(event)}
+              description={event.description || 'Tap to open channel'}
+              onCalloutPress={() => {
+                onEventPress?.(event);
+                navigation.navigate('EventFeed', {
+                  eventId: event.id,
+                  eventName: event.name,
+                });
+              }}
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={false}
             >

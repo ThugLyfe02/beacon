@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet } from 'react-native';
@@ -8,10 +8,10 @@ import { palette, spacing } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { hasCompletedProfile } from '../services/user.service';
 import { getUserEvents, getHostedEvent } from '../services/event.service';
+import { NavigatorContext } from './NavigatorContext';
 
 import { OtpScreen } from '../screens/OtpScreen';
 import ProfileSetupScreen from '../screens/ProfileSetupScreen';
-import EventGatewayScreen from '../screens/EventGatewayScreen';
 import { JoinEventScreen } from '../screens/JoinEventScreen';
 import CreateEventScreen from '../screens/CreateEventScreen';
 import MapScreen from '../screens/MapScreen';
@@ -19,19 +19,21 @@ import { DiscoverScreen } from '../screens/DiscoverScreen';
 import { MatchesScreen } from '../screens/MatchesScreen';
 import HostManagementScreen from '../screens/HostManagementScreen';
 import RadarScreen from '../screens/RadarScreen';
+import HomeFeedScreen from '../screens/HomeFeedScreen';
+import ComposePostScreen from '../screens/ComposePostScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import EventFeedScreen from '../screens/EventFeedScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-function EventTabs({
-  userId,
-  isHost,
-  onEventEnded,
-}: {
+interface MainTabsProps {
   userId: string;
   isHost: boolean;
   onEventEnded: () => void;
-}) {
+}
+
+function MainTabs({ userId, isHost, onEventEnded }: Readonly<MainTabsProps>) {
   return (
     <Tab.Navigator
       tabBar={NeonTabBar}
@@ -44,6 +46,10 @@ function EventTabs({
         sceneStyle: { backgroundColor: palette.void },
       }}
     >
+      <Tab.Screen name="Home" options={{ tabBarLabel: 'HOME', headerShown: false }}>
+        {(props) => <HomeFeedScreen {...props} userId={userId} />}
+      </Tab.Screen>
+
       <Tab.Screen name="Map" options={{ tabBarLabel: 'MAP' }}>
         {(props) => <MapScreen {...props} userId={userId} />}
       </Tab.Screen>
@@ -70,6 +76,10 @@ function EventTabs({
       <Tab.Screen name="Matches" options={{ tabBarLabel: 'MATCHES' }}>
         {(props) => <MatchesScreen {...props} userId={userId} />}
       </Tab.Screen>
+
+      <Tab.Screen name="Me" options={{ tabBarLabel: 'ME', headerShown: false }}>
+        {() => <ProfileScreen />}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 }
@@ -77,62 +87,52 @@ function EventTabs({
 export function RootNavigator() {
   const { user, loading: authLoading } = useAuth();
   const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
-  const [hasEvents, setHasEvents] = useState<boolean | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
+  const [revision, setRevision] = useState(0);
 
-  // Check profile completion when user changes
+  const refreshEventState = useCallback(() => {
+    setRevision((r) => r + 1);
+  }, []);
+
+  const navCtx = useMemo(() => ({ refreshEventState }), [refreshEventState]);
+
   useEffect(() => {
-    async function checkProfile() {
-      console.log('[RootNavigator] Checking profile, user:', user?.id);
-
+    let cancelled = false;
+    async function check() {
       if (!user) {
-        console.log('[RootNavigator] No user, resetting state');
         setCheckingProfile(false);
         setProfileComplete(null);
-        setHasEvents(null);
+        setIsHost(false);
         return;
       }
-
       setCheckingProfile(true);
       try {
-        console.log('[RootNavigator] Calling hasCompletedProfile for:', user.id);
         const completed = await hasCompletedProfile(user.id);
-        console.log('[RootNavigator] Profile completed:', completed);
+        if (cancelled) return;
         setProfileComplete(completed);
-
         if (completed) {
-          // Check if user has any events or is hosting
-          console.log('[RootNavigator] Checking events for user:', user.id);
           try {
-            const [events, hostedEvent] = await Promise.all([
-              getUserEvents(user.id),
-              getHostedEvent(user.id),
-            ]);
-            console.log('[RootNavigator] Events:', events.length, 'Hosted:', hostedEvent !== null);
-            setHasEvents(events.length > 0 || hostedEvent !== null);
-            setIsHost(hostedEvent !== null);
+            const hostedEvent = await getHostedEvent(user.id);
+            if (!cancelled) setIsHost(hostedEvent !== null);
           } catch (eventError) {
-            console.error('[RootNavigator] Error checking events (profile is still complete):', eventError);
-            // Don't reset profileComplete - just set hasEvents to false
-            setHasEvents(false);
-            setIsHost(false);
+            console.error('[RootNavigator] Error checking host status:', eventError);
+            if (!cancelled) setIsHost(false);
           }
         }
       } catch (error) {
         console.error('[RootNavigator] Error checking profile:', error);
-        // Only set profileComplete to false if profile check itself failed
-        setProfileComplete(false);
-        setHasEvents(false);
+        if (!cancelled) setProfileComplete(false);
       } finally {
-        setCheckingProfile(false);
+        if (!cancelled) setCheckingProfile(false);
       }
     }
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, revision]);
 
-    checkProfile();
-  }, [user]);
-
-  // Show loading screen while auth is loading
   if (authLoading || checkingProfile) {
     return (
       <View style={styles.loadingContainer}>
@@ -147,7 +147,6 @@ export function RootNavigator() {
     );
   }
 
-  // Not authenticated → Show OTP screen
   if (!user) {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -156,9 +155,7 @@ export function RootNavigator() {
     );
   }
 
-  // Authenticated but profile incomplete → Show profile setup
   if (profileComplete !== true) {
-    console.log('[RootNavigator] Render: PROFILE SETUP (profile not complete)', { profileComplete });
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="ProfileSetup">
@@ -166,23 +163,9 @@ export function RootNavigator() {
             <ProfileSetupScreen
               {...props}
               userId={user.id}
-              onComplete={async () => {
-                console.log('[RootNavigator] Profile completed, checking events');
+              onComplete={() => {
                 setProfileComplete(true);
-
-                // Check for events after profile completion
-                try {
-                  const [events, hostedEvent] = await Promise.all([
-                    getUserEvents(user.id),
-                    getHostedEvent(user.id),
-                  ]);
-                  console.log('[RootNavigator] Events check after profile:', events.length, hostedEvent);
-                  setHasEvents(events.length > 0 || hostedEvent !== null);
-                  setIsHost(hostedEvent !== null);
-                } catch (error) {
-                  console.error('[RootNavigator] Error checking events after profile:', error);
-                  setHasEvents(false);
-                }
+                refreshEventState();
               }}
             />
           )}
@@ -191,94 +174,105 @@ export function RootNavigator() {
     );
   }
 
-  // Profile complete but no events → Show gateway (join or create)
-  console.log('[RootNavigator] Render: EVENT GATEWAY', { profileComplete, hasEvents });
-  if (hasEvents === false) {
-    return (
-      <Stack.Navigator>
-        <Stack.Screen
-          name="EventGateway"
-          options={{ headerShown: false }}
-        >
-          {(props) => (
-            <EventGatewayScreen
-              {...props}
-              onJoinEvent={() => props.navigation.navigate('JoinEvent')}
-              onCreateEvent={() => props.navigation.navigate('CreateEvent')}
+  const handleEventEnded = async () => {
+    setIsHost(false);
+    try {
+      await getUserEvents(user.id);
+    } catch (error) {
+      console.error('[RootNavigator] Error checking events after ending:', error);
+    }
+    refreshEventState();
+  };
+
+  return (
+    <NavigatorContext.Provider value={navCtx}>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="MainTabs">
+          {() => (
+            <MainTabs
+              userId={user.id}
+              isHost={isHost}
+              onEventEnded={handleEventEnded}
             />
           )}
         </Stack.Screen>
 
         <Stack.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+
+        <Stack.Screen
+          name="EventFeed"
+          component={EventFeedScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+
+        <Stack.Screen
+          name="Compose"
+          component={ComposePostScreen}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+            contentStyle: { backgroundColor: palette.void },
+          }}
+        />
+
+        <Stack.Screen
+          name="Radar"
+          component={RadarScreen}
+          options={{
+            presentation: 'modal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: palette.void },
+          }}
+        />
+
+        <Stack.Screen
           name="JoinEvent"
-          options={{ title: 'Join Event' }}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+            contentStyle: { backgroundColor: palette.void },
+          }}
         >
           {(props) => (
             <JoinEventScreen
               {...props}
               userId={user.id}
               onEventJoined={() => {
-                // Refresh events check
-                setHasEvents(true);
+                refreshEventState();
+                props.navigation.goBack();
               }}
+              onCancel={() => props.navigation.goBack()}
             />
           )}
         </Stack.Screen>
 
         <Stack.Screen
           name="CreateEvent"
-          options={{ headerShown: false }}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+            contentStyle: { backgroundColor: palette.void },
+          }}
         >
           {(props) => (
             <CreateEventScreen
               {...props}
               userId={user.id}
               onEventCreated={() => {
-                // Refresh and mark as host
-                setHasEvents(true);
                 setIsHost(true);
+                refreshEventState();
+                props.navigation.goBack();
               }}
               onCancel={() => props.navigation.goBack()}
             />
           )}
         </Stack.Screen>
       </Stack.Navigator>
-    );
-  }
-
-  // Has events → tabs + modal Radar
-  const handleEventEnded = async () => {
-    setIsHost(false);
-    try {
-      const events = await getUserEvents(user.id);
-      setHasEvents(events.length > 0);
-    } catch (error) {
-      console.error('[RootNavigator] Error checking events after ending:', error);
-      setHasEvents(false);
-    }
-  };
-
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="EventTabs">
-        {() => (
-          <EventTabs
-            userId={user.id}
-            isHost={isHost}
-            onEventEnded={handleEventEnded}
-          />
-        )}
-      </Stack.Screen>
-      <Stack.Screen
-        name="Radar"
-        component={RadarScreen}
-        options={{
-          presentation: 'modal',
-          animation: 'fade',
-          contentStyle: { backgroundColor: palette.void },
-        }}
-      />
-    </Stack.Navigator>
+    </NavigatorContext.Provider>
   );
 }
 

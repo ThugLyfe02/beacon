@@ -6,10 +6,12 @@ import { glow, palette, radii, spacing } from '../../theme';
 import { NeonText } from './NeonText';
 
 const GLYPHS: Record<string, string> = {
+  Home: '⌂',
   Map: '◉',
   Host: '✦',
   Discover: '◈',
   Matches: '⌬',
+  Me: '◑',
 };
 
 export function NeonTabBar({ state, descriptors, navigation }: Readonly<BottomTabBarProps>) {

@@ -9,6 +9,7 @@ import {
   Switch,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createEvent } from '../services/event.service';
 import { getCurrentLocation, geocodeAddress } from '../services/location.service';
 import type { LocationType } from '../types/database';
@@ -98,26 +99,37 @@ export default function CreateEventScreen({
   return (
     <View style={styles.container}>
       <GridBackground />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+      <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1 }}>
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={onCancel}
+            hitSlop={12}
+            style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7 }]}
+            accessibilityLabel="Close"
+          >
+            <NeonText variant="h2" tone="muted" style={styles.closeGlyph}>✕</NeonText>
+          </Pressable>
+        </View>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.header}>
-            <View style={styles.headerRow}>
-              <Pill label="Host · new beacon" tone="accent" dot />
-              <Pressable onPress={onCancel}>
-                <NeonText variant="label" tone="muted">CANCEL</NeonText>
-              </Pressable>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.header}>
+              <View style={styles.headerRow}>
+                <Pill label="Host · new beacon" tone="accent" dot />
+                <Pressable onPress={onCancel} hitSlop={12}>
+                  <NeonText variant="label" tone="muted">CANCEL</NeonText>
+                </Pressable>
+              </View>
+              <NeonText variant="display" tone="text" glow style={{ marginTop: spacing.md }}>
+                Light a beacon.
+              </NeonText>
             </View>
-            <NeonText variant="display" tone="text" glow style={{ marginTop: spacing.md }}>
-              Light a beacon.
-            </NeonText>
-          </View>
 
           <View style={styles.form}>
             <GlowInput
@@ -202,8 +214,9 @@ export default function CreateEventScreen({
               style={{ marginTop: spacing.md }}
             />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </View>
   );
 }
@@ -266,10 +279,27 @@ function SettingRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.void },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.hairlineStrong,
+  },
+  closeGlyph: { fontSize: 18, lineHeight: 22 },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxxl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
   header: { marginBottom: spacing.xxl },
