@@ -25,8 +25,27 @@ export interface UserRow {
   name: string | null;
   role: string | null;
   one_liner: string | null;
+  is_premium: boolean;
+  premium_since: Timestamp | null;
+  is_discoverable: boolean;
+  last_known_lat: number | null;
+  last_known_lng: number | null;
+  last_location_at: Timestamp | null;
   created_at: Timestamp;
   updated_at: Timestamp;
+}
+
+/** Returned by get_nearby_premium RPC */
+export interface NearbyPremiumUser {
+  user_id: UUID;
+  name: string | null;
+  role: string | null;
+  one_liner: string | null;
+  latitude: number;
+  longitude: number;
+  distance_m: number;
+  bearing_deg: number;
+  last_seen_at: Timestamp;
 }
 
 export interface EventRow {
@@ -79,7 +98,18 @@ export interface MatchRow {
 // ─── Insert / Update Payload Types ───────────────────────────────────────────
 
 export type UserInsert = Omit<UserRow, 'created_at' | 'updated_at'>;
-export type UserUpdate = Partial<Pick<UserRow, 'name' | 'role' | 'one_liner'>>;
+export type UserUpdate = Partial<
+  Pick<
+    UserRow,
+    | 'name'
+    | 'role'
+    | 'one_liner'
+    | 'is_discoverable'
+    | 'last_known_lat'
+    | 'last_known_lng'
+    | 'last_location_at'
+  >
+>;
 
 export type EventInsert = Omit<EventRow, 'id' | 'created_at' | 'join_code'>;
 export type EventUpdate = Partial<Omit<EventRow, 'id' | 'host_id' | 'created_at' | 'join_code'>>;
@@ -119,6 +149,7 @@ export interface DiscoverableParticipant {
   name: string | null;
   role: string | null;
   one_liner: string | null;
+  is_premium: boolean;
 }
 
 /** Event with host user information */
@@ -193,6 +224,14 @@ export interface Database {
           p_access_code: string;
         };
         Returns: boolean;
+      };
+      set_premium_dev: {
+        Args: { p_is_premium: boolean };
+        Returns: UserRow;
+      };
+      get_nearby_premium: {
+        Args: { p_event_id: UUID };
+        Returns: NearbyPremiumUser[];
       };
     };
     Enums: {

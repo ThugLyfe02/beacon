@@ -16,6 +16,17 @@ export interface ListMatchesResult {
   error: PostgrestError | null;
 }
 
+export interface MatchWithProfile {
+  id: string;
+  event_id: string;
+  other_user_id: string;
+  other_name: string | null;
+  other_role: string | null;
+  other_one_liner: string | null;
+  other_is_premium: boolean;
+  created_at: string;
+}
+
 export interface SendConnectionRequestResult {
   request: ConnectionRequestRow | null;
   match: MatchRow | null;
@@ -49,6 +60,40 @@ export async function listMatches(
     .order('created_at', { ascending: false });
 
   return { data: data ?? [], error };
+}
+
+/**
+ * List matches for a user in an event, joined with the other user's profile.
+ * Returns plain rows (not the {data, error} envelope) for direct list rendering.
+ */
+export async function listMatchesWithProfiles(
+  eventId: string,
+  userId: string
+): Promise<MatchWithProfile[]> {
+  const { data, error } = await supabase
+    .from('matches')
+    .select('id, event_id, user_a_id, user_b_id, created_at, user_a:users!matches_user_a_id_fkey(name, role, one_liner, is_premium), user_b:users!matches_user_b_id_fkey(name, role, one_liner, is_premium)')
+    .eq('event_id', eventId)
+    .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('[match.service] listMatchesWithProfiles error:', error);
+    return [];
+  }
+  return (data ?? []).map((row: any) => {
+    const isA = row.user_a_id === userId;
+    const other = isA ? row.user_b : row.user_a;
+    return {
+      id: row.id,
+      event_id: row.event_id,
+      other_user_id: isA ? row.user_b_id : row.user_a_id,
+      other_name: other?.name ?? null,
+      other_role: other?.role ?? null,
+      other_one_liner: other?.one_liner ?? null,
+      other_is_premium: !!other?.is_premium,
+      created_at: row.created_at,
+    };
+  });
 }
 
 /**

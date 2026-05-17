@@ -18,6 +18,7 @@ import MapScreen from '../screens/MapScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
 import { MatchesScreen } from '../screens/MatchesScreen';
 import HostManagementScreen from '../screens/HostManagementScreen';
+import RadarScreen from '../screens/RadarScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -245,27 +246,39 @@ export function RootNavigator() {
     );
   }
 
-  // Has events → Show event tabs
-  return (
-    <EventTabs
-      userId={user.id}
-      isHost={isHost}
-      onEventEnded={async () => {
-        console.log('[RootNavigator] Event ended, updating state');
-        // Event has been deleted, user is no longer a host
-        setIsHost(false);
+  // Has events → tabs + modal Radar
+  const handleEventEnded = async () => {
+    setIsHost(false);
+    try {
+      const events = await getUserEvents(user.id);
+      setHasEvents(events.length > 0);
+    } catch (error) {
+      console.error('[RootNavigator] Error checking events after ending:', error);
+      setHasEvents(false);
+    }
+  };
 
-        // Check if user has any other events (as a participant)
-        try {
-          const events = await getUserEvents(user.id);
-          console.log('[RootNavigator] Remaining events after host event ended:', events.length);
-          setHasEvents(events.length > 0);
-        } catch (error) {
-          console.error('[RootNavigator] Error checking events after ending:', error);
-          setHasEvents(false);
-        }
-      }}
-    />
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="EventTabs">
+        {() => (
+          <EventTabs
+            userId={user.id}
+            isHost={isHost}
+            onEventEnded={handleEventEnded}
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="Radar"
+        component={RadarScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'fade',
+          contentStyle: { backgroundColor: palette.void },
+        }}
+      />
+    </Stack.Navigator>
   );
 }
 

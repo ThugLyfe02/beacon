@@ -9,6 +9,7 @@ import {
   Loader,
   NeonText,
   Pill,
+  PremiumBadge,
   Surface,
 } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
@@ -120,7 +121,10 @@ export function DiscoverScreen({ userId }: Readonly<DiscoverScreenProps>) {
           renderItem={({ item }) => (
             <Surface elevated padded style={styles.card}>
               <View style={{ flex: 1, gap: spacing.xs }}>
-                <NeonText variant="h2">{item.name || 'Anonymous'}</NeonText>
+                <View style={styles.nameRow}>
+                  <NeonText variant="h2">{item.name || 'Anonymous'}</NeonText>
+                  {item.is_premium ? <PremiumBadge size="sm" /> : null}
+                </View>
                 {item.role ? (
                   <NeonText variant="label" tone="accent">{item.role}</NeonText>
                 ) : null}
@@ -167,6 +171,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: radii.lg,
     marginBottom: spacing.md,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
   },
   emptyCard: { width: '100%', borderRadius: radii.xl, gap: spacing.xs },
 });

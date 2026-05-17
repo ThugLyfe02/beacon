@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { getUserEvents } from '../services/event.service';
-import { listMatches } from '../services/match.service';
+import { listMatchesWithProfiles, type MatchWithProfile } from '../services/match.service';
 import {
   GridBackground,
   Loader,
   NeonText,
   Pill,
+  PremiumBadge,
   Surface,
 } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
-import type { MatchRow, EventRow } from '../types/database';
+import type { EventRow } from '../types/database';
 
 interface MatchesScreenProps {
   userId: string;
@@ -18,7 +19,7 @@ interface MatchesScreenProps {
 
 export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
   const [event, setEvent] = useState<EventRow | null>(null);
-  const [matches, setMatches] = useState<MatchRow[]>([]);
+  const [matches, setMatches] = useState<MatchWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -28,7 +29,7 @@ export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
       if (events.length > 0) {
         const firstEvent = events[0];
         setEvent(firstEvent);
-        setMatches(await listMatches(firstEvent.id, userId));
+        setMatches(await listMatchesWithProfiles(firstEvent.id, userId));
       }
     } catch (error) {
       console.error('Failed to load matches:', error);
@@ -93,27 +94,33 @@ export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
         <FlatList
           data={matches}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => {
-            const otherUserId = item.user_a_id === userId ? item.user_b_id : item.user_a_id;
-            return (
-              <Surface elevated padded style={styles.card}>
-                <View style={{ gap: spacing.xs }}>
+          renderItem={({ item }) => (
+            <Surface elevated padded style={styles.card}>
+              <View style={{ gap: spacing.xs }}>
+                <View style={styles.headerRow}>
                   <Pill label="Synced" tone="success" dot />
-                  <NeonText variant="h2" style={{ marginTop: spacing.xs }}>
-                    {otherUserId.slice(0, 8)}…
-                  </NeonText>
-                  <NeonText variant="label" tone="dim">
-                    {new Date(item.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </NeonText>
+                  {item.other_is_premium ? <PremiumBadge size="sm" /> : null}
                 </View>
-              </Surface>
-            );
-          }}
+                <NeonText variant="h2" style={{ marginTop: spacing.xs }}>
+                  {item.other_name || `${item.other_user_id.slice(0, 8)}…`}
+                </NeonText>
+                {item.other_role ? (
+                  <NeonText variant="label" tone="accent">{item.other_role}</NeonText>
+                ) : null}
+                {item.other_one_liner ? (
+                  <NeonText variant="bodyMuted">{item.other_one_liner}</NeonText>
+                ) : null}
+                <NeonText variant="label" tone="dim" style={{ marginTop: spacing.xs }}>
+                  {new Date(item.created_at).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </NeonText>
+              </View>
+            </Surface>
+          )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
@@ -139,5 +146,6 @@ const styles = StyleSheet.create({
   },
   list: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl },
   card: { borderRadius: radii.lg, marginBottom: spacing.md },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   emptyCard: { width: '100%', borderRadius: radii.xl, gap: spacing.xs },
 });

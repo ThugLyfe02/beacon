@@ -7,3 +7,5 @@ export { Pill } from './Pill';
 export { Loader } from './Loader';
 export { NeonTabBar } from './NeonTabBar';
 export { BeaconMarker } from './BeaconMarker';
+export { PremiumBadge } from './PremiumBadge';
+export { PremiumDrawer } from './PremiumDrawer';

@@ -220,6 +220,7 @@ export async function getApprovedParticipants(
     name: row.users.name,
     role: row.users.role,
     one_liner: row.users.one_liner,
+    is_premium: !!row.users.is_premium,
   }));
 }
 
