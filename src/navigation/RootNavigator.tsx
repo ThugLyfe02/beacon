@@ -22,6 +22,7 @@ import RadarScreen from '../screens/RadarScreen';
 import HomeFeedScreen from '../screens/HomeFeedScreen';
 import ComposePostScreen from '../screens/ComposePostScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
 import EventFeedScreen from '../screens/EventFeedScreen';
 
 const Stack = createNativeStackNavigator();
@@ -201,6 +202,16 @@ export function RootNavigator() {
           name="Profile"
           component={ProfileScreen}
           options={{ animation: 'slide_from_right' }}
+        />
+
+        <Stack.Screen
+          name="EditProfile"
+          component={EditProfileScreen}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+            contentStyle: { backgroundColor: palette.void },
+          }}
         />
 
         <Stack.Screen

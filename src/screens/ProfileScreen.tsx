@@ -37,7 +37,7 @@ type ProfileParams = { Profile: { userId: string } };
 export default function ProfileScreen() {
   const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const route = useRoute<RouteProp<ProfileParams, 'Profile'>>();
-  const { user: authUser } = useAuth();
+  const { user: authUser, signOut } = useAuth();
   const viewerId = authUser?.id ?? null;
   const targetId = route.params?.userId ?? viewerId ?? '';
   const isSelf = !!viewerId && viewerId === targetId;
@@ -154,7 +154,26 @@ export default function ProfileScreen() {
                   }
                 }}
                 isSelf={isSelf}
-                onEdit={() => Alert.alert('Coming soon', 'Profile editing lives in Settings.')}
+                onEdit={() => navigation.navigate('EditProfile')}
+                onSignOut={() => {
+                  Alert.alert(
+                    'Drop signal?',
+                    'Sign out of Beacon on this device.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Sign out',
+                        style: 'destructive',
+                        onPress: async () => {
+                          const { error } = await signOut();
+                          if (error) {
+                            Alert.alert('Sign out failed', error.message);
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
                 postCount={feed.posts.length}
               />
             }
@@ -195,6 +214,7 @@ interface HeaderProps {
   onFollowPress: () => void;
   isSelf: boolean;
   onEdit: () => void;
+  onSignOut: () => void;
   postCount: number;
 }
 
@@ -206,6 +226,7 @@ function ProfileHeader({
   onFollowPress,
   isSelf,
   onEdit,
+  onSignOut,
   postCount,
 }: Readonly<HeaderProps>) {
   return (
@@ -249,13 +270,21 @@ function ProfileHeader({
       </View>
 
       {isSelf ? (
-        <GlowButton
-          label="Edit profile"
-          onPress={onEdit}
-          variant="ghost"
-          fullWidth
-          style={{ marginTop: spacing.md }}
-        />
+        <View style={styles.selfActions}>
+          <GlowButton
+            label="Edit profile"
+            onPress={onEdit}
+            variant="ghost"
+            fullWidth
+          />
+          <GlowButton
+            label="Sign out"
+            onPress={onSignOut}
+            variant="ghost"
+            fullWidth
+            style={styles.signOutBtn}
+          />
+        </View>
       ) : (
         <FollowButton
           following={following}
@@ -319,4 +348,6 @@ const styles = StyleSheet.create({
   statBlock: { alignItems: 'center', flex: 1 },
   divider: { height: spacing.sm },
   emptyCard: { borderRadius: radii.lg, marginTop: spacing.md },
+  selfActions: { gap: spacing.sm, marginTop: spacing.md },
+  signOutBtn: { borderColor: palette.danger },
 });
