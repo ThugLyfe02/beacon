@@ -1,4 +1,5 @@
 export { GridBackground } from './GridBackground';
+export { MotionBackdrop } from './MotionBackdrop';
 export { GlowButton } from './GlowButton';
 export { GlowInput } from './GlowInput';
 export { Surface } from './Surface';

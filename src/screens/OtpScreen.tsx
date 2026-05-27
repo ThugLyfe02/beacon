@@ -14,11 +14,12 @@ import { useAuth } from '../hooks/useAuth';
 import {
   GlowButton,
   GlowInput,
-  GridBackground,
   Loader,
+  MotionBackdrop,
   NeonText,
   Pill,
 } from '../components/ui';
+import { motionAssets } from '../lib/motionAssets';
 import { palette, spacing } from '../theme';
 
 export function OtpScreen() {
@@ -74,7 +75,7 @@ export function OtpScreen() {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" />
-        <GridBackground />
+        <MotionBackdrop source={motionAssets.otp} />
         <View style={styles.signingIn}>
           <Loader size={64} />
           <NeonText variant="label" tone="accent" style={{ marginTop: spacing.lg }}>
@@ -88,7 +89,7 @@ export function OtpScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <GridBackground />
+      <MotionBackdrop source={motionAssets.otp} />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
