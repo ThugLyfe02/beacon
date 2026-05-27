@@ -7,7 +7,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { palette, radii, spacing, typography } from '../../theme';
+import { glow, palette, radii, spacing, typography } from '../../theme';
 
 interface Props extends TextInputProps {
   label?: string;
@@ -91,15 +91,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     textAlignVertical: 'top',
   },
-  inputFocused: {
-    borderColor: palette.accent,
-    shadowColor: palette.accent,
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
-  },
-  inputError: { borderColor: palette.danger },
+  inputFocused: { borderColor: palette.accent, ...glow.accentSoft },
+  inputError: { borderColor: palette.danger, ...glow.danger },
   hint: { color: palette.textDim, textTransform: 'none', letterSpacing: 0, marginTop: spacing.xs },
   errorText: { color: palette.danger, textTransform: 'none', letterSpacing: 0, marginTop: spacing.xs },
 });

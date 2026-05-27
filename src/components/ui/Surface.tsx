@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, ViewProps, ViewStyle } from 'react-native';
-import { palette, radii, spacing } from '../../theme';
+import { glow as glowTokens, palette, radii, spacing } from '../../theme';
 
 interface Props extends ViewProps {
   elevated?: boolean;
@@ -37,12 +37,6 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surfaceElevated,
     borderColor: palette.hairlineStrong,
   },
-  glow: {
-    shadowColor: palette.accent,
-    shadowOpacity: 0.3,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
-  },
+  glow: glowTokens.accentCard,
   padded: { padding: spacing.lg },
 });

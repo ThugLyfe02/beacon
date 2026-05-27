@@ -19,9 +19,12 @@ export const palette = {
 
   premium: '#FFD24A',
   premiumGlow: 'rgba(255, 210, 74, 0.5)',
+  premiumSoft: 'rgba(255, 210, 74, 0.12)',
 
   danger: '#FF4D6A',
+  dangerSoft: 'rgba(255, 77, 106, 0.12)',
   success: '#22E39E',
+  successSoft: 'rgba(34, 227, 158, 0.12)',
 
   gridLine: 'rgba(0, 229, 255, 0.18)',
   gridLineDim: 'rgba(0, 229, 255, 0.08)',
@@ -111,12 +114,26 @@ export const glow = {
     shadowOffset: { width: 0, height: 0 },
     elevation: 6,
   },
+  accentCard: {
+    shadowColor: palette.accent,
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
   premium: {
     shadowColor: palette.premium,
     shadowOpacity: 0.7,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 0 },
     elevation: 10,
+  },
+  danger: {
+    shadowColor: palette.danger,
+    shadowOpacity: 0.55,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
 } as const;
 

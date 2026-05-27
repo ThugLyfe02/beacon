@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     borderRadius: radii.md,
     borderColor: palette.danger,
-    backgroundColor: 'rgba(255,77,106,0.08)',
+    backgroundColor: palette.dangerSoft,
   },
   codeRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   codeCard: { flex: 1, borderRadius: radii.lg, gap: 4 },

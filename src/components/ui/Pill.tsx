@@ -39,10 +39,10 @@ const styles = StyleSheet.create({
 
 const toneStyles = StyleSheet.create({
   accent: { backgroundColor: palette.accentSoft, borderColor: palette.accent },
-  premium: { backgroundColor: 'rgba(255,210,74,0.12)', borderColor: palette.premium },
+  premium: { backgroundColor: palette.premiumSoft, borderColor: palette.premium },
   neutral: { backgroundColor: palette.surface, borderColor: palette.hairlineStrong },
-  danger: { backgroundColor: 'rgba(255,77,106,0.12)', borderColor: palette.danger },
-  success: { backgroundColor: 'rgba(34,227,158,0.12)', borderColor: palette.success },
+  danger: { backgroundColor: palette.dangerSoft, borderColor: palette.danger },
+  success: { backgroundColor: palette.successSoft, borderColor: palette.success },
 });
 
 const toneDot = StyleSheet.create({

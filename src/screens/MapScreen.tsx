@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   },
   radarBtnActive: {
     borderColor: palette.premium,
-    backgroundColor: 'rgba(255,210,74,0.08)',
+    backgroundColor: palette.premiumSoft,
     ...glow.premium,
   },
   scanline: {
