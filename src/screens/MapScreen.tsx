@@ -4,6 +4,7 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import type { NavigationProp } from '@react-navigation/native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { getUserEvents, getParticipantCount } from '../services/event.service';
+import { getMyPendingRequests } from '../services/participant.service';
 import { getCurrentLocation, watchLocation } from '../services/location.service';
 import { getNearbyPremium, pushMyLocation } from '../services/premium.service';
 import { usePremium } from '../hooks/usePremium';
@@ -31,6 +32,9 @@ interface MapScreenProps {
 export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenProps>) {
   const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<
+    Array<{ participant_id: string; event_id: string; event_name: string; joined_at: string }>
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
@@ -42,8 +46,12 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
   const loadEvents = useCallback(async () => {
     try {
       setIsLoading(true);
-      const fetchedEvents = await getUserEvents(userId);
+      const [fetchedEvents, pending] = await Promise.all([
+        getUserEvents(userId),
+        getMyPendingRequests(),
+      ]);
       setEvents(fetchedEvents);
+      setPendingRequests(pending);
       const counts: Record<string, number> = {};
       await Promise.all(
         fetchedEvents
@@ -167,6 +175,27 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
     return (
       <View style={styles.emptyContainer}>
         <GridBackground />
+        {pendingRequests.length > 0 ? (
+          <Surface elevated padded glow style={[styles.emptyCard, { marginBottom: spacing.lg }]}>
+            <Pill label={`${pendingRequests.length} pending`} tone="accent" dot />
+            <NeonText variant="h1" tone="text" style={{ marginTop: spacing.md }}>
+              Awaiting approval
+            </NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
+              You've requested to join{' '}
+              <NeonText variant="body" tone="accent">{pendingRequests[0].event_name}</NeonText>
+              {pendingExtraLabel(pendingRequests.length)}. The host needs to approve you.
+            </NeonText>
+            <GlowButton
+              label="Refresh"
+              onPress={loadEvents}
+              variant="secondary"
+              fullWidth
+              size="sm"
+              style={{ marginTop: spacing.md }}
+            />
+          </Surface>
+        ) : null}
         <Surface elevated padded glow style={styles.emptyCard}>
           <Pill label="No active signals" tone="neutral" dot />
           <NeonText variant="h1" tone="text" style={{ marginTop: spacing.md }}>
@@ -317,6 +346,12 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
       />
     </View>
   );
+}
+
+function pendingExtraLabel(count: number): string {
+  if (count <= 1) return '';
+  const others = count - 1;
+  return ` and ${others} other${others === 1 ? '' : 's'}`;
 }
 
 const styles = StyleSheet.create({

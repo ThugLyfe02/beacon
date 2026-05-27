@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   getHostedEvent,
   deleteEvent,
@@ -43,26 +45,69 @@ export default function HostManagementScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [locationSubscription, setLocationSubscription] = useState<LocationSubscription | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadEventData = useCallback(async () => {
-    try {
+  const loadEventData = useCallback(
+    async (opts: { showAlert?: boolean } = {}) => {
+      const { showAlert = false } = opts;
       setIsLoading(true);
-      const hostedEvent = await getHostedEvent(userId);
-      setEvent(hostedEvent);
-      if (hostedEvent) {
-        setRequests(await getPendingJoinRequests(hostedEvent.id));
-        if (hostedEvent.location_type === 'live') setIsBroadcasting(true);
-      }
-    } catch (error) {
-      console.error('[HostManagement] Failed to load event data:', error);
-      Alert.alert('Signal lost', 'Could not load event data.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [userId]);
 
+      // Step 1: hosted event lookup
+      let hostedEvent: EventRow | null = null;
+      try {
+        hostedEvent = await getHostedEvent(userId);
+        setEvent(hostedEvent);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error('[HostManagement] getHostedEvent failed:', error);
+        const display = `Couldn't load your hosted event: ${msg}`;
+        setLoadError(display);
+        if (showAlert) Alert.alert('Hosted event lookup failed', display);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!hostedEvent) {
+        setLoadError(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // Step 2: pending requests
+      try {
+        const pending = await getPendingJoinRequests(hostedEvent.id);
+        setRequests(pending);
+        setLoadError(null);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error('[HostManagement] getPendingJoinRequests failed:', error);
+        const display = `Couldn't load pending requests: ${msg}`;
+        setLoadError(display);
+        if (showAlert) Alert.alert('Pending requests lookup failed', display);
+      }
+
+      if (hostedEvent.location_type === 'live') setIsBroadcasting(true);
+      setIsLoading(false);
+    },
+    [userId]
+  );
+
+  // Initial mount — show alert if first load fails so the user sees the cause.
   useEffect(() => {
-    loadEventData();
+    loadEventData({ showAlert: true });
+  }, [loadEventData]);
+
+  // Refresh whenever the Host tab regains focus. Silent — don't spam alerts.
+  useFocusEffect(
+    useCallback(() => {
+      loadEventData({ showAlert: false });
+    }, [loadEventData])
+  );
+
+  // Auto-poll every 10s while the screen is mounted. Silent on errors.
+  useEffect(() => {
+    const id = setInterval(() => loadEventData({ showAlert: false }), 10000);
+    return () => clearInterval(id);
   }, [loadEventData]);
 
   useEffect(() => {
@@ -101,7 +146,8 @@ export default function HostManagementScreen({
       setRequests((prev) => prev.filter((r) => r.participant_id !== participantId));
     } catch (error) {
       console.error('Failed to approve request:', error);
-      Alert.alert('Action failed', 'Could not approve.');
+      const msg = error instanceof Error ? error.message : 'Could not approve.';
+      Alert.alert('Approve failed', msg);
     }
   };
 
@@ -111,7 +157,8 @@ export default function HostManagementScreen({
       setRequests((prev) => prev.filter((r) => r.participant_id !== participantId));
     } catch (error) {
       console.error('Failed to reject request:', error);
-      Alert.alert('Action failed', 'Could not reject.');
+      const msg = error instanceof Error ? error.message : 'Could not reject.';
+      Alert.alert('Reject failed', msg);
     }
   };
 
@@ -220,8 +267,27 @@ export default function HostManagementScreen({
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <NeonText variant="label" tone="accent">PENDING REQUESTS</NeonText>
-          <Pill label={`${requests.length}`} tone={requests.length ? 'accent' : 'neutral'} />
+          <View style={styles.sectionHeaderRight}>
+            <Pill label={`${requests.length}`} tone={requests.length ? 'accent' : 'neutral'} />
+            <Pressable
+              onPress={() => loadEventData({ showAlert: true })}
+              hitSlop={12}
+              style={({ pressed }) => [styles.refreshBtn, pressed && { opacity: 0.7 }]}
+              accessibilityLabel="Refresh pending requests"
+            >
+              <NeonText variant="h2" tone="accent" glow style={styles.refreshGlyph}>↻</NeonText>
+            </Pressable>
+          </View>
         </View>
+
+        {loadError ? (
+          <Surface padded style={styles.errorBanner}>
+            <NeonText variant="label" tone="danger">LOAD ERROR</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>
+              {loadError}
+            </NeonText>
+          </Surface>
+        ) : null}
 
         {requests.length === 0 ? (
           <Surface padded style={{ marginTop: spacing.md }}>
@@ -285,6 +351,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  sectionHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  refreshBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.accentSoft,
+    borderWidth: 1,
+    borderColor: palette.accent,
+  },
+  refreshGlyph: { fontSize: 16, lineHeight: 18 },
+  errorBanner: {
+    marginTop: spacing.md,
+    borderRadius: radii.md,
+    borderColor: palette.danger,
+    backgroundColor: 'rgba(255,77,106,0.08)',
   },
   codeRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   codeCard: { flex: 1, borderRadius: radii.lg, gap: 4 },

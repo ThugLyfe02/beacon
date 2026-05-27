@@ -72,12 +72,11 @@ export function JoinEventScreen({
         }
         return;
       }
-      await requestToJoinEvent(event.id, userId);
+      const participant = await requestToJoinEvent(event.id, userId);
+      const isApproved = participant.status === 'approved';
       Alert.alert(
-        event.requires_approval ? 'Request sent' : 'You’re in',
-        event.requires_approval
-          ? 'Waiting for host approval.'
-          : 'You have joined the event.',
+        isApproved ? 'You’re in' : 'Request sent',
+        isApproved ? 'You have joined the event.' : 'Waiting for host approval.',
         [{ text: 'OK', onPress: onEventJoined }]
       );
     } catch (error) {

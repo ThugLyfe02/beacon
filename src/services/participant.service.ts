@@ -16,44 +16,41 @@ import type {
  */
 export async function requestToJoinEvent(
   eventId: string,
-  userId: string
+  _userId: string
 ): Promise<EventParticipantRow> {
-  console.log('[participant.service] Creating join request:', { eventId, userId });
+  console.log('[participant.service] Calling request_to_join_event RPC:', { eventId });
 
-  const { data, error } = await supabase
-    .from('event_participants')
-    .insert({
-      event_id: eventId,
-      user_id: userId,
-      status: 'pending',
-    })
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc('request_to_join_event', {
+    p_event_id: eventId,
+  });
 
   if (error) {
-    console.error('[participant.service] Error creating join request:', error);
-    console.error('[participant.service] Error code:', error.code);
-
-    // Handle duplicate request
-    if (error.code === '23505') {
-      console.log('[participant.service] Duplicate request, fetching existing');
-      const { data: existing } = await supabase
-        .from('event_participants')
-        .select('*')
-        .eq('event_id', eventId)
-        .eq('user_id', userId)
-        .single();
-
-      if (existing) {
-        console.log('[participant.service] Existing request found:', existing);
-        return existing;
-      }
-    }
-    throw new Error('Failed to request join');
+    console.error('[participant.service] request_to_join_event error:', error);
+    throw new Error(error.message ?? 'Failed to request join');
   }
+  const row = Array.isArray(data) ? data[0] : (data as EventParticipantRow);
+  if (!row) throw new Error('Join did not return a row');
+  return row;
+}
 
-  console.log('[participant.service] Join request created successfully:', data);
-  return data;
+/**
+ * Pending join requests for the current user (events they've requested but
+ * not yet been approved into). Used to render the "awaiting approval" state.
+ */
+export async function getMyPendingRequests(): Promise<
+  Array<{
+    participant_id: string;
+    event_id: string;
+    event_name: string;
+    joined_at: string;
+  }>
+> {
+  const { data, error } = await supabase.rpc('get_my_pending_requests');
+  if (error) {
+    console.error('[participant.service] get_my_pending_requests error:', error);
+    return [];
+  }
+  return data ?? [];
 }
 
 /**
@@ -138,13 +135,18 @@ export async function approveJoinRequest(
     .update({ status: 'approved' })
     .eq('id', participantId)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
-    console.error('[participant.service] Error approving join request:', error);
-    throw new Error('Failed to approve request');
+    console.error('[participant.service] approveJoinRequest error:', error);
+    throw new Error(error.message ?? 'Failed to approve request');
   }
-
+  if (!data) {
+    // Update returned no rows — almost always an RLS / policy mismatch.
+    throw new Error(
+      'Approval was blocked by the database (RLS). Apply migration 004 + 008 to grant the host UPDATE access on event_participants.'
+    );
+  }
   return data;
 }
 
@@ -159,13 +161,17 @@ export async function rejectJoinRequest(
     .update({ status: 'rejected' })
     .eq('id', participantId)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
-    console.error('[participant.service] Error rejecting join request:', error);
-    throw new Error('Failed to reject request');
+    console.error('[participant.service] rejectJoinRequest error:', error);
+    throw new Error(error.message ?? 'Failed to reject request');
   }
-
+  if (!data) {
+    throw new Error(
+      'Rejection was blocked by the database (RLS). Apply migration 004 + 008 to grant the host UPDATE access on event_participants.'
+    );
+  }
   return data;
 }
 
