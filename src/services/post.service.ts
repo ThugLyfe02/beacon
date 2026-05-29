@@ -3,6 +3,7 @@
 // Posts + likes for the social feed (migration 007).
 // =============================================================================
 
+import { File } from 'expo-file-system';
 import { supabase } from '../lib/supabase';
 import type { FeedPost, PostRow, Timestamp, UUID } from '../types/database';
 
@@ -113,19 +114,25 @@ async function uploadPostImage(userId: UUID, localUri: string): Promise<string> 
   const ext = guessExtension(localUri);
   const filename = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-  // RN file URIs need to be turned into a Blob/ArrayBuffer for Supabase upload.
-  const response = await fetch(localUri);
-  const blob = await response.blob();
+  // fetch(localUri).blob() returns a zero-byte blob in React Native, so we
+  // read the file with expo-file-system and upload the actual bytes.
+  const arrayBuffer = await new File(localUri).arrayBuffer();
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+    throw new Error(`Image at ${localUri} read as 0 bytes — upload aborted`);
+  }
+  console.log(
+    `[post.service] uploading ${filename} (${arrayBuffer.byteLength} bytes)`
+  );
 
   const { error } = await supabase.storage
     .from(POST_IMAGE_BUCKET)
-    .upload(filename, blob, {
-      contentType: blob.type || `image/${ext}`,
+    .upload(filename, arrayBuffer, {
+      contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
       upsert: false,
     });
   if (error) {
     console.error('[post.service] image upload error:', error);
-    throw new Error('Image upload failed');
+    throw new Error(error.message ?? 'Image upload failed');
   }
   return filename;
 }
@@ -133,7 +140,7 @@ async function uploadPostImage(userId: UUID, localUri: string): Promise<string> 
 export function getPostImageUrl(imagePath: string | null): string | null {
   if (!imagePath) return null;
   const { data } = supabase.storage.from(POST_IMAGE_BUCKET).getPublicUrl(imagePath);
-  return data.publicUrl;
+  return data?.publicUrl ?? null;
 }
 
 function guessExtension(uri: string): string {
