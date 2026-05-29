@@ -36,8 +36,9 @@ export function DiscoverScreen({ userId }: Readonly<DiscoverScreenProps>) {
         setParticipants(approved);
       }
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       console.error('Failed to load discover data:', error);
-      Alert.alert('Signal lost', 'Could not load participants.');
+      Alert.alert('Signal lost', `Could not load participants: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -51,15 +52,25 @@ export function DiscoverScreen({ userId }: Readonly<DiscoverScreenProps>) {
     if (!event) return;
     setSendingRequestTo(participant.user_id);
     try {
-      const match = await sendRequest(event.id, userId, participant.user_id);
-      if (match) {
-        Alert.alert('Connection live', `You synced with ${participant.name || 'this signal'}.`);
+      const result = await sendRequest(event.id, userId, participant.user_id);
+      if (result.error) {
+        console.error('Failed to send request:', result.error);
+        Alert.alert(
+          'Transmit failed',
+          result.error.message || 'Could not send connection request.'
+        );
+      } else if (result.match) {
+        Alert.alert(
+          'Connection live',
+          `You synced with ${participant.name || 'this signal'}.`
+        );
       } else {
         Alert.alert('Signal sent', 'Connection request transmitted.');
       }
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       console.error('Failed to send request:', error);
-      Alert.alert('Transmit failed', 'Could not send connection request.');
+      Alert.alert('Transmit failed', `Could not send connection request: ${msg}`);
     } finally {
       setSendingRequestTo(null);
     }

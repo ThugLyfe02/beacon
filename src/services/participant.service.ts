@@ -93,34 +93,24 @@ export async function joinEventWithCode(
 export async function getPendingJoinRequests(
   eventId: string
 ): Promise<PendingJoinRequest[]> {
-  console.log('[participant.service] Fetching pending requests for event:', eventId);
-
-  const { data, error } = await supabase
-    .from('event_participants')
-    .select('*, users(*)')
-    .eq('event_id', eventId)
-    .eq('status', 'pending')
-    .order('joined_at', { ascending: false });
+  const { data, error } = await supabase.rpc('get_pending_join_requests', {
+    p_event_id: eventId,
+  });
 
   if (error) {
     console.error('[participant.service] Error fetching pending requests:', error);
-    console.error('[participant.service] Error code:', error.code);
-    console.error('[participant.service] Error message:', error.message);
-    throw new Error('Failed to fetch pending requests');
+    throw new Error(error.message ?? 'Failed to fetch pending requests');
   }
 
-  console.log('[participant.service] Raw data from query:', data);
-  console.log('[participant.service] Number of pending rows:', data?.length || 0);
-
-  return (data || []).map((row: any) => ({
-    participant_id: row.id,
+  return (data ?? []).map((row: any) => ({
+    participant_id: row.participant_id,
     user_id: row.user_id,
     event_id: row.event_id,
     joined_at: row.joined_at,
-    name: row.users.name,
-    email: row.users.email,
-    role: row.users.role,
-    one_liner: row.users.one_liner,
+    name: row.name ?? null,
+    email: row.email ?? null,
+    role: row.role ?? null,
+    one_liner: row.one_liner ?? null,
   }));
 }
 
@@ -198,35 +188,27 @@ export async function getApprovedParticipants(
   eventId: string,
   excludeUserId?: string
 ): Promise<DiscoverableParticipant[]> {
-  let query = supabase
-    .from('event_participants')
-    .select('*, users(*)')
-    .eq('event_id', eventId)
-    .eq('status', 'approved')
-    .order('joined_at', { ascending: false });
-
-  if (excludeUserId) {
-    query = query.neq('user_id', excludeUserId);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await supabase.rpc('get_event_approved_participants', {
+    p_event_id: eventId,
+    p_exclude_user_id: excludeUserId ?? null,
+  });
 
   if (error) {
     console.error('[participant.service] Error fetching approved participants:', error);
-    throw new Error('Failed to fetch participants');
+    throw new Error(error.message ?? 'Failed to fetch participants');
   }
 
-  return (data || []).map((row: any) => ({
-    participant_id: row.id,
+  return (data ?? []).map((row: any) => ({
+    participant_id: row.participant_id,
     user_id: row.user_id,
     event_id: row.event_id,
     status: row.status,
     joined_at: row.joined_at,
-    email: row.users.email,
-    name: row.users.name,
-    role: row.users.role,
-    one_liner: row.users.one_liner,
-    is_premium: !!row.users.is_premium,
+    email: row.email ?? null,
+    name: row.name ?? null,
+    role: row.role ?? null,
+    one_liner: row.one_liner ?? null,
+    is_premium: !!row.is_premium,
   }));
 }
 
