@@ -15,6 +15,12 @@
     },
     "plugins": [
       "expo-video"
-    ]
+    ],
+    "ios": {
+      "bundleIdentifier": "com.beacon.app"
+    },
+    "android": {
+      "package": "com.beacon.app"
+    }
   }
 }
