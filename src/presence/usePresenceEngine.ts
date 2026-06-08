@@ -1,79 +1,46 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useRef } from "react";
 import {
   ProximitySignal,
-  calculateBucket,
-  computeOpportunityDensity,
-  computeTensionScore,
-  computeMomentum
-} from './ProximityEngine';
+  evaluatePresenceState
+} from "./PresenceEngine";
 
-export function usePresenceEngine({
-  rawSignals,
-  premiumNearby,
-  eventEnd,
-  signalsSent,
-  mutualMatches,
-  officeHoursActive
-}: {
+interface PresenceParams {
   rawSignals: ProximitySignal[];
-  premiumNearby: number;
   eventEnd: string;
   signalsSent: number;
   mutualMatches: number;
   officeHoursActive: boolean;
-}) {
-  const [signals, setSignals] = useState<any[]>([]);
+}
 
-  useEffect(() => {
-    const enriched = rawSignals.map(s => ({
-      ...s,
-      bucket: calculateBucket(s.distanceFeet)
-    }));
-    setSignals(enriched);
-  }, [rawSignals]);
+export function usePresenceEngine({
+  rawSignals,
+  eventEnd,
+  signalsSent,
+  mutualMatches,
+  officeHoursActive
+}: PresenceParams) {
 
-  const density = useMemo(
-    () => computeOpportunityDensity(signals),
-    [signals]
-  );
+  const lastEvaluationRef = useRef<number>(0);
 
-  const timeRemaining = useMemo(() => {
-    const diff =
-      new Date(eventEnd).getTime() - Date.now();
-    return Math.max(0, Math.floor(diff / 60000));
-  }, [eventEnd]);
+  const presence = useMemo(() => {
+    const now = Date.now();
 
-  const tensionScore = useMemo(
-    () =>
-      computeTensionScore(
-        density,
-        premiumNearby,
-        timeRemaining
-      ),
-    [density, premiumNearby, timeRemaining]
-  );
+    // Throttle heavy evaluation to max once per second
+    if (now - lastEvaluationRef.current < 1000) {
+      return null;
+    }
 
-  const momentumScore = useMemo(
-    () =>
-      computeMomentum(
-        signalsSent,
-        mutualMatches,
-        officeHoursActive
-      ),
-    [signalsSent, mutualMatches, officeHoursActive]
-  );
+    lastEvaluationRef.current = now;
 
-  const visibleAvatars = useMemo(
-    () => signals.filter(s => s.bucket > 0),
-    [signals]
-  );
+    return evaluatePresenceState({
+      rawSignals,
+      eventEnd,
+      signalsSent,
+      mutualMatches,
+      officeHoursActive
+    });
 
-  return {
-    signals,
-    visibleAvatars,
-    density,
-    tensionScore,
-    momentumScore,
-    timeRemaining
-  };
+  }, [rawSignals, eventEnd, signalsSent, mutualMatches, officeHoursActive]);
+
+  return presence;
 }
