@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import {
   useNavigation,
   useRoute,
@@ -67,11 +67,7 @@ export default function SpatialFieldScreen() {
   };
 
   const handleOfficeHours = (targetId: string) => {
-    // Phase 2 will replace this with the real office-hours request screen.
-    Alert.alert(
-      "Office Hours",
-      "Premium-only scheduling is rolling out — coming in the next release."
-    );
+    navigation.navigate("OfficeHoursRequest", { eventId, recipientId: targetId });
   };
 
   if (!presence) {

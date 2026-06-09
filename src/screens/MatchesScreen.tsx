@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, FlatList, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { getUserEvents } from '../services/event.service';
 import { listMatchesWithProfiles, type MatchWithProfile } from '../services/match.service';
 import {
@@ -18,6 +19,7 @@ interface MatchesScreenProps {
 }
 
 export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
+  const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const [event, setEvent] = useState<EventRow | null>(null);
   const [matches, setMatches] = useState<MatchWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +83,12 @@ export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
         <NeonText variant="bodyMuted" style={{ marginTop: spacing.xs }}>
           {event.name}
         </NeonText>
+        <Pressable
+          style={styles.officeHoursBtn}
+          onPress={() => navigation.navigate('OfficeHoursInbox')}
+        >
+          <NeonText variant="label" tone="accent">OFFICE HOURS</NeonText>
+        </Pressable>
       </View>
 
       {matches.length === 0 ? (
@@ -147,5 +155,14 @@ const styles = StyleSheet.create({
   list: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxxl },
   card: { borderRadius: radii.lg, marginBottom: spacing.md },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
+  officeHoursBtn: {
+    marginTop: spacing.md,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.accent,
+    borderRadius: radii.md,
+  },
   emptyCard: { width: '100%', borderRadius: radii.xl, gap: spacing.xs },
 });

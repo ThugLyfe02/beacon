@@ -27,6 +27,8 @@ import EventFeedScreen from '../screens/EventFeedScreen';
 import EventLobbyScreen from '../screens/EventLobbyScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
+import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
+import OfficeHoursInboxScreen from '../screens/OfficeHoursInboxScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -229,6 +231,34 @@ export function RootNavigator() {
             headerStyle: { backgroundColor: palette.space },
             headerTitleStyle: { color: palette.text, fontWeight: '700' },
             headerTintColor: palette.accent,
+          }}
+        />
+
+        <Stack.Screen
+          name="OfficeHoursRequest"
+          component={OfficeHoursRequestScreen}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+            contentStyle: { backgroundColor: palette.void },
+            headerShown: true,
+            title: 'Office Hours',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+          }}
+        />
+
+        <Stack.Screen
+          name="OfficeHoursInbox"
+          component={OfficeHoursInboxScreen}
+          options={{
+            headerShown: true,
+            title: 'Office Hours',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
           }}
         />
 
