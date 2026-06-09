@@ -6,6 +6,7 @@ import { View, StyleSheet } from 'react-native';
 import { GridBackground, Loader, NeonTabBar, NeonText } from '../components/ui';
 import { palette, spacing } from '../theme';
 import { useAuth } from '../hooks/useAuth';
+import { useRegisterPushToken } from '../hooks/useRegisterPushToken';
 import { hasCompletedProfile } from '../services/user.service';
 import { getUserEvents, getHostedEvent } from '../services/event.service';
 import { NavigatorContext } from './NavigatorContext';
@@ -30,6 +31,7 @@ import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
 import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
 import OfficeHoursInboxScreen from '../screens/OfficeHoursInboxScreen';
 import OfficeHoursCallScreen from '../screens/OfficeHoursCallScreen';
+import EscortPanelScreen from '../screens/EscortPanelScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -93,6 +95,7 @@ function MainTabs({ userId, isHost, onEventEnded }: Readonly<MainTabsProps>) {
 
 export function RootNavigator() {
   const { user, loading: authLoading } = useAuth();
+  useRegisterPushToken(user?.id);
   const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
@@ -271,6 +274,19 @@ export function RootNavigator() {
             animation: 'fade',
             contentStyle: { backgroundColor: '#0a0a0a' },
             headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="EscortPanel"
+          component={EscortPanelScreen}
+          options={{
+            headerShown: true,
+            title: 'Escort Queue',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
           }}
         />
 

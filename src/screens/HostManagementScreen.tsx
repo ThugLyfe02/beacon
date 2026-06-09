@@ -7,7 +7,7 @@ import {
   Switch,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
 import {
   getHostedEvent,
   deleteEvent,
@@ -40,6 +40,7 @@ export default function HostManagementScreen({
   userId,
   onEventEnded,
 }: Readonly<HostManagementScreenProps>) {
+  const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const [event, setEvent] = useState<EventRow | null>(null);
   const [requests, setRequests] = useState<PendingJoinRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -264,6 +265,17 @@ export default function HostManagementScreen({
         </View>
       ) : null}
 
+      {event ? (
+        <View style={styles.section}>
+          <Pressable
+            onPress={() => navigation.navigate('EscortPanel', { eventId: event.id })}
+            style={styles.escortBtn}
+          >
+            <NeonText variant="label" tone="accent">ESCORT QUEUE →</NeonText>
+          </Pressable>
+        </View>
+      ) : null}
+
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <NeonText variant="label" tone="accent">PENDING REQUESTS</NeonText>
@@ -393,4 +405,11 @@ const styles = StyleSheet.create({
     borderColor: palette.danger,
   },
   emptyCard: { width: '100%', borderRadius: radii.xl, gap: spacing.xs },
+  escortBtn: {
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.accent,
+    borderRadius: radii.md,
+    alignItems: 'center',
+  },
 });
