@@ -5,27 +5,12 @@
 // =============================================================================
 
 import { supabase } from '../lib/supabase';
+import { bearingDegrees, haversineMeters } from '../lib/geometry';
 import type { ProximitySignal } from '../presence/PresenceEngine';
 
 // Ignore peers whose last fix is older than this — they're probably gone.
 const STALE_LOCATION_MS = 5 * 60 * 1000;
 const METERS_PER_FOOT = 0.3048;
-
-function haversineMeters(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const R = 6371000; // m
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
 
 interface AttendeeRow {
   user_id: string;
@@ -88,6 +73,12 @@ export async function getEventProximitySignals(
       mutual: false,
       timestamp: now,
       targetAvatarUrl3d: u.avatar_url_3d ?? null,
+      bearingFromObserverDeg: bearingDegrees(
+        observerLat,
+        observerLng,
+        u.last_known_lat,
+        u.last_known_lng
+      ),
     };
     return [signal];
   });

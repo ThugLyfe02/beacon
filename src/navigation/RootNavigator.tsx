@@ -32,6 +32,7 @@ import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
 import OfficeHoursInboxScreen from '../screens/OfficeHoursInboxScreen';
 import OfficeHoursCallScreen from '../screens/OfficeHoursCallScreen';
 import EscortPanelScreen from '../screens/EscortPanelScreen';
+import ARFieldScreen from '../spatial/ARFieldScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -274,6 +275,19 @@ export function RootNavigator() {
             animation: 'fade',
             contentStyle: { backgroundColor: '#0a0a0a' },
             headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="ARField"
+          component={ARFieldScreen}
+          options={{
+            headerShown: true,
+            title: 'AR Field',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'fade',
           }}
         />
 

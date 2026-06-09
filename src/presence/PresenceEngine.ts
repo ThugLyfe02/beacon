@@ -27,6 +27,8 @@ export interface ProximitySignal {
   mutual?: boolean;
   timestamp?: number;
   targetAvatarUrl3d?: string | null;
+  /** True compass bearing (0=N, 90=E) from observer toward target. */
+  bearingFromObserverDeg?: number;
 }
 
 export interface PresenceState {

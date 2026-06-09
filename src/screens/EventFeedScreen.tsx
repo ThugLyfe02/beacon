@@ -74,6 +74,9 @@ export default function EventFeedScreen() {
   const openSpatialField = () =>
     navigation.navigate('SpatialField', { eventId });
 
+  const openAR = () =>
+    navigation.navigate('ARField', { eventId });
+
   return (
     <View style={styles.container}>
       <GridBackground intensity={0.35} />
@@ -91,6 +94,9 @@ export default function EventFeedScreen() {
           </Pressable>
           <Pressable onPress={openSpatialField} style={styles.presenceBtn}>
             <NeonText variant="label" tone="accent">FIELD</NeonText>
+          </Pressable>
+          <Pressable onPress={openAR} style={styles.presenceBtn}>
+            <NeonText variant="label" tone="accent">AR</NeonText>
           </Pressable>
         </View>
       </View>
