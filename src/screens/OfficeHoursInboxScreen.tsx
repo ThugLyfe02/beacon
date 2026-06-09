@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import {
   acceptOfficeHoursRequest,
@@ -19,6 +20,7 @@ import {
 
 export default function OfficeHoursInboxScreen() {
   const { user } = useAuth();
+  const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const userId = user?.id ?? '';
   const [items, setItems] = useState<OfficeHoursRequestWithPeer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +108,16 @@ export default function OfficeHoursInboxScreen() {
                 onPress={() => onCancel(item.id)}
               >
                 <Text style={styles.btnText}>Cancel</Text>
+              </Pressable>
+            )}
+            {(item.status === 'accepted' || item.status === 'awaiting_escort') && (
+              <Pressable
+                style={[styles.btn, styles.singleBtn]}
+                onPress={() =>
+                  navigation.navigate('OfficeHoursCall', { officeHoursRequestId: item.id })
+                }
+              >
+                <Text style={styles.btnText}>Join Call</Text>
               </Pressable>
             )}
           </View>

@@ -29,6 +29,7 @@ import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
 import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
 import OfficeHoursInboxScreen from '../screens/OfficeHoursInboxScreen';
+import OfficeHoursCallScreen from '../screens/OfficeHoursCallScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -259,6 +260,17 @@ export function RootNavigator() {
             headerTitleStyle: { color: palette.text, fontWeight: '700' },
             headerTintColor: palette.accent,
             animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="OfficeHoursCall"
+          component={OfficeHoursCallScreen}
+          options={{
+            presentation: 'fullScreenModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: '#0a0a0a' },
+            headerShown: false,
           }}
         />
 

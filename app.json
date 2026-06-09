@@ -17,10 +17,23 @@
       "expo-video"
     ],
     "ios": {
-      "bundleIdentifier": "com.beacon.app"
+      "bundleIdentifier": "com.beacon.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Beacon uses the camera for office-hours video calls and the AR field view.",
+        "NSMicrophoneUsageDescription": "Beacon uses the microphone for office-hours voice and video calls.",
+        "UIBackgroundModes": [
+          "voip",
+          "audio"
+        ]
+      }
     },
     "android": {
-      "package": "com.beacon.app"
+      "package": "com.beacon.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     }
   }
 }
