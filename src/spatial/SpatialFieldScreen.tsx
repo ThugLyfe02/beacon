@@ -1,18 +1,21 @@
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import { Canvas } from "@react-three/fiber/native";
 import AvatarRenderer from "./AvatarRenderer";
 import { usePresenceEngine } from "../presence/usePresenceEngine";
 import TensionBar from "../components/TensionBar";
+import { useAuth } from "../hooks/useAuth";
+import { usePresenceFeed } from "../hooks/usePresenceFeed";
 import { getEventById } from "../services/event.service";
-import type { ProximitySignal } from "../presence/PresenceEngine";
 
 type SpatialFieldParams = { SpatialField: { eventId: string } };
 
 export default function SpatialFieldScreen() {
   const route = useRoute<RouteProp<SpatialFieldParams, "SpatialField">>();
   const { eventId } = route.params;
+  const { user } = useAuth();
+  const userId = user?.id ?? "";
 
   const [eventEnd, setEventEnd] = useState<string | null>(null);
 
@@ -28,13 +31,13 @@ export default function SpatialFieldScreen() {
     };
   }, [eventId]);
 
-  const rawSignals: ProximitySignal[] = useMemo(() => [], []);
+  const { rawSignals, signalsSent, mutualMatches } = usePresenceFeed(eventId, userId);
 
   const presence = usePresenceEngine({
     rawSignals,
     eventEnd: eventEnd ?? new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-    signalsSent: 0,
-    mutualMatches: 0,
+    signalsSent,
+    mutualMatches,
     officeHoursActive: false,
   });
 

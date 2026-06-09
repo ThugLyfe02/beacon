@@ -7,8 +7,8 @@ import { logPresenceMetrics } from "../presence/TelemetryLogger";
 import TensionBar from "../components/TensionBar";
 import { FEATURE_FLAGS } from "../config/featureFlags";
 import { useAuth } from "../hooks/useAuth";
+import { usePresenceFeed } from "../hooks/usePresenceFeed";
 import { getEventById } from "../services/event.service";
-import type { ProximitySignal } from "../presence/PresenceEngine";
 
 type EventLobbyParams = { EventLobby: { eventId: string; eventName?: string } };
 
@@ -34,10 +34,10 @@ export default function EventLobbyScreen() {
     };
   }, [eventId]);
 
-  // Real proximity feeds aren't wired yet — start with zeros so the screen renders.
-  const rawSignals: ProximitySignal[] = useMemo(() => [], []);
-  const signalsSent = 0;
-  const mutualMatches = 0;
+  const { rawSignals, signalsSent, mutualMatches, lastError, hasLocation } =
+    usePresenceFeed(eventId, userId);
+
+  // Office hours arrives in Phase 2.
   const officeHoursActive = false;
 
   const presence = usePresenceEngine({
@@ -104,6 +104,14 @@ export default function EventLobbyScreen() {
         <View style={styles.regretContainer}>
           <Text style={styles.regretText}>
             You passed within activation range of {presence.missedSignals} high-signal profiles.
+          </Text>
+        </View>
+      )}
+
+      {!hasLocation && (
+        <View style={styles.regretContainer}>
+          <Text style={styles.regretText}>
+            {lastError ?? "Waiting for your location…"}
           </Text>
         </View>
       )}

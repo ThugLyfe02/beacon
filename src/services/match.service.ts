@@ -46,6 +46,26 @@ export interface PostEventSummaryInput {
 // ─── Service Functions ────────────────────────────────────────────────────────
 
 /**
+ * Count outgoing connection requests this user has sent in an event.
+ * Feeds the PresenceEngine momentum score.
+ */
+export async function countSentConnectionRequests(
+  eventId: string,
+  requesterId: string
+): Promise<number> {
+  const { count, error } = await supabase
+    .from('connection_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .eq('requester_id', requesterId);
+  if (error) {
+    console.error('[match.service] countSentConnectionRequests error:', error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+/**
  * List all matches for a user within a given event, ordered by most recent first.
  */
 export async function listMatches(
