@@ -1,23 +1,35 @@
 import React, { Suspense, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { useRoute, type RouteProp } from "@react-navigation/native";
+import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import {
+  useNavigation,
+  useRoute,
+  type NavigationProp,
+  type RouteProp,
+} from "@react-navigation/native";
 import { Canvas } from "@react-three/fiber/native";
 import AvatarRenderer from "./AvatarRenderer";
+import AvatarActionSheet from "./AvatarActionSheet";
 import { usePresenceEngine } from "../presence/usePresenceEngine";
 import TensionBar from "../components/TensionBar";
 import { useAuth } from "../hooks/useAuth";
 import { usePresenceFeed } from "../hooks/usePresenceFeed";
 import { getEventById } from "../services/event.service";
+import { sendConnectionRequest } from "../services/match.service";
+import type { ProximitySignal } from "../presence/PresenceEngine";
 
 type SpatialFieldParams = { SpatialField: { eventId: string } };
 
+type Target = ProximitySignal & { bucket?: number };
+
 export default function SpatialFieldScreen() {
   const route = useRoute<RouteProp<SpatialFieldParams, "SpatialField">>();
+  const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const { eventId } = route.params;
   const { user } = useAuth();
   const userId = user?.id ?? "";
 
   const [eventEnd, setEventEnd] = useState<string | null>(null);
+  const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,6 +53,27 @@ export default function SpatialFieldScreen() {
     officeHoursActive: false,
   });
 
+  const handleConnect = async (targetId: string) => {
+    const result = await sendConnectionRequest(eventId, userId, targetId);
+    if (result.error) {
+      throw new Error(
+        "message" in result.error ? result.error.message : "Could not send request"
+      );
+    }
+  };
+
+  const handleViewProfile = (targetId: string) => {
+    navigation.navigate("Profile", { userId: targetId });
+  };
+
+  const handleOfficeHours = (targetId: string) => {
+    // Phase 2 will replace this with the real office-hours request screen.
+    Alert.alert(
+      "Office Hours",
+      "Premium-only scheduling is rolling out — coming in the next release."
+    );
+  };
+
   if (!presence) {
     return (
       <View style={styles.fallback}>
@@ -58,13 +91,26 @@ export default function SpatialFieldScreen() {
         <pointLight position={[10, 10, 10]} intensity={0.8} />
         <Suspense fallback={null}>
           {presence.visibleTargets.map((target) => (
-            <AvatarRenderer key={target.targetId} avatar={target} />
+            <AvatarRenderer
+              key={target.targetId}
+              avatar={target}
+              onTap={setSelectedTarget}
+            />
           ))}
         </Suspense>
       </Canvas>
       <View style={styles.overlay}>
         <TensionBar tensionScore={presence.tensionScore} urgencyLevel={presence.urgencyLevel} />
       </View>
+
+      <AvatarActionSheet
+        target={selectedTarget}
+        visible={selectedTarget !== null}
+        onClose={() => setSelectedTarget(null)}
+        onConnect={handleConnect}
+        onViewProfile={handleViewProfile}
+        onOfficeHours={handleOfficeHours}
+      />
     </View>
   );
 }

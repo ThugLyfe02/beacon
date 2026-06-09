@@ -21,9 +21,10 @@ function positionForSignal(signal: AvatarTarget): [number, number, number] {
 
 interface Props {
   avatar: AvatarTarget;
+  onTap?: (avatar: AvatarTarget) => void;
 }
 
-export default function AvatarRenderer({ avatar }: Props) {
+export default function AvatarRenderer({ avatar, onTap }: Props) {
   const position = useMemo(() => positionForSignal(avatar), [avatar.targetId, avatar.distanceFeet]);
   const color = useMemo(
     () => colorForBucket(avatar.bucket ?? 0, avatar.targetPremium),
@@ -31,7 +32,13 @@ export default function AvatarRenderer({ avatar }: Props) {
   );
 
   return (
-    <mesh position={position}>
+    <mesh
+      position={position}
+      onClick={(e) => {
+        e.stopPropagation();
+        onTap?.(avatar);
+      }}
+    >
       <sphereGeometry args={[0.6, 16, 16]} />
       <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
     </mesh>
