@@ -24,6 +24,8 @@ import ComposePostScreen from '../screens/ComposePostScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import EventFeedScreen from '../screens/EventFeedScreen';
+import EventLobbyScreen from '../screens/EventLobbyScreen';
+import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -218,6 +220,32 @@ export function RootNavigator() {
           name="EventFeed"
           component={EventFeedScreen}
           options={{ animation: 'slide_from_right' }}
+        />
+
+        <Stack.Screen
+          name="EventLobby"
+          component={EventLobbyScreen}
+          options={{
+            headerShown: true,
+            title: 'Lobby',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="SpatialField"
+          component={SpatialFieldScreen}
+          options={{
+            headerShown: true,
+            title: 'Field',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'fade',
+          }}
         />
 
         <Stack.Screen

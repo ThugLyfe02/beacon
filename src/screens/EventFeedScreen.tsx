@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import {
   Alert,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -67,6 +68,12 @@ export default function EventFeedScreen() {
   const openCompose = () =>
     navigation.navigate('Compose', { userId, eventId, eventName });
 
+  const openLobby = () =>
+    navigation.navigate('EventLobby', { eventId, eventName });
+
+  const openSpatialField = () =>
+    navigation.navigate('SpatialField', { eventId });
+
   return (
     <View style={styles.container}>
       <GridBackground intensity={0.35} />
@@ -78,6 +85,14 @@ export default function EventFeedScreen() {
         <NeonText variant="bodyMuted" style={{ marginTop: spacing.xs }}>
           Only visible to approved participants.
         </NeonText>
+        <View style={styles.presenceRow}>
+          <Pressable onPress={openLobby} style={styles.presenceBtn}>
+            <NeonText variant="label" tone="accent">LOBBY</NeonText>
+          </Pressable>
+          <Pressable onPress={openSpatialField} style={styles.presenceBtn}>
+            <NeonText variant="label" tone="accent">FIELD</NeonText>
+          </Pressable>
+        </View>
       </View>
 
       {feed.loading ? (
@@ -145,5 +160,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing.xl,
     bottom: spacing.xl,
+  },
+  presenceRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  presenceBtn: {
+    borderWidth: 1,
+    borderColor: palette.accent,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
 });

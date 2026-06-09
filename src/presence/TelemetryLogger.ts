@@ -1,4 +1,6 @@
-export function logPresenceMetrics(presenceState) {
+import type { PresenceState } from './PresenceEngine';
+
+export function logPresenceMetrics(presenceState: PresenceState) {
   console.log("[Presence Metrics]", {
     density: presenceState.density,
     premiumDensity: presenceState.premiumDensity,

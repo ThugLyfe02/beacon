@@ -13,9 +13,11 @@
     "@react-navigation/bottom-tabs": "^7.14.0",
     "@react-navigation/native": "^7.1.28",
     "@react-navigation/native-stack": "^7.13.0",
+    "@react-three/fiber": "^9.6.1",
     "@supabase/supabase-js": "^2.97.0",
     "expo": "^55.0.24",
     "expo-file-system": "~55.0.20",
+    "expo-gl": "~55.0.14",
     "expo-image-picker": "~55.0.20",
     "expo-location": "~55.1.10",
     "expo-status-bar": "~55.0.6",
@@ -28,11 +30,13 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.23.0",
     "react-native-url-polyfill": "^3.0.0",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@react-native-community/cli": "latest",
     "@types/react": "~19.2.10",
+    "@types/three": "^0.184.1",
     "typescript": "~5.9.2"
   },
   "private": true
