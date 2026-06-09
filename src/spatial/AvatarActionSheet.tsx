@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   StyleSheet,
@@ -8,6 +9,8 @@ import {
   View,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { blockUser, reportUser } from '../services/abuse.service';
+import { useAuth } from '../hooks/useAuth';
 import type { ProximitySignal } from '../presence/PresenceEngine';
 
 interface TargetProfile {
@@ -33,7 +36,9 @@ export default function AvatarActionSheet({
   onConnect,
   onViewProfile,
   onOfficeHours,
-}: Props) {
+}: Readonly<Props>) {
+  const { user } = useAuth();
+  const myId = user?.id ?? '';
   const [profile, setProfile] = useState<TargetProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -88,6 +93,50 @@ export default function AvatarActionSheet({
       ? 'Silhouette'
       : 'Distortion';
 
+  const confirmBlock = () => {
+    Alert.alert(
+      'Block this person?',
+      'They will disappear from your field and cannot send you requests at this event.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await blockUser(myId, target.targetId);
+              onClose();
+            } catch (e) {
+              Alert.alert('Could not block', e instanceof Error ? e.message : 'Try again');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const confirmReport = () => {
+    Alert.prompt(
+      'Report',
+      'What happened? A moderator will review.',
+      async (reason) => {
+        if (!reason?.trim()) return;
+        try {
+          await reportUser({
+            reporterId: myId,
+            targetId: target.targetId,
+            eventId: target.eventId,
+            reason: reason.trim(),
+          });
+          Alert.alert('Reported', 'Thanks — we will review this.');
+          onClose();
+        } catch (e) {
+          Alert.alert('Could not report', e instanceof Error ? e.message : 'Try again');
+        }
+      }
+    );
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -133,6 +182,15 @@ export default function AvatarActionSheet({
               >
                 <Text style={styles.btnText}>View Profile</Text>
               </Pressable>
+
+              <View style={styles.dangerRow}>
+                <Pressable style={styles.dangerLink} onPress={confirmReport}>
+                  <Text style={styles.dangerText}>Report</Text>
+                </Pressable>
+                <Pressable style={styles.dangerLink} onPress={confirmBlock}>
+                  <Text style={styles.dangerText}>Block</Text>
+                </Pressable>
+              </View>
             </>
           )}
         </Pressable>
@@ -174,4 +232,12 @@ const styles = StyleSheet.create({
   btnGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#374151' },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: '#0a0a0a', fontWeight: '700', fontSize: 15 },
+  dangerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+    marginTop: 16,
+  },
+  dangerLink: { padding: 8 },
+  dangerText: { color: '#ef4444', fontSize: 12, letterSpacing: 1 },
 });
