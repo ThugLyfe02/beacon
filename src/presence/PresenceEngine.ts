@@ -26,6 +26,7 @@ export interface ProximitySignal {
   targetPremium?: boolean;
   mutual?: boolean;
   timestamp?: number;
+  targetAvatarUrl3d?: string | null;
 }
 
 export interface PresenceState {

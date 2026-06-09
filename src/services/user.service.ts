@@ -54,6 +54,20 @@ export async function updateUserProfile(
 }
 
 /**
+ * Persist the user's Ready Player Me avatar URL (public glb).
+ */
+export async function setAvatar3dUrl(userId: string, url: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ avatar_url_3d: url } as never)
+    .eq('id', userId);
+  if (error) {
+    console.error('[user.service] setAvatar3dUrl error:', error);
+    throw new Error('Failed to save avatar');
+  }
+}
+
+/**
  * Check if user has completed profile setup
  */
 export async function hasCompletedProfile(userId: string): Promise<boolean> {

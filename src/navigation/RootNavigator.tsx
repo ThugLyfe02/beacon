@@ -26,6 +26,7 @@ import EditProfileScreen from '../screens/EditProfileScreen';
 import EventFeedScreen from '../screens/EventFeedScreen';
 import EventLobbyScreen from '../screens/EventLobbyScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
+import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -213,6 +214,21 @@ export function RootNavigator() {
             presentation: 'modal',
             animation: 'slide_from_bottom',
             contentStyle: { backgroundColor: palette.void },
+          }}
+        />
+
+        <Stack.Screen
+          name="ChooseAvatar"
+          component={ChooseAvatarScreen}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+            contentStyle: { backgroundColor: palette.void },
+            headerShown: true,
+            title: '3D Avatar',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
           }}
         />
 

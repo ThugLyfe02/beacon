@@ -31,7 +31,9 @@
     "react-native-screens": "~4.23.0",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "^0.21.0",
-    "three": "^0.184.0"
+    "react-native-webview": "13.16.0",
+    "three": "^0.184.0",
+    "three-stdlib": "^2.36.1"
   },
   "devDependencies": {
     "@react-native-community/cli": "latest",

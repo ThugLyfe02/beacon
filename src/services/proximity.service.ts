@@ -36,6 +36,7 @@ interface AttendeeRow {
     last_known_lat: number | null;
     last_known_lng: number | null;
     last_location_at: string | null;
+    avatar_url_3d: string | null;
   } | null;
 }
 
@@ -48,7 +49,7 @@ export async function getEventProximitySignals(
   const { data, error } = await supabase
     .from('event_participants')
     .select(
-      'user_id, users(id, is_premium, is_discoverable, last_known_lat, last_known_lng, last_location_at)'
+      'user_id, users(id, is_premium, is_discoverable, last_known_lat, last_known_lng, last_location_at, avatar_url_3d)'
     )
     .eq('event_id', eventId)
     .eq('status', 'approved');
@@ -86,6 +87,7 @@ export async function getEventProximitySignals(
       targetPremium: !!u.is_premium,
       mutual: false,
       timestamp: now,
+      targetAvatarUrl3d: u.avatar_url_3d ?? null,
     };
     return [signal];
   });

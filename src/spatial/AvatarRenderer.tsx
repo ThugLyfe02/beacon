@@ -1,4 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { Suspense, useMemo } from 'react';
+import { useLoader } from '@react-three/fiber/native';
+import { GLTFLoader } from 'three-stdlib';
 import type { ProximitySignal } from '../presence/PresenceEngine';
 
 type AvatarTarget = ProximitySignal & { bucket?: number };
@@ -13,10 +15,65 @@ function colorForBucket(bucket: number, premium?: boolean): string {
 function positionForSignal(signal: AvatarTarget): [number, number, number] {
   const seed = signal.targetId
     .split('')
-    .reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    .reduce((acc, ch) => acc + ch.codePointAt(0)!, 0);
   const angle = (seed % 360) * (Math.PI / 180);
   const radius = Math.max(1, signal.distanceFeet / 4);
   return [Math.cos(angle) * radius, Math.sin(angle * 0.7) * 1.5, Math.sin(angle) * radius];
+}
+
+interface SphereProps {
+  position: [number, number, number];
+  color: string;
+  onClick?: (e: any) => void;
+}
+
+function SphereAvatar({ position, color, onClick }: SphereProps) {
+  return (
+    <mesh position={position} onClick={onClick}>
+      <sphereGeometry args={[0.6, 16, 16]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
+    </mesh>
+  );
+}
+
+interface GltfProps {
+  url: string;
+  position: [number, number, number];
+  onClick?: (e: any) => void;
+}
+
+function GLTFAvatar({ url, position, onClick }: GltfProps) {
+  const gltf = useLoader(GLTFLoader as any, url) as any;
+  return (
+    <primitive
+      object={gltf.scene}
+      position={position}
+      scale={[0.6, 0.6, 0.6]}
+      onClick={onClick}
+    />
+  );
+}
+
+interface BoundaryProps {
+  fallback: React.ReactNode;
+  children: React.ReactNode;
+}
+
+class AvatarErrorBoundary extends React.Component<
+  BoundaryProps,
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error) {
+    console.warn('[AvatarRenderer] glTF load failed:', error.message);
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
 }
 
 interface Props {
@@ -24,23 +81,34 @@ interface Props {
   onTap?: (avatar: AvatarTarget) => void;
 }
 
-export default function AvatarRenderer({ avatar, onTap }: Props) {
-  const position = useMemo(() => positionForSignal(avatar), [avatar.targetId, avatar.distanceFeet]);
+export default function AvatarRenderer({ avatar, onTap }: Readonly<Props>) {
+  const position = useMemo(
+    () => positionForSignal(avatar),
+    [avatar.targetId, avatar.distanceFeet]
+  );
   const color = useMemo(
     () => colorForBucket(avatar.bucket ?? 0, avatar.targetPremium),
     [avatar.bucket, avatar.targetPremium]
   );
 
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    onTap?.(avatar);
+  };
+
+  const sphere = <SphereAvatar position={position} color={color} onClick={handleClick} />;
+
+  if (!avatar.targetAvatarUrl3d) return sphere;
+
   return (
-    <mesh
-      position={position}
-      onClick={(e) => {
-        e.stopPropagation();
-        onTap?.(avatar);
-      }}
-    >
-      <sphereGeometry args={[0.6, 16, 16]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
-    </mesh>
+    <AvatarErrorBoundary fallback={sphere}>
+      <Suspense fallback={sphere}>
+        <GLTFAvatar
+          url={avatar.targetAvatarUrl3d}
+          position={position}
+          onClick={handleClick}
+        />
+      </Suspense>
+    </AvatarErrorBoundary>
   );
 }

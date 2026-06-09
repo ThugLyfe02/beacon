@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { getCurrentUser, updateUserProfile } from '../services/user.service';
 import {
   GlowButton,
@@ -28,7 +28,7 @@ const ROLE_MAX = 50;
 const ONE_LINER_MAX = 150;
 
 export default function EditProfileScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const { user } = useAuth();
   const userId = user?.id ?? '';
 
@@ -164,6 +164,14 @@ export default function EditProfileScreen() {
                 label={submitting ? 'Saving…' : 'Save'}
                 onPress={handleSave}
                 loading={submitting}
+                fullWidth
+                size="lg"
+                style={{ marginTop: spacing.md }}
+              />
+
+              <GlowButton
+                label="Choose 3D Avatar"
+                onPress={() => navigation.navigate('ChooseAvatar')}
                 fullWidth
                 size="lg"
                 style={{ marginTop: spacing.md }}
