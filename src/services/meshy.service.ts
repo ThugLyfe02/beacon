@@ -1,6 +1,9 @@
 // =============================================================================
 // meshy.service.ts
-// Client wrapper around the Meshy.ai photo-to-3D edge functions.
+// Client wrapper around the backend-agnostic avatar edge functions.
+// The server decides which backend to use (self-hosted TripoSR GPU, or Meshy
+// fallback) based on which secrets are set. The taskId carries a 'gpu:' or
+// 'meshy:' prefix so polling routes back to the same backend.
 // =============================================================================
 
 import { supabase } from '../lib/supabase';
@@ -22,7 +25,7 @@ export async function startMeshyAvatarGeneration(
   imageDataUri: string
 ): Promise<string> {
   const { data, error } = await supabase.functions.invoke<{ taskId: string }>(
-    'meshy-generate',
+    'avatar-generate',
     { body: { imageDataUri } }
   );
   if (error || !data?.taskId) {
@@ -33,7 +36,7 @@ export async function startMeshyAvatarGeneration(
 
 export async function getMeshyAvatarStatus(taskId: string): Promise<MeshyStatusResult> {
   const { data, error } = await supabase.functions.invoke<MeshyStatusResult>(
-    'meshy-status',
+    'avatar-status',
     { body: { taskId } }
   );
   if (error || !data) {
