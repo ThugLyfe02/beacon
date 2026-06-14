@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, StyleSheet } from 'react-native';
+import { Pressable, View, StyleSheet } from 'react-native';
 
 import { GridBackground, Loader, NeonTabBar, NeonText } from '../components/ui';
 import { palette, spacing } from '../theme';
@@ -227,7 +227,7 @@ export function RootNavigator() {
         <Stack.Screen
           name="ChooseAvatar"
           component={ChooseAvatarScreen}
-          options={{
+          options={({ navigation }) => ({
             presentation: 'modal',
             animation: 'slide_from_bottom',
             contentStyle: { backgroundColor: palette.void },
@@ -236,7 +236,12 @@ export function RootNavigator() {
             headerStyle: { backgroundColor: palette.space },
             headerTitleStyle: { color: palette.text, fontWeight: '700' },
             headerTintColor: palette.accent,
-          }}
+            headerLeft: () => (
+              <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
+                <NeonText variant="label" tone="accent">CLOSE</NeonText>
+              </Pressable>
+            ),
+          })}
         />
 
         <Stack.Screen
