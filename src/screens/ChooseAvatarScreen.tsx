@@ -79,10 +79,26 @@ export default function ChooseAvatarScreen() {
     });
   };
 
+  // Hunyuan-3D-3.1 on Replicate runs 2-5 min. Tolerate up to 3 consecutive
+  // transient errors per tick (network blip, edge cold-start) before giving
+  // up; cap the whole loop at 10 minutes so a stuck job never wedges the UI.
   const pollStatus = (taskId: string) => {
+    const startMs = Date.now();
+    const POLL_MAX_MS = 10 * 60 * 1000;
+    const MAX_CONSECUTIVE_ERRORS = 3;
+    let consecutiveErrors = 0;
+
     const tick = async () => {
+      if (Date.now() - startMs > POLL_MAX_MS) {
+        setStage({
+          kind: 'error',
+          message: 'Generation timed out after 10 minutes. Try again with a clearer selfie.',
+        });
+        return;
+      }
       try {
         const res = await getMeshyAvatarStatus(taskId);
+        consecutiveErrors = 0;
         setStage({ kind: 'polling', taskId, progress: res.progress, status: res.status });
         if (res.status === 'SUCCEEDED' && res.glbUrl) {
           if (user?.id) await setAvatar3dUrl(user.id, res.glbUrl);
@@ -96,10 +112,20 @@ export default function ChooseAvatarScreen() {
         }
         pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS);
       } catch (err) {
-        setStage({
-          kind: 'error',
-          message: err instanceof Error ? err.message : 'Polling failed',
-        });
+        consecutiveErrors += 1;
+        if (consecutiveErrors > MAX_CONSECUTIVE_ERRORS) {
+          setStage({
+            kind: 'error',
+            message:
+              err instanceof Error
+                ? `Lost connection while generating (${err.message}). Try again.`
+                : 'Lost connection while generating. Try again.',
+          });
+          return;
+        }
+        // Exponential backoff (5s, 10s, 20s) before retrying.
+        const delay = POLL_INTERVAL_MS * 2 ** (consecutiveErrors - 1);
+        pollTimerRef.current = setTimeout(tick, delay);
       }
     };
     tick();

@@ -21,6 +21,47 @@ interface Body {
 const GPU_URL = Deno.env.get('BEACON_AVATAR_GPU_URL');
 const GPU_SECRET = Deno.env.get('BEACON_AVATAR_GPU_SECRET');
 const MESHY_KEY = Deno.env.get('MESHY_API_KEY');
+const REPLICATE_TOKEN = Deno.env.get('REPLICATE_API_TOKEN');
+const STORAGE_BUCKET = 'avatars';
+
+// Downloads the Replicate-hosted glb and re-uploads to the avatars storage
+// bucket. Returns the public storage URL on success, null on any failure
+// (caller falls back to the Replicate URL — better a 24h URL than no URL).
+async function mirrorToStorage(
+  admin: ReturnType<typeof createClient>,
+  sourceUrl: string,
+  imageSha: string,
+): Promise<string | null> {
+  try {
+    const path = `${imageSha}.glb`;
+    const head = await admin.storage.from(STORAGE_BUCKET).list('', {
+      search: path,
+    });
+    // Already mirrored — return the existing public URL without re-uploading.
+    if (head.data?.some((f) => f.name === path)) {
+      const { data } = admin.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+      return data.publicUrl;
+    }
+    const resp = await fetch(sourceUrl);
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    const { error } = await admin.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, blob, {
+        contentType: 'model/gltf-binary',
+        upsert: true,
+      });
+    if (error) {
+      console.error('[avatar-status] storage upload failed', error);
+      return null;
+    }
+    const { data } = admin.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  } catch (e) {
+    console.error('[avatar-status] mirror error', e);
+    return null;
+  }
+}
 
 serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -47,9 +88,104 @@ serve(async (req) => {
     });
   }
 
-  const [backend, id] = body.taskId.includes(':')
-    ? body.taskId.split(':', 2)
-    : ['meshy', body.taskId]; // pre-prefix tasks default to meshy
+  const parts = body.taskId.includes(':')
+    ? body.taskId.split(':')
+    : ['meshy', body.taskId];
+  const backend = parts[0];
+  const id = parts[1];
+  // `replicate:<predictionId>:<sha>` — sha is used to update cached_avatars
+  // when the prediction finishes successfully.
+  const imageSha = parts[2] ?? null;
+
+  // ---------- Cache hit — selfie already turned into a glb. ----------
+  if (backend === 'cached') {
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!serviceKey) {
+      return new Response(JSON.stringify({ error: 'Cache lookup requires service key' }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
+    const { data: row } = await admin
+      .from('cached_avatars')
+      .select('glb_url')
+      .eq('image_sha256', id)
+      .maybeSingle();
+    if (!row?.glb_url) {
+      return new Response(JSON.stringify({ error: 'Cache entry missing' }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(
+      JSON.stringify({ status: 'SUCCEEDED', progress: 100, glbUrl: row.glb_url }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+  }
+
+  // ---------- Replicate (Hunyuan-3D-3.1) ----------
+  if (backend === 'replicate') {
+    if (!REPLICATE_TOKEN) {
+      return new Response(JSON.stringify({ error: 'Replicate not configured' }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    const resp = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+      headers: { authorization: `Token ${REPLICATE_TOKEN}` },
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      return new Response(
+        JSON.stringify({ error: `Replicate ${resp.status}: ${text}` }),
+        { status: 502, headers: { 'content-type': 'application/json' } }
+      );
+    }
+    const json = (await resp.json()) as {
+      status?: string;
+      output?: string | null;
+      error?: string | null;
+    };
+    // Map Replicate status -> client status.
+    const map: Record<string, string> = {
+      starting: 'PENDING',
+      processing: 'IN_PROGRESS',
+      succeeded: 'SUCCEEDED',
+      failed: 'FAILED',
+      canceled: 'CANCELED',
+    };
+    const status = map[json.status ?? 'starting'] ?? 'PENDING';
+
+    // First time we observe SUCCEEDED, mirror the Replicate glb into Supabase
+    // storage and cache the resulting permanent URL. Replicate delivery URLs
+    // expire ~24h, so without this every avatar would 404 the next day.
+    let glbUrl: string | null = json.output ?? null;
+    if (status === 'SUCCEEDED' && json.output && imageSha) {
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (serviceKey) {
+        const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
+        const mirrored = await mirrorToStorage(admin, json.output, imageSha);
+        glbUrl = mirrored ?? json.output;
+        await admin
+          .from('cached_avatars')
+          .upsert(
+            { image_sha256: imageSha, glb_url: glbUrl },
+            { onConflict: 'image_sha256' }
+          );
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        status,
+        // Replicate gives no progress %; show 50% while processing as a best guess.
+        progress: status === 'SUCCEEDED' ? 100 : status === 'IN_PROGRESS' ? 50 : 10,
+        glbUrl,
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+  }
 
   // ---------- Self-hosted GPU ----------
   if (backend === 'gpu') {

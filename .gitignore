@@ -5,3 +5,14 @@ node_modules/
 dist/
 ios/
 android/
+
+# Local infra / self-hosted model pipelines (large, machine-local)
+infra/**/.venv/
+infra/**/__pycache__/
+infra/**/outputs/
+infra/Hunyuan3D-2/
+infra/triposr/triposr-src/
+*.ckpt
+*.safetensors
+*.pth
+.env.backup

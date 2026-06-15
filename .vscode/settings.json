@@ -1,0 +1,41 @@
+{
+  // Exclude heavy/generated dirs from the file watcher (biggest memory driver).
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.expo/**": true,
+    "**/dist/**": true,
+    "**/ios/Pods/**": true,
+    "**/android/.gradle/**": true,
+    "**/android/build/**": true,
+    "**/infra/**/.venv/**": true,
+    "**/infra/**/__pycache__/**": true,
+    "**/infra/Hunyuan3D-2/**": true,
+    "**/infra/triposr/outputs/**": true,
+    "**/infra/triposr/triposr-src/**": true,
+    "**/*.ckpt": true,
+    "**/*.safetensors": true,
+    "**/*.pth": true
+  },
+  // Keep these out of search indexing.
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.expo": true,
+    "**/dist": true,
+    "**/infra/**/.venv": true,
+    "**/infra/**/__pycache__": true,
+    "**/infra/Hunyuan3D-2": true,
+    "**/infra/triposr/outputs": true,
+    "**/infra/triposr/triposr-src": true
+  },
+  // Hide generated Python/model artifacts from the explorer so language servers ignore them.
+  "files.exclude": {
+    "**/infra/**/.venv": true,
+    "**/infra/**/__pycache__": true,
+    "**/infra/Hunyuan3D-2": true,
+    "**/infra/triposr/outputs": true
+  },
+  // Scope TypeScript/JS tooling to project source only.
+  "typescript.tsserver.maxTsServerMemory": 3072
+}

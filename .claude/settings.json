@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk '{s+=$6} END {print s/1024/1024\" GB\"}')",
+      "Bash(vm_stat)",
+      "Bash(sysctl vm.swapusage)"
+    ]
+  }
+}

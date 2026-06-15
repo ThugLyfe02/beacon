@@ -14,7 +14,9 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-video"
+      "expo-video",
+      "expo-asset",
+      "@sentry/react-native"
     ],
     "ios": {
       "bundleIdentifier": "com.beacon.app",
