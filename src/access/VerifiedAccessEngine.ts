@@ -44,6 +44,12 @@ export interface AccessDecision {
   explanation: string;
 }
 
+export interface RoleGlyph {
+  symbol: string;
+  label: string;
+  semanticTone: 'capital' | 'build' | 'operate' | 'guide' | 'host' | 'general';
+}
+
 export function hasActiveVerifiedRole(
   attestations: RoleAttestation[],
   acceptedRoles: VerifiedRoleKey[] = [],
@@ -142,22 +148,18 @@ export function evaluateVerifiedAccess({
   }
 }
 
-export function getRoleGlyph(role: VerifiedRoleKey): {
-  symbol: string;
-  label: string;
-  semanticTone: 'capital' | 'build' | 'operate' | 'guide' | 'host' | 'general';
-} {
-  const glyphs: Record<VerifiedRoleKey, ReturnType<typeof getRoleGlyph>> = {
-    founder: { symbol: 'F', label: 'Founder', semanticTone: 'build' },
-    investor: { symbol: 'I', label: 'Investor', semanticTone: 'capital' },
-    operator: { symbol: 'O', label: 'Operator', semanticTone: 'operate' },
-    recruiter: { symbol: 'R', label: 'Recruiter', semanticTone: 'operate' },
-    mentor: { symbol: 'M', label: 'Mentor', semanticTone: 'guide' },
-    sponsor: { symbol: 'S', label: 'Sponsor', semanticTone: 'capital' },
-    organizer: { symbol: 'H', label: 'Host', semanticTone: 'host' },
-    speaker: { symbol: 'P', label: 'Speaker', semanticTone: 'guide' },
-    attendee: { symbol: 'A', label: 'Attendee', semanticTone: 'general' },
-  };
+const ROLE_GLYPHS: Record<VerifiedRoleKey, RoleGlyph> = {
+  founder: { symbol: 'F', label: 'Founder', semanticTone: 'build' },
+  investor: { symbol: 'I', label: 'Investor', semanticTone: 'capital' },
+  operator: { symbol: 'O', label: 'Operator', semanticTone: 'operate' },
+  recruiter: { symbol: 'R', label: 'Recruiter', semanticTone: 'operate' },
+  mentor: { symbol: 'M', label: 'Mentor', semanticTone: 'guide' },
+  sponsor: { symbol: 'S', label: 'Sponsor', semanticTone: 'capital' },
+  organizer: { symbol: 'H', label: 'Host', semanticTone: 'host' },
+  speaker: { symbol: 'P', label: 'Speaker', semanticTone: 'guide' },
+  attendee: { symbol: 'A', label: 'Attendee', semanticTone: 'general' },
+};
 
-  return glyphs[role];
+export function getRoleGlyph(role: VerifiedRoleKey): RoleGlyph {
+  return ROLE_GLYPHS[role];
 }
