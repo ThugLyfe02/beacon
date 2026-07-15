@@ -38,7 +38,25 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Verify strict TypeScript compilation
-        run: npx tsc --noEmit --pretty false
+        id: typescript
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsc --noEmit --pretty false 2>&1 | tee tsc-errors.txt
+
+      - name: Upload TypeScript diagnostics
+        if: steps.typescript.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-diagnostics
+          path: tsc-errors.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on TypeScript errors
+        if: steps.typescript.outcome == 'failure'
+        run: exit 1
 
       - name: Validate opportunity architecture integration
         run: node scripts/validate-opportunity-architecture.mjs
