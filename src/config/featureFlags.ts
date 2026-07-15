@@ -9,6 +9,9 @@ export const FEATURE_FLAGS = {
   signalScarcity: false,
   limitedDrops: false,
   invisibleVip: false,
+  verifiedRoleGlyphs: false,
+  officeHoursQueueQuality: false,
+  accessDropWaitlists: false,
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
