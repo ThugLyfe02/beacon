@@ -19,6 +19,11 @@ function mapBudget(row: SignalBudgetRow): SignalBudget {
   };
 }
 
+function buildSecureNonce(): string {
+  const random = Math.random().toString(36).slice(2);
+  return `${Date.now().toString(36)}-${random}-${random.split("").reverse().join("")}`;
+}
+
 export async function getSignalBudget(eventId: string): Promise<SignalBudget | null> {
   if (!eventId) return null;
 
@@ -43,23 +48,48 @@ export async function getSignalBudgetEvaluation(eventId: string): Promise<Signal
 
 export async function consumeSignalBudget(
   eventId: string,
-  recipientId: string
-): Promise<{ budget: SignalBudget | null; error: string | null }> {
+  recipientId: string,
+  nonce = buildSecureNonce(),
+): Promise<{ budget: SignalBudget | null; error: string | null; reasonCode?: string }> {
   if (!eventId || !recipientId) {
     return { budget: null, error: "Event and recipient are required." };
   }
 
-  const { data, error } = await supabase.rpc("consume_signal_budget", {
+  const { data, error } = await supabase.rpc("secure_consume_signal_budget", {
     p_event_id: eventId,
     p_recipient_id: recipientId,
+    p_nonce: nonce,
   });
 
   if (error || !data) {
-    const message = error?.message?.includes("Signal budget exhausted")
-      ? "Signal budget exhausted"
-      : error?.message ?? "Unable to consume signal budget";
+    const rawMessage = error?.message ?? "Unable to consume signal budget";
+    const reasonCode = rawMessage.includes("nonce_reuse")
+      ? "nonce_reuse"
+      : rawMessage.includes("event_locked")
+      ? "event_locked"
+      : rawMessage.includes("blocked_relationship")
+      ? "blocked_relationship"
+      : rawMessage.includes("burst_limit")
+      ? "burst_limit"
+      : rawMessage.includes("Signal budget exhausted")
+      ? "signal_budget_exhausted"
+      : "secure_signal_failed";
+
+    const message =
+      reasonCode === "signal_budget_exhausted"
+        ? "Signal budget exhausted"
+        : reasonCode === "event_locked"
+        ? "Signals are temporarily locked for this event."
+        : reasonCode === "blocked_relationship"
+        ? "This signal cannot be sent because the relationship is blocked."
+        : reasonCode === "burst_limit"
+        ? "Signals are being sent too quickly. Pause before trying again."
+        : reasonCode === "nonce_reuse"
+        ? "This signal request was already processed."
+        : rawMessage;
+
     console.error("[signal-budget.service] consumeSignalBudget error:", error);
-    return { budget: null, error: message };
+    return { budget: null, error: message, reasonCode };
   }
 
   const row = Array.isArray(data) ? data[0] : data;
