@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     color: "#F8FAFC",
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: "750",
+    fontWeight: "700",
   },
   summary: {
     marginTop: 10,
@@ -159,6 +159,6 @@ const styles = StyleSheet.create({
   toggleText: {
     color: "#38BDF8",
     fontSize: 12,
-    fontWeight: "750",
+    fontWeight: "700",
   },
 });
