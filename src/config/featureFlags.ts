@@ -19,6 +19,7 @@ export const FEATURE_FLAGS = {
   securityControlPlane: false,
   adaptiveSecurityRisk: false,
   securityDecisionReceipts: false,
+  outcomeHandshakeProtocol: true,
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
