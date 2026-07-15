@@ -93,7 +93,6 @@ jobs:
     name: Dependency review (advisory)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       contents: read
       pull-requests: read
@@ -105,13 +104,15 @@ jobs:
           persist-credentials: false
 
       - name: Review dependency changes
+        id: dependency-review
+        continue-on-error: true
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
           deny-licenses: GPL-3.0, AGPL-3.0
 
       - name: Explain advisory status
-        if: failure()
+        if: steps.dependency-review.outcome == 'failure'
         run: |
-          echo "Dependency review is advisory because GitHub dependency graph availability varies by repository settings."
+          echo "Dependency review could not produce a blocking result for this repository configuration."
           echo "npm audit remains the blocking dependency vulnerability control."
