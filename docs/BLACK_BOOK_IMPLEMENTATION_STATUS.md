@@ -87,6 +87,30 @@ Adds a pure organizer engine that translates raw aggregates into explainable ope
 
 Adds an aggregate-only sponsor proof model that reports demand signals, completed access moments, and waitlist pressure only when minimum confidence requirements are met. The model never exposes private signals, proximity trails, Vault contents, or attendee identities.
 
+### Event Security Control Plane
+
+Adds database-enforced normal, restricted, and locked event modes. Hosts can independently disable signals, Office Hours, Access Drops, identity-bearing proximity reveal, and organizer exports without taking the entire event offline. Controls are event-scoped, readable only by approved participants, and mutable only by the event host.
+
+### Sensitive-action replay protection and audit trail
+
+Adds single-use action nonces, burst protection, block enforcement, security outcome logging, and privacy-safe reason codes for high-impact actions. Security logs contain action metadata and outcomes rather than private notes, message content, or raw location trails. Expired nonces and old security events can be pruned through a controlled maintenance function.
+
+### Atomic secure mutation wrappers
+
+Adds transaction-safe wrappers that combine authorization and mutation for scarce signals, Access Drop claims, and Office Hours requests. This closes the time-of-check/time-of-use gap that would otherwise exist if the client authorized an action and executed it in separate calls.
+
+### Adaptive Security Risk Engine
+
+Adds a pure, deterministic risk evaluator for replay attempts, blocked-relationship actions, abnormal recipient breadth, burst velocity, denial rates, new-account risk, and event security state. The output is explainable and can recommend cooldowns, reauthentication, reveal suppression, or event lock without creating a hidden user reputation score.
+
+### Premium escalation hardening
+
+The development-only RPC that allowed users to toggle their own premium status is revoked and replaced with a fail-closed function. Premium state must now come from a future trusted server or payment workflow.
+
+### Application security automation
+
+Adds a pull-request security gate with strict TypeScript compilation, production dependency auditing, environment-file detection, credential-pattern detection, CodeQL analysis, and dependency review. Dependabot is configured for guarded weekly updates grouped by runtime domain.
+
 ## Black Book systems not yet implemented
 
 These remain separate future layers and must not be folded into unrelated work:
@@ -100,11 +124,13 @@ These remain separate future layers and must not be folded into unrelated work:
 7. Organizer outcome console and event-comparison UI
 8. Personal event strategy
 9. Signature mutual activation moment
-10. Centralized high-intensity kill switches
-11. Premium Vault intelligence depth
-12. Access-drop promotion from waitlist after cancellation
-13. Automatic organizer-learning memory persistence after event close
-14. Payment-backed premium enforcement replacing the development premium toggle
+10. Premium Vault intelligence depth
+11. Access-drop promotion from waitlist after cancellation
+12. Automatic organizer-learning memory persistence after event close
+13. Payment-backed premium enforcement and webhook verification
+14. Moderator-facing security event review and incident workflow
+15. Reauthentication UX for critical-risk actions
+16. Migration of all legacy sensitive actions onto secure transaction wrappers
 
 ## Implementation rules
 
@@ -121,6 +147,10 @@ These remain separate future layers and must not be folded into unrelated work:
 - Invisible participants may contribute only to aggregate intelligence until policy explicitly permits reveal.
 - Organizer metrics must remain private until confidence and methodology are proven.
 - Sponsor reports must be aggregate-only and must suppress claims when the sample is too small.
+- Sensitive actions must fail closed when security state cannot be verified.
+- Authorization and mutation must occur atomically for replay-sensitive or capacity-sensitive actions.
+- Service-role credentials must never ship in the mobile bundle.
+- Security telemetry must exclude private notes, exact movement trails, authentication payloads, and message content.
 - One coherent layer per pull request whenever practical.
 
 ## Acceptance gate for this branch
@@ -144,3 +174,10 @@ Before merge:
 - Beacon Index values must remain private and confidence-weighted.
 - Sponsor proof must suppress claims below the minimum aggregate sample.
 - Organizer diagnostics must be explainable from stored aggregate evidence.
+- Development-only premium self-escalation must remain disabled.
+- Sensitive action nonces must be single-use and event-scoped.
+- Locked events must block sensitive mutations at the database layer.
+- Blocked relationships must not bypass security checks through alternate features.
+- Security event logs must not contain private content or raw location trails.
+- Secure signal and Drop services must use the atomic wrapper RPCs.
+- The security workflow must pass before the PR is marked ready for review.
