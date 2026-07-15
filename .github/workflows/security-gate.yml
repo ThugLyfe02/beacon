@@ -40,6 +40,9 @@ jobs:
       - name: Verify strict TypeScript compilation
         run: npx tsc --noEmit --pretty false
 
+      - name: Validate opportunity architecture integration
+        run: node scripts/validate-opportunity-architecture.mjs
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
