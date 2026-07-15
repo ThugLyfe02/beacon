@@ -45,24 +45,36 @@ Chooses one explainable action at a time. It can prioritize profile completion, 
 
 The live lobby now reflects event phase, opportunity readiness, evidence-backed windows, derived field metrics, and private missed-opportunity memory. Existing auth, event join, location, mutual, and regret flows remain intact.
 
+### Vault opportunity memory
+
+Adds an event-scoped private memory model for mutuals, missed categories, Office Hours outcomes, notes, and next actions. The pure Vault engine produces follow-up priorities, completion metrics, expiring-item counts, and privacy-safe summaries without turning Beacon into a social inbox.
+
+### Signal scarcity foundation
+
+Adds atomic per-event high-intent signal budgets, RPC-only budget consumption, and a deterministic candidate scoring engine. Scarcity is real and enforceable; the client cannot grant itself more signals, and ordinary discovery remains separate from high-intent actions.
+
+### Trust receipts
+
+Adds an auditable trust-receipt engine and reusable component for opt-in, private signals, Office Hours, mutual reveals, Vault saves, and future Invisible VIP controls. Each receipt states what was shared, what stayed private, who can see the action, and when access expires.
+
 ## Black Book systems not yet implemented
 
 These remain separate future layers and must not be folded into unrelated work:
 
-1. Vault core schema and post-event recap
-2. Signal scarcity budgets
-3. Trust receipts
-4. Office-hours request queue quality and capacity integrity
-5. Invisible VIP mode
-6. Verified role glyph grammar
-7. Limited drops and waitlists
-8. Organizer event health console
-9. Beacon Index experimental formula
-10. Personal event strategy
-11. Signature mutual activation moment
-12. Centralized high-intensity kill switches
-13. Sponsor proof without surveillance
-14. Repeat-event organizer memory
+1. Vault recap screen and navigation entry point
+2. Signal-budget UI and connection-request transaction integration
+3. Office-hours request queue quality and capacity integrity
+4. Invisible VIP mode
+5. Verified role glyph grammar
+6. Limited drops and waitlists
+7. Organizer event health console
+8. Beacon Index experimental formula
+9. Personal event strategy
+10. Signature mutual activation moment
+11. Centralized high-intensity kill switches
+12. Sponsor proof without surveillance
+13. Repeat-event organizer memory
+14. Premium Vault intelligence depth
 
 ## Implementation rules
 
@@ -86,3 +98,6 @@ Before merge:
 - No raw coordinates are introduced by the new engines.
 - The event lobby must render safely when activity history is empty.
 - Feature flags must disable the new UI without broken imports.
+- Vault identities must remain hidden unless mutual or explicitly permitted.
+- Signal budgets must be consumed atomically through the database RPC.
+- Trust receipts must describe actual data behavior and never promise protections the implementation does not enforce.
