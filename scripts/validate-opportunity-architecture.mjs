@@ -1,0 +1,113 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+const root = process.cwd();
+const failures = [];
+
+function read(path) {
+  const absolute = join(root, path);
+  if (!existsSync(absolute)) {
+    failures.push(`Missing required file: ${path}`);
+    return '';
+  }
+  return readFileSync(absolute, 'utf8');
+}
+
+function requireText(path, text, explanation) {
+  const content = read(path);
+  if (!content.includes(text)) {
+    failures.push(`${path}: ${explanation}`);
+  }
+}
+
+function forbidText(path, text, explanation) {
+  const content = read(path);
+  if (content.includes(text)) {
+    failures.push(`${path}: ${explanation}`);
+  }
+}
+
+const requiredFiles = [
+  'src/presence/SurgeEngine.ts',
+  'src/vault/VaultEngine.ts',
+  'src/outcomes/OutcomeHandshakeEngine.ts',
+  'src/security/SecurityRiskEngine.ts',
+  'src/access/VerifiedAccessEngine.ts',
+  'src/organizer/OutcomeIntelligenceEngine.ts',
+  'src/screens/MatchesScreen.tsx',
+  'supabase/migrations/019_vault_signal_scarcity.sql',
+  'supabase/migrations/020_verified_access_protocol.sql',
+  'supabase/migrations/021_outcome_intelligence_spine.sql',
+  'supabase/migrations/022_security_control_plane.sql',
+  'supabase/migrations/023_sensitive_action_transactions.sql',
+  'supabase/migrations/024_outcome_handshake_protocol.sql',
+  'supabase/migrations/025_outcome_handshake_privacy_boundary.sql',
+  'supabase/migrations/026_outcome_conversion_metrics.sql',
+  'supabase/migrations/027_secure_connection_activation.sql',
+];
+
+for (const path of requiredFiles) read(path);
+
+requireText(
+  'src/services/match.service.ts',
+  "rpc('secure_send_connection_request'",
+  'connection signals must use the atomic secure activation RPC',
+);
+forbidText(
+  'src/services/match.service.ts',
+  ".from('connection_requests')\n    .insert",
+  'legacy direct connection-request inserts are not allowed',
+);
+
+requireText(
+  'src/services/officeHours.service.ts',
+  "rpc('secure_create_office_hours_request'",
+  'Office Hours creation must use the atomic security wrapper',
+);
+forbidText(
+  'src/services/officeHours.service.ts',
+  ".from('office_hours_requests')\n    .insert",
+  'legacy direct Office Hours inserts are not allowed',
+);
+
+requireText(
+  'src/services/access-drop.service.ts',
+  "rpc('secure_claim_access_drop'",
+  'Access Drop claims must use the atomic security wrapper',
+);
+requireText(
+  'src/screens/MatchesScreen.tsx',
+  'OutcomeHandshakeCard',
+  'Outcome Handshake must be integrated into the mutual surface',
+);
+requireText(
+  'src/screens/MatchesScreen.tsx',
+  'buildVaultSummary',
+  'Vault opportunity memory must be integrated into the mutual surface',
+);
+
+const flags = read('src/config/featureFlags.ts');
+for (const enabledFlag of ['vault: true', 'signalScarcity: true', 'securityControlPlane: true', 'outcomeHandshakeProtocol: true']) {
+  if (!flags.includes(enabledFlag)) {
+    failures.push(`src/config/featureFlags.ts: integrated flag must remain enabled: ${enabledFlag}`);
+  }
+}
+
+const migrationDirectory = join(root, 'supabase', 'migrations');
+if (existsSync(migrationDirectory)) {
+  const migrationNumbers = readdirSync(migrationDirectory)
+    .map((name) => Number.parseInt(name.slice(0, 3), 10))
+    .filter(Number.isFinite);
+  const duplicates = migrationNumbers.filter((number, index) => migrationNumbers.indexOf(number) !== index);
+  if (duplicates.length > 0) {
+    failures.push(`Duplicate migration prefixes detected: ${[...new Set(duplicates)].join(', ')}`);
+  }
+}
+
+if (failures.length > 0) {
+  console.error('\nOpportunity architecture validation failed:\n');
+  for (const failure of failures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+console.log('Opportunity architecture integration contract passed.');
