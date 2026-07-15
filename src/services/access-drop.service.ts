@@ -29,6 +29,11 @@ export interface AccessDropClaimRow {
   updated_at: string;
 }
 
+function buildSecureNonce(): string {
+  const random = Math.random().toString(36).slice(2);
+  return `${Date.now().toString(36)}-${random}-${random.split('').reverse().join('')}`;
+}
+
 export function mapAccessDrop(row: AccessDropRow): AccessDrop {
   return {
     id: row.id,
@@ -78,15 +83,35 @@ export async function listOwnDropClaims(userId: string): Promise<AccessDropClaim
   return (data ?? []) as AccessDropClaimRow[];
 }
 
-export async function claimAccessDrop(dropId: string): Promise<AccessDropClaimRow> {
+export async function claimAccessDrop(
+  dropId: string,
+  nonce = buildSecureNonce(),
+): Promise<AccessDropClaimRow> {
   const { data, error } = await supabase
-    .rpc('claim_access_drop', { p_drop_id: dropId })
+    .rpc('secure_claim_access_drop', {
+      p_drop_id: dropId,
+      p_nonce: nonce,
+    })
     .single();
 
   if (error || !data) {
     console.error('[access-drop.service] claimAccessDrop:', error);
-    const message = error?.message ?? 'Unable to claim this access window.';
-    throw new Error(message);
+    const rawMessage = error?.message ?? 'Unable to claim this access window.';
+
+    if (rawMessage.includes('event_locked')) {
+      throw new Error('Access claims are temporarily locked for this event.');
+    }
+    if (rawMessage.includes('nonce_reuse')) {
+      throw new Error('This access claim was already processed.');
+    }
+    if (rawMessage.includes('burst_limit')) {
+      throw new Error('Access claims are arriving too quickly. Pause before trying again.');
+    }
+    if (rawMessage.includes('blocked_relationship')) {
+      throw new Error('This access claim is unavailable because the relationship is blocked.');
+    }
+
+    throw new Error(rawMessage);
   }
 
   return data as AccessDropClaimRow;
