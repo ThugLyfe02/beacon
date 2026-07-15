@@ -1,0 +1,38 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '08:00'
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
+    groups:
+      expo-runtime:
+        patterns:
+          - expo
+          - expo-*
+          - react
+          - react-native
+          - react-native-*
+      security-observability:
+        patterns:
+          - '@sentry/*'
+          - '@supabase/*'
+      spatial-runtime:
+        patterns:
+          - three
+          - three-stdlib
+          - '@react-three/*'
+    ignore:
+      - dependency-name: react-native
+        update-types: [version-update:semver-major]
+      - dependency-name: expo
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: chore(deps)
+    labels:
+      - dependencies
+      - security-review
