@@ -3,6 +3,8 @@ import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { getUserEvents } from '../services/event.service';
 import { listMatchesWithProfiles, type MatchWithProfile } from '../services/match.service';
+import OutcomeHandshakeCard from '../components/OutcomeHandshakeCard';
+import { FEATURE_FLAGS } from '../config/featureFlags';
 import {
   GridBackground,
   Loader,
@@ -83,6 +85,9 @@ export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
         <NeonText variant="bodyMuted" style={{ marginTop: spacing.xs }}>
           {event.name}
         </NeonText>
+        <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
+          A mutual is only the beginning. Private outcome alignment reveals the next step only when both sides independently want something compatible.
+        </NeonText>
         <Pressable
           style={styles.officeHoursBtn}
           onPress={() => navigation.navigate('OfficeHoursInbox')}
@@ -102,33 +107,44 @@ export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
         <FlatList
           data={matches}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <Surface elevated padded style={styles.card}>
-              <View style={{ gap: spacing.xs }}>
-                <View style={styles.headerRow}>
-                  <Pill label="Synced" tone="success" dot />
-                  {item.other_is_premium ? <PremiumBadge size="sm" /> : null}
+          renderItem={({ item }) => {
+            const displayName = item.other_name || `${item.other_user_id.slice(0, 8)}…`;
+            return (
+              <Surface elevated padded style={styles.card}>
+                <View style={{ gap: spacing.xs }}>
+                  <View style={styles.headerRow}>
+                    <Pill label="Synced" tone="success" dot />
+                    {item.other_is_premium ? <PremiumBadge size="sm" /> : null}
+                  </View>
+                  <NeonText variant="h2" style={{ marginTop: spacing.xs }}>
+                    {displayName}
+                  </NeonText>
+                  {item.other_role ? (
+                    <NeonText variant="label" tone="accent">{item.other_role}</NeonText>
+                  ) : null}
+                  {item.other_one_liner ? (
+                    <NeonText variant="bodyMuted">{item.other_one_liner}</NeonText>
+                  ) : null}
+                  <NeonText variant="label" tone="dim" style={{ marginTop: spacing.xs }}>
+                    {new Date(item.created_at).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </NeonText>
                 </View>
-                <NeonText variant="h2" style={{ marginTop: spacing.xs }}>
-                  {item.other_name || `${item.other_user_id.slice(0, 8)}…`}
-                </NeonText>
-                {item.other_role ? (
-                  <NeonText variant="label" tone="accent">{item.other_role}</NeonText>
+
+                {FEATURE_FLAGS.outcomeHandshakeProtocol ? (
+                  <OutcomeHandshakeCard
+                    matchId={item.id}
+                    userId={userId}
+                    counterpartyName={displayName}
+                  />
                 ) : null}
-                {item.other_one_liner ? (
-                  <NeonText variant="bodyMuted">{item.other_one_liner}</NeonText>
-                ) : null}
-                <NeonText variant="label" tone="dim" style={{ marginTop: spacing.xs }}>
-                  {new Date(item.created_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
-                </NeonText>
-              </View>
-            </Surface>
-          )}
+              </Surface>
+            );
+          }}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
