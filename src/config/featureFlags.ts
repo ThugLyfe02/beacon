@@ -12,6 +12,10 @@ export const FEATURE_FLAGS = {
   verifiedRoleGlyphs: false,
   officeHoursQueueQuality: false,
   accessDropWaitlists: false,
+  organizerOutcomeIntelligence: false,
+  privateBeaconIndex: false,
+  sponsorProofSummary: false,
+  repeatEventLearning: false,
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
