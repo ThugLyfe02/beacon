@@ -1,12 +1,12 @@
 import React from 'react';
-import { StyleSheet, View, ViewProps, ViewStyle } from 'react-native';
+import { StyleSheet, View, ViewProps, type StyleProp, type ViewStyle } from 'react-native';
 import { glow as glowTokens, palette, radii, spacing } from '../../theme';
 
 interface Props extends ViewProps {
   elevated?: boolean;
   glow?: boolean;
   padded?: boolean;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
 }
 
 export function Surface({ elevated, glow, padded, style, children, ...rest }: Props) {
@@ -18,7 +18,7 @@ export function Surface({ elevated, glow, padded, style, children, ...rest }: Pr
         elevated && styles.elevated,
         glow && styles.glow,
         padded && styles.padded,
-        style as ViewStyle,
+        style,
       ]}
     >
       {children}
