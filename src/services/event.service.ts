@@ -12,9 +12,6 @@ import type {
   LocationType,
 } from '../types/database';
 
-/**
- * Generate a unique 6-character join code
- */
 function generateJoinCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
@@ -24,9 +21,6 @@ function generateJoinCode(): string {
   return code;
 }
 
-/**
- * Create a new event (host only)
- */
 export async function createEvent(
   hostId: string,
   eventData: {
@@ -71,21 +65,13 @@ export async function createEvent(
     throw new Error('Failed to create event');
   }
 
-  // Auto-approve host as participant
   await supabase
     .from('event_participants')
-    .insert({
-      event_id: data.id,
-      user_id: hostId,
-      status: 'approved',
-    });
+    .insert({ event_id: data.id, user_id: hostId, status: 'approved' });
 
-  return data;
+  return data as EventRow;
 }
 
-/**
- * Update an existing event (host only)
- */
 export async function updateEvent(
   eventId: string,
   hostId: string,
@@ -104,12 +90,9 @@ export async function updateEvent(
     throw new Error('Failed to update event');
   }
 
-  return data;
+  return data as EventRow;
 }
 
-/**
- * Update event location (live broadcasting)
- */
 export async function updateEventLocation(
   eventId: string,
   hostId: string,
@@ -119,60 +102,36 @@ export async function updateEventLocation(
   return updateEvent(eventId, hostId, { latitude, longitude });
 }
 
-/**
- * Delete an event (host only)
- */
 export async function deleteEvent(eventId: string, hostId: string): Promise<void> {
-  const { error } = await supabase
-    .from('events')
-    .delete()
-    .eq('id', eventId)
-    .eq('host_id', hostId);
-
+  const { error } = await supabase.from('events').delete().eq('id', eventId).eq('host_id', hostId);
   if (error) {
     console.error('[event.service] Error deleting event:', error);
     throw new Error('Failed to delete event');
   }
 }
 
-/**
- * Get event by ID
- */
 export async function getEventById(eventId: string): Promise<EventRow | null> {
-  const { data, error } = await supabase
-    .from('events')
-    .select('*')
-    .eq('id', eventId)
-    .single();
-
+  const { data, error } = await supabase.from('events').select('*').eq('id', eventId).single();
   if (error) {
     console.error('[event.service] Error fetching event:', error);
     return null;
   }
-
-  return data;
+  return data as EventRow;
 }
 
-/**
- * Get event by join code
- * Uses a SECURITY DEFINER function to bypass RLS (users need to see events before joining)
- */
 export async function getEventByCode(joinCode: string): Promise<EventRow | null> {
   const { data, error } = await supabase
     .rpc('get_event_by_join_code', { p_join_code: joinCode.trim() })
     .single();
 
-  if (error) {
+  if (error || !data) {
     console.error('[event.service] Error fetching event by code:', error);
     return null;
   }
 
-  return data;
+  return data as EventRow;
 }
 
-/**
- * Get all events user has joined (approved only)
- */
 export async function getUserEvents(userId: string): Promise<EventRow[]> {
   const { data, error } = await supabase
     .from('event_participants')
@@ -185,34 +144,19 @@ export async function getUserEvents(userId: string): Promise<EventRow[]> {
     throw new Error('Failed to fetch events');
   }
 
-  return (data || []).map((row: any) => row.events).filter(Boolean);
+  return (data || []).map((row: any) => row.events).filter(Boolean) as EventRow[];
 }
 
-/**
- * Get event user is currently hosting
- */
 export async function getHostedEvent(hostId: string): Promise<EventRow | null> {
-  const { data, error } = await supabase
-    .from('events')
-    .select('*')
-    .eq('host_id', hostId)
-    .single();
-
+  const { data, error } = await supabase.from('events').select('*').eq('host_id', hostId).single();
   if (error) {
-    if (error.code === 'PGRST116') {
-      // No rows returned
-      return null;
-    }
+    if (error.code === 'PGRST116') return null;
     console.error('[event.service] Error fetching hosted event:', error);
     throw new Error('Failed to fetch hosted event');
   }
-
-  return data;
+  return data as EventRow;
 }
 
-/**
- * Get event with host information
- */
 export async function getEventWithHost(eventId: string): Promise<EventWithHost | null> {
   const { data: event, error: eventError } = await supabase
     .from('events')
@@ -225,15 +169,9 @@ export async function getEventWithHost(eventId: string): Promise<EventWithHost |
     return null;
   }
 
-  return {
-    event: event as unknown as EventRow,
-    host: (event as any).users,
-  };
+  return { event: event as unknown as EventRow, host: (event as any).users };
 }
 
-/**
- * Get participant count for an event
- */
 export async function getParticipantCount(eventId: string): Promise<number> {
   const { count, error } = await supabase
     .from('event_participants')
