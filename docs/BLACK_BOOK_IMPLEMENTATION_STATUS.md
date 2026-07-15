@@ -73,6 +73,20 @@ Adds host controls for accepted roles, accepted intents, verification requiremen
 
 Adds real, time-bound professional access windows with hard capacity, role eligibility, verified-role requirements, confirmed claims, and ordered waitlists. Claims are atomic through a database RPC; the client cannot overbook capacity or fabricate scarcity.
 
+### Organizer Outcome Intelligence Spine
+
+Adds a private, host-only outcome ledger that captures event activation, verified supply, high-intent conversion, Office Hours fulfillment, Drop demand, Vault follow-through, and missed-opportunity volume. The database generates snapshots through a host-authorized RPC, so clients cannot fabricate organizer metrics.
+
+The private Beacon Index is explicitly experimental and confidence-weighted. It combines activation strength, signal-to-mutual conversion, Office Hours completion, Vault follow-through, and verified supply. It remains hidden from public marketing and degrades to `insufficient_data` when the room has not produced a responsible sample.
+
+### Outcome diagnostics and repeat-event fingerprints
+
+Adds a pure organizer engine that translates raw aggregates into explainable operating constraints rather than a vanity dashboard. It can identify activation failure, weak signal quality, access-fulfillment leakage, verified-supply shortages, post-event decay, and excess demand pressure. It also creates outcome fingerprints that compare events across activation, relationship conversion, access conversion, follow-through, verified supply, demand pressure, and opportunity waste.
+
+### Sponsor proof without surveillance
+
+Adds an aggregate-only sponsor proof model that reports demand signals, completed access moments, and waitlist pressure only when minimum confidence requirements are met. The model never exposes private signals, proximity trails, Vault contents, or attendee identities.
+
 ## Black Book systems not yet implemented
 
 These remain separate future layers and must not be folded into unrelated work:
@@ -83,15 +97,14 @@ These remain separate future layers and must not be folded into unrelated work:
 4. Invisible VIP settings UI and presence-feed enforcement
 5. Verified role administration and glyph rendering
 6. Limited Drops organizer and attendee screens
-7. Organizer event health console
-8. Beacon Index experimental formula
-9. Personal event strategy
-10. Signature mutual activation moment
-11. Centralized high-intensity kill switches
-12. Sponsor proof without surveillance
-13. Repeat-event organizer memory
-14. Premium Vault intelligence depth
-15. Access-drop promotion from waitlist after cancellation
+7. Organizer outcome console and event-comparison UI
+8. Personal event strategy
+9. Signature mutual activation moment
+10. Centralized high-intensity kill switches
+11. Premium Vault intelligence depth
+12. Access-drop promotion from waitlist after cancellation
+13. Automatic organizer-learning memory persistence after event close
+14. Payment-backed premium enforcement replacing the development premium toggle
 
 ## Implementation rules
 
@@ -106,6 +119,8 @@ These remain separate future layers and must not be folded into unrelated work:
 - Scarcity must be database-enforced whenever capacity or budget is shown to users.
 - Verified roles must be event-scoped and must never silently become global reputation claims.
 - Invisible participants may contribute only to aggregate intelligence until policy explicitly permits reveal.
+- Organizer metrics must remain private until confidence and methodology are proven.
+- Sponsor reports must be aggregate-only and must suppress claims when the sample is too small.
 - One coherent layer per pull request whenever practical.
 
 ## Acceptance gate for this branch
@@ -125,3 +140,7 @@ Before merge:
 - Access Drops must not exceed hard capacity and waitlist order must be deterministic.
 - Office Hours fit scores must remain private to the host and must never become a public reputation score.
 - Verified role indicators must be backed by an active event-role attestation.
+- Outcome snapshots must be generated only by the event host through the database RPC.
+- Beacon Index values must remain private and confidence-weighted.
+- Sponsor proof must suppress claims below the minimum aggregate sample.
+- Organizer diagnostics must be explainable from stored aggregate evidence.
