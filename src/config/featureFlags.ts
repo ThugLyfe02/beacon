@@ -16,6 +16,9 @@ export const FEATURE_FLAGS = {
   privateBeaconIndex: false,
   sponsorProofSummary: false,
   repeatEventLearning: false,
+  securityControlPlane: false,
+  adaptiveSecurityRisk: false,
+  securityDecisionReceipts: false,
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
