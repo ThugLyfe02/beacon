@@ -1,0 +1,107 @@
+name: Security Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 7 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application-security:
+    name: TypeScript and dependency security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify strict TypeScript compilation
+        run: npx tsc --noEmit
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Detect accidentally committed environment files
+        shell: bash
+        run: |
+          set -euo pipefail
+          tracked_env_files=$(git ls-files | grep -E '(^|/)(\.env|\.env\..+)$' || true)
+          if [[ -n "$tracked_env_files" ]]; then
+            echo "Tracked environment files are not allowed:"
+            echo "$tracked_env_files"
+            exit 1
+          fi
+
+      - name: Detect high-risk credential patterns in tracked text
+        shell: bash
+        run: |
+          set -euo pipefail
+          patterns='(service_role|SUPABASE_SERVICE_ROLE|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})'
+          if git grep -I -n -E "$patterns" -- ':!package-lock.json' ':!*.md'; then
+            echo "Potential credential material detected in tracked source."
+            exit 1
+          fi
+
+  codeql:
+    name: CodeQL analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Reject vulnerable dependency changes
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0, AGPL-3.0
