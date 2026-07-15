@@ -34,6 +34,7 @@ create table if not exists public.vault_entries (
   visible_until timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  unique (user_id, event_id, kind, source_id),
   check (identity_revealed or subject_user_id is null)
 );
 
@@ -42,9 +43,6 @@ create index if not exists vault_entries_user_event_idx
 create index if not exists vault_entries_open_action_idx
   on public.vault_entries (user_id, event_id, status)
   where status = 'open';
-create unique index if not exists vault_entries_source_dedupe_idx
-  on public.vault_entries (user_id, event_id, kind, source_id)
-  where source_id is not null;
 
 alter table public.vault_entries enable row level security;
 
