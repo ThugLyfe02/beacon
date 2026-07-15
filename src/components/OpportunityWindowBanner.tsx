@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     color: "#F9FAFB",
     fontSize: 16,
     lineHeight: 22,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   evidence: {
     marginTop: 8,
