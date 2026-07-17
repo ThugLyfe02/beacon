@@ -8,6 +8,7 @@ export interface SpatialDirectorInput {
   presence: PresenceState;
   progression: SpatialProgressionState;
   runtime: RuntimeReliabilitySnapshot;
+  mutualMatches: number;
   eventStartsAt: string;
   eventEndsAt: string;
   now?: number;
@@ -35,18 +36,19 @@ function determineAct(
   startsAt: number,
   endsAt: number,
   presence: PresenceState,
+  mutualMatches: number,
 ): SpatialAct {
   if (now >= endsAt) return 'afterglow';
   const remainingMinutes = Math.max(0, Math.floor((endsAt - now) / 60_000));
   if (remainingMinutes <= 12) return 'closing';
-  if (presence.urgencyLevel === 'surge' || presence.mutualMatches > 0) return 'convergence';
+  if (presence.urgencyLevel === 'surge' || mutualMatches > 0) return 'convergence';
   if (now < startsAt + 12 * 60_000) return 'briefing';
   return 'exploration';
 }
 
 function copyForAct(
   act: SpatialAct,
-  presence: PresenceState,
+  mutualMatches: number,
   progression: SpatialProgressionState,
   closingMinutes: number,
 ): Pick<SpatialDirectorState, 'title' | 'direction' | 'accent'> {
@@ -60,7 +62,7 @@ function copyForAct(
     case 'convergence':
       return {
         title: 'The field is converging',
-        direction: presence.mutualMatches > 0
+        direction: mutualMatches > 0
           ? 'A verified mutual is active. Convert it into a real next step while the route is still live.'
           : 'Several signals are compressing into the same window. Commit to the strongest route now.',
         accent: '#fbbf24',
@@ -99,16 +101,18 @@ export function buildSpatialDirector(input: SpatialDirectorInput): SpatialDirect
   const startsAt = new Date(input.eventStartsAt).getTime();
   const endsAt = new Date(input.eventEndsAt).getTime();
   const closingMinutes = Math.max(0, Math.floor((endsAt - now) / 60_000));
-  const act = determineAct(now, startsAt, endsAt, input.presence);
+  const act = determineAct(now, startsAt, endsAt, input.presence, input.mutualMatches);
   const degraded = input.runtime.state !== 'healthy';
-  const copy = copyForAct(act, input.presence, input.progression, closingMinutes);
+  const copy = copyForAct(act, input.mutualMatches, input.progression, closingMinutes);
 
   const density = clamp01(input.presence.density / 12);
   const tension = clamp01(input.presence.tensionScore / 100);
   const progress = clamp01(input.progression.progress);
   const reliabilityPenalty = degraded ? 0.45 : 1;
   const actBoost = act === 'convergence' ? 0.18 : act === 'closing' ? 0.12 : 0;
-  const worldIntensity = clamp01((0.18 + density * 0.32 + tension * 0.3 + progress * 0.2 + actBoost) * reliabilityPenalty);
+  const worldIntensity = clamp01(
+    (0.18 + density * 0.32 + tension * 0.3 + progress * 0.2 + actBoost) * reliabilityPenalty,
+  );
 
   return {
     act,
