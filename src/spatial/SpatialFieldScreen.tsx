@@ -13,11 +13,14 @@ import OpportunityField from "./OpportunityField";
 import SpatialSignalLayer from "./SpatialSignalLayer";
 import SpatialMilestoneLayer from "./SpatialMilestoneLayer";
 import SpatialDistrictLayer from "./SpatialDistrictLayer";
+import SpatialDirectorLayer from "./SpatialDirectorLayer";
+import SpatialDirectorHUD from "./SpatialDirectorHUD";
 import SpatialProgressHUD from "./SpatialProgressHUD";
 import SpatialContractHUD from "./SpatialContractHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { buildSpatialContractBoard } from "./SpatialContractEngine";
+import { buildSpatialDirector } from "./SpatialDirectorEngine";
 import { RING_RADII } from "./fieldConstants";
 import AvatarActionSheet from "./AvatarActionSheet";
 import { usePresenceEngine } from "../presence/usePresenceEngine";
@@ -31,12 +34,18 @@ import type { ProximitySignal } from "../presence/PresenceEngine";
 
 type SpatialFieldParams = { SpatialField: { eventId: string } };
 
+interface EventTiming {
+  startsAt: string;
+  endsAt: string;
+}
+
 function FieldFloor() {
   const grid = useMemo(() => {
     const helper = new GridHelper(60, 30, new Color("#1f2347"), new Color("#10112a"));
     helper.position.y = -3;
     return helper;
   }, []);
+
   return (
     <>
       <primitive object={grid} />
@@ -68,7 +77,7 @@ export default function SpatialFieldScreen() {
   const userId = user?.id ?? "";
   const isPremium = usePremiumStatus();
 
-  const [eventEnd, setEventEnd] = useState<string | null>(null);
+  const [eventTiming, setEventTiming] = useState<EventTiming | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
 
   useEffect(() => {
@@ -76,18 +85,29 @@ export default function SpatialFieldScreen() {
     (async () => {
       const event = await getEventById(eventId);
       if (cancelled) return;
-      setEventEnd(event?.ends_at ?? new Date(Date.now() + 60 * 60 * 1000).toISOString());
+      setEventTiming({
+        startsAt: event?.starts_at ?? new Date(Date.now() - 15 * 60_000).toISOString(),
+        endsAt: event?.ends_at ?? new Date(Date.now() + 60 * 60_000).toISOString(),
+      });
     })();
     return () => {
       cancelled = true;
     };
   }, [eventId]);
 
-  const { rawSignals, signalsSent, mutualMatches } = usePresenceFeed(eventId, userId);
+  const {
+    rawSignals,
+    signalsSent,
+    mutualMatches,
+    runtime,
+  } = usePresenceFeed(eventId, userId);
+
+  const fallbackEndsAt = eventTiming?.endsAt ?? new Date(Date.now() + 60 * 60_000).toISOString();
+  const fallbackStartsAt = eventTiming?.startsAt ?? new Date(Date.now() - 15 * 60_000).toISOString();
 
   const presence = usePresenceEngine({
     rawSignals,
-    eventEnd: eventEnd ?? new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    eventEnd: fallbackEndsAt,
     signalsSent,
     mutualMatches,
     officeHoursActive: false,
@@ -103,6 +123,18 @@ export default function SpatialFieldScreen() {
     [presence, signalsSent, mutualMatches],
   );
 
+  const director = useMemo(
+    () => buildSpatialDirector({
+      presence,
+      progression,
+      runtime,
+      mutualMatches,
+      eventStartsAt: fallbackStartsAt,
+      eventEndsAt: fallbackEndsAt,
+    }),
+    [presence, progression, runtime, mutualMatches, fallbackStartsAt, fallbackEndsAt],
+  );
+
   const contractBoard = useMemo(
     () => buildSpatialContractBoard({
       presence,
@@ -112,6 +144,11 @@ export default function SpatialFieldScreen() {
       isPremium,
     }),
     [presence, progression, signalsSent, mutualMatches, isPremium],
+  );
+
+  const directedFocusTargets = useMemo(
+    () => spatialExperience.focusTargets.slice(0, director.focusLimit),
+    [spatialExperience.focusTargets, director.focusLimit],
   );
 
   const handleConnect = async (targetId: string) => {
@@ -131,7 +168,7 @@ export default function SpatialFieldScreen() {
     navigation.navigate("OfficeHoursRequest", { eventId, recipientId: targetId });
   };
 
-  if (!presence) {
+  if (!presence || !eventTiming) {
     return (
       <View style={styles.fallback}>
         <ActivityIndicator color="#f59e0b" />
@@ -148,9 +185,10 @@ export default function SpatialFieldScreen() {
         <ambientLight intensity={0.35} />
         <pointLight position={[10, 10, 10]} intensity={0.8} />
         <FieldFloor />
+        <SpatialDirectorLayer director={director} />
         <SpatialDistrictLayer
           progression={progression}
-          accent={spatialExperience.accent}
+          accent={director.accent}
           premium={isPremium}
         />
         <OpportunityField
@@ -160,10 +198,10 @@ export default function SpatialFieldScreen() {
           urgencyLevel={presence.urgencyLevel}
         />
         <SpatialSignalLayer
-          focusTargets={spatialExperience.focusTargets}
-          accent={spatialExperience.accent}
+          focusTargets={directedFocusTargets}
+          accent={director.accent}
         />
-        <SpatialMilestoneLayer progression={progression} accent={spatialExperience.accent} />
+        <SpatialMilestoneLayer progression={progression} accent={director.accent} />
         <Suspense fallback={null}>
           {presence.visibleTargets.map((target) => (
             <AvatarRenderer
@@ -175,34 +213,19 @@ export default function SpatialFieldScreen() {
         </Suspense>
       </Canvas>
 
-      <View pointerEvents="none" style={styles.liveReadWrap}>
-        <View style={[styles.liveReadCard, { borderColor: `${spatialExperience.accent}55` }]}>
-          <View style={styles.liveReadHeader}>
-            <View style={[styles.liveDot, { backgroundColor: spatialExperience.accent }]} />
-            <Text style={[styles.liveReadLabel, { color: spatialExperience.accent }]}>LIVE READ</Text>
-          </View>
-          <Text style={styles.liveReadHeadline}>{spatialExperience.headline}</Text>
-          <Text style={styles.liveReadDetail}>{spatialExperience.detail}</Text>
-          {spatialExperience.hiddenOpportunityCount > 0 && (
-            <Text style={styles.liveReadFootnote}>
-              +{spatialExperience.hiddenOpportunityCount} more visible in the field
-            </Text>
-          )}
-        </View>
-      </View>
-
+      <SpatialDirectorHUD director={director} />
       <SpatialContractHUD
         board={contractBoard}
-        accent={spatialExperience.accent}
+        accent={director.accent}
         isPremium={isPremium}
       />
-      <SpatialProgressHUD progression={progression} accent={spatialExperience.accent} />
+      <SpatialProgressHUD progression={progression} accent={director.accent} />
 
       <View style={styles.overlay}>
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              signals: {rawSignals.length} · targets: {presence.visibleTargets.length} · sent: {signalsSent} · matches: {mutualMatches}
+              act: {director.act} · intensity: {director.worldIntensity.toFixed(2)} · signals: {rawSignals.length} · targets: {presence.visibleTargets.length}
             </Text>
             {presence.visibleTargets.slice(0, 3).map((target) => (
               <Text key={target.targetId} style={styles.debugText}>
@@ -229,55 +252,6 @@ export default function SpatialFieldScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   canvas: { flex: 1 },
-  liveReadWrap: {
-    position: "absolute",
-    top: 18,
-    left: 16,
-    right: 16,
-    alignItems: "flex-start",
-  },
-  liveReadCard: {
-    maxWidth: 390,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: "rgba(7, 10, 16, 0.82)",
-  },
-  liveReadHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-  },
-  liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 999,
-  },
-  liveReadLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-  },
-  liveReadHeadline: {
-    marginTop: 7,
-    color: "#F8FAFC",
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: "700",
-  },
-  liveReadDetail: {
-    marginTop: 5,
-    color: "#A8B2C1",
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  liveReadFootnote: {
-    marginTop: 8,
-    color: "#64748B",
-    fontSize: 10,
-    letterSpacing: 0.2,
-  },
   overlay: {
     position: "absolute",
     left: 0,
