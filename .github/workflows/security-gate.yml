@@ -62,7 +62,25 @@ jobs:
         run: node scripts/validate-opportunity-architecture.mjs
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        id: dependency-audit
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm audit --omit=dev --audit-level=high --json 2>&1 | tee npm-audit.json
+
+      - name: Upload dependency audit diagnostics
+        if: steps.dependency-audit.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-diagnostics
+          path: npm-audit.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on high-severity dependency findings
+        if: steps.dependency-audit.outcome == 'failure'
+        run: exit 1
 
       - name: Detect accidentally committed environment files
         shell: bash
@@ -110,7 +128,25 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Validate Expo configuration
-        run: npx expo-doctor
+        id: expo-doctor
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npx expo-doctor 2>&1 | tee expo-doctor.txt
+
+      - name: Upload Expo Doctor diagnostics
+        if: steps.expo-doctor.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: expo-doctor-diagnostics
+          path: expo-doctor.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on Expo configuration errors
+        if: steps.expo-doctor.outcome == 'failure'
+        run: exit 1
 
       - name: Produce Android production bundle
         run: npx expo export --platform android --output-dir dist-android --clear
@@ -120,7 +156,7 @@ jobs:
         run: |
           set -euo pipefail
           test -d dist-android
-          test -n "$(find dist-android -type f -maxdepth 4 -print -quit)"
+          test -n "$(find dist-android -maxdepth 4 -type f -print -quit)"
           du -sh dist-android
 
       - name: Upload Android bundle artifact
