@@ -75,6 +75,7 @@ forbidText('src/hooks/usePresenceFeed.ts', 'setInterval(', 'presence polling mus
 for (const [text, explanation] of [
   ['<OpportunityField', 'the spatial field must retain aggregate live-state geometry'],
   ['<SpatialSignalLayer', 'the spatial field must retain real target route visualization'],
+  ['detailBudget={director.detailBudget}', 'the full field must use adaptive route detail rather than a fixed people cap'],
   ['buildSpatialExperience', 'the spatial field must derive its visual hierarchy from live presence state'],
   ['buildSpatialProgression', 'the spatial field must retain verified event-session progression'],
   ['<SpatialMilestoneLayer', 'verified progress must remain visible inside the 3D scene'],
@@ -88,13 +89,18 @@ for (const [text, explanation] of [
 
 requireText('src/spatial/OpportunityField.tsx', 'mutualMatches > 0', 'the mutual beacon must remain grounded in a real mutual');
 requireText('src/spatial/OpportunityField.tsx', 'depthWrite: false', 'additive field effects must avoid corrupting scene depth');
-requireText('src/spatial/SpatialExperienceEngine.ts', '.slice(0, 3)', 'spatial prioritization must remain intentionally restrained');
-requireText('src/spatial/SpatialExperienceEngine.ts', 'never fabricates demand', 'spatial experience must preserve honest urgency constraints');
+requireText('src/spatial/SpatialExperienceEngine.ts', 'Every visible attendee remains represented', 'spatial hierarchy must preserve the full visible field');
+requireText('src/spatial/SpatialExperienceEngine.ts', "tier: tierForRank", 'spatial detail must be tiered by salience');
+forbidText('src/spatial/SpatialExperienceEngine.ts', '.slice(0, 3)', 'spatial experience cannot return to a fixed three-person cap');
+requireText('src/spatial/SpatialSignalLayer.tsx', '<AmbientMarker', 'lower-priority attendees must remain represented as ambient markers');
+requireText('src/spatial/SpatialSignalLayer.tsx', 'detailBudget', 'route complexity must use an adaptive detail budget');
 requireText('src/spatial/SpatialSignalLayer.tsx', 'depthWrite={false}', 'spatial routes must not corrupt avatar scene depth');
 requireText('src/spatial/SpatialProgressionEngine.ts', 'verifiedActionPoints', 'progression must be grounded in verifiable event actions');
 requireText('src/spatial/SpatialProgressionEngine.ts', 'does not use', 'progression must preserve its anti-dark-pattern contract');
 forbidText('src/spatial/SpatialProgressionEngine.ts', 'Math.random(', 'progression must remain deterministic and cannot use random rewards');
 requireText('src/spatial/SpatialDirectorEngine.ts', 'runtime.health', 'world detail must respond to live runtime reliability');
+requireText('src/spatial/SpatialDirectorEngine.ts', 'computeDetailBudget', 'the Director must scale scene detail with field size and reliability');
+requireText('src/spatial/SpatialDirectorEngine.ts', 'not a people cap', 'adaptive detail must remain distinct from attendee visibility');
 requireText('src/spatial/SpatialDirectorEngine.ts', 'never invents people', 'the spatial director must preserve honest world-state constraints');
 forbidText('src/spatial/SpatialDirectorEngine.ts', 'Math.random(', 'world direction must remain deterministic');
 requireText('src/spatial/SpatialDirectorLayer.tsx', 'depthWrite={false}', 'director geometry must not corrupt avatar scene depth');
