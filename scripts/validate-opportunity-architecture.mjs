@@ -46,6 +46,10 @@ const requiredFiles = [
   'src/spatial/SpatialDirectorEngine.ts',
   'src/spatial/SpatialDirectorLayer.tsx',
   'src/spatial/SpatialDirectorHUD.tsx',
+  'src/spatial/SpatialWorldIntelligenceEngine.ts',
+  'src/spatial/SpatialWorldIntelligenceLayer.tsx',
+  'src/spatial/SpatialWorldIntelligenceHUD.tsx',
+  'src/services/world-memory.service.ts',
   'src/screens/MatchesScreen.tsx',
   'supabase/migrations/019_vault_signal_scarcity.sql',
   'supabase/migrations/020_verified_access_protocol.sql',
@@ -57,6 +61,7 @@ const requiredFiles = [
   'supabase/migrations/026_outcome_conversion_metrics.sql',
   'supabase/migrations/027_secure_connection_activation.sql',
   'supabase/migrations/028_decision_provenance.sql',
+  'supabase/migrations/029_spatial_world_memory.sql',
 ];
 
 for (const path of requiredFiles) read(path);
@@ -77,7 +82,7 @@ forbidText('src/hooks/usePresenceFeed.ts', 'setInterval(', 'presence polling mus
 for (const [text, explanation] of [
   ['<OpportunityField', 'the spatial field must retain aggregate live-state geometry'],
   ['<SpatialSignalLayer', 'the spatial field must retain real target route visualization'],
-  ['detailBudget={director.detailBudget}', 'the full field must use adaptive route detail rather than a fixed people cap'],
+  ['detailBudget={trustedDetailBudget}', 'route detail must scale down when trust confidence falls'],
   ['<SpatialAvatarLayer', 'all visible avatars must pass through collision-aware layout'],
   ['buildSpatialExperience', 'the spatial field must derive its visual hierarchy from live presence state'],
   ['buildSpatialProgression', 'the spatial field must retain verified event-session progression'],
@@ -88,12 +93,15 @@ for (const [text, explanation] of [
   ['buildSpatialDirector', 'the field must retain deterministic world-state direction'],
   ['<SpatialDirectorLayer', 'the director must remain visible inside the 3D scene'],
   ['<SpatialDirectorHUD', 'the current world act must remain explainable to the user'],
+  ['buildSpatialWorldIntelligence', 'the field must retain aggregate world learning and prediction'],
+  ['<SpatialWorldIntelligenceLayer', 'social emergence and trust must remain visible in the world'],
+  ['<SpatialWorldIntelligenceHUD', 'world intelligence must remain explainable rather than subliminal'],
 ]) requireText('src/spatial/SpatialFieldScreen.tsx', text, explanation);
 
 requireText('src/spatial/OpportunityField.tsx', 'mutualMatches > 0', 'the mutual beacon must remain grounded in a real mutual');
 requireText('src/spatial/OpportunityField.tsx', 'depthWrite: false', 'additive field effects must avoid corrupting scene depth');
 requireText('src/spatial/SpatialExperienceEngine.ts', 'Every visible attendee remains represented', 'spatial hierarchy must preserve the full visible field');
-requireText('src/spatial/SpatialExperienceEngine.ts', 'tier: tierForRank', 'spatial detail must be tiered by salience');
+requireText('src/spatial/SpatialExperienceEngine.ts', "tier: tierForRank", 'spatial detail must be tiered by salience');
 forbidText('src/spatial/SpatialExperienceEngine.ts', '.slice(0, 3)', 'spatial experience cannot return to a fixed three-person cap');
 requireText('src/spatial/SpatialSignalLayer.tsx', '<AmbientMarker', 'lower-priority attendees must remain represented as ambient markers');
 requireText('src/spatial/SpatialSignalLayer.tsx', 'detailBudget', 'route complexity must use an adaptive detail budget');
@@ -111,6 +119,12 @@ requireText('src/spatial/SpatialDirectorEngine.ts', 'not a people cap', 'adaptiv
 requireText('src/spatial/SpatialDirectorEngine.ts', 'never invents people', 'the spatial director must preserve honest world-state constraints');
 forbidText('src/spatial/SpatialDirectorEngine.ts', 'Math.random(', 'world direction must remain deterministic');
 requireText('src/spatial/SpatialDirectorLayer.tsx', 'depthWrite={false}', 'director geometry must not corrupt avatar scene depth');
+requireText('src/spatial/SpatialWorldIntelligenceEngine.ts', 'predicts opportunity density, never a person', 'forecasting must remain aggregate and non-creepy');
+requireText('src/spatial/SpatialWorldIntelligenceEngine.ts', 'sample-size gated', 'historical claims must remain evidence gated');
+forbidText('src/spatial/SpatialWorldIntelligenceEngine.ts', 'Math.random(', 'world intelligence must remain deterministic');
+requireText('src/services/world-memory.service.ts', 'sample_size < 3', 'immature venue memory must remain hidden');
+requireText('supabase/migrations/029_spatial_world_memory.sql', 'No attendee movement trails', 'world memory must preserve its privacy boundary');
+requireText('supabase/migrations/029_spatial_world_memory.sql', 'service_role', 'aggregate memory refresh must remain server controlled');
 
 const flags = read('src/config/featureFlags.ts');
 for (const enabledFlag of [
