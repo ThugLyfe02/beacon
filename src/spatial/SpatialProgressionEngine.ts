@@ -38,8 +38,11 @@ function pointsFor(input: SpatialProgressionInput): number {
 }
 
 function levelForPoints(points: number): number {
-  const index = LEVEL_THRESHOLDS.findLastIndex((threshold) => points >= threshold);
-  return Math.max(1, index + 1);
+  let level = 1;
+  for (let index = 0; index < LEVEL_THRESHOLDS.length; index += 1) {
+    if (points >= LEVEL_THRESHOLDS[index]) level = index + 1;
+  }
+  return level;
 }
 
 function nextActionFor(input: SpatialProgressionInput): string {
