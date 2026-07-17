@@ -36,6 +36,7 @@ const requiredFiles = [
   'src/organizer/OutcomeIntelligenceEngine.ts',
   'src/reliability/RuntimeReliabilityEngine.ts',
   'src/components/RuntimeStatusCard.tsx',
+  'src/spatial/OpportunityField.tsx',
   'src/screens/MatchesScreen.tsx',
   'supabase/migrations/019_vault_signal_scarcity.sql',
   'supabase/migrations/020_verified_access_protocol.sql',
@@ -110,6 +111,22 @@ forbidText(
   'presence polling must remain single-flight and self-scheduled',
 );
 
+requireText(
+  'src/spatial/SpatialFieldScreen.tsx',
+  '<OpportunityField',
+  'the spatial field must retain aggregate live-state geometry',
+);
+requireText(
+  'src/spatial/OpportunityField.tsx',
+  'mutualMatches > 0',
+  'the mutual beacon must remain grounded in a real mutual',
+);
+requireText(
+  'src/spatial/OpportunityField.tsx',
+  'depthWrite: false',
+  'additive field effects must avoid corrupting scene depth',
+);
+
 const flags = read('src/config/featureFlags.ts');
 for (const enabledFlag of [
   'vault: true',
@@ -118,6 +135,7 @@ for (const enabledFlag of [
   'outcomeHandshakeProtocol: true',
   'decisionProvenance: true',
   'runtimeReliability: true',
+  'spatialOpportunityField: true',
 ]) {
   if (!flags.includes(enabledFlag)) {
     failures.push(`src/config/featureFlags.ts: integrated flag must remain enabled: ${enabledFlag}`);
