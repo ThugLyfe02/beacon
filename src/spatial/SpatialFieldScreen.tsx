@@ -8,7 +8,7 @@ import {
 } from "@react-navigation/native";
 import { Canvas } from "@react-three/fiber/native";
 import { DoubleSide, GridHelper, Color } from "three";
-import AvatarRenderer from "./AvatarRenderer";
+import SpatialAvatarLayer from "./SpatialAvatarLayer";
 import OpportunityField from "./OpportunityField";
 import SpatialSignalLayer from "./SpatialSignalLayer";
 import SpatialMilestoneLayer from "./SpatialMilestoneLayer";
@@ -199,13 +199,7 @@ export default function SpatialFieldScreen() {
         />
         <SpatialMilestoneLayer progression={progression} accent={director.accent} />
         <Suspense fallback={null}>
-          {presence.visibleTargets.map((target) => (
-            <AvatarRenderer
-              key={target.targetId}
-              avatar={target}
-              onTap={setSelectedTarget}
-            />
-          ))}
+          <SpatialAvatarLayer targets={presence.visibleTargets} onTap={setSelectedTarget} />
         </Suspense>
       </Canvas>
 
