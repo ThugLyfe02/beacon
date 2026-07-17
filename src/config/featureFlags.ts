@@ -21,6 +21,7 @@ export const FEATURE_FLAGS = {
   securityDecisionReceipts: false,
   outcomeHandshakeProtocol: true,
   decisionProvenance: true,
+  runtimeReliability: true,
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
