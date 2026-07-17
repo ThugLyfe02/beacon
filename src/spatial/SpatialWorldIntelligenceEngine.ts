@@ -157,7 +157,7 @@ function buildClusters(signals: ProximitySignal[], now: number): SocialCluster[]
     grouped.set(sector, current);
   }
 
-  const clusters = SECTOR_ORDER.flatMap((sector) => {
+  const clusters: SocialCluster[] = SECTOR_ORDER.flatMap((sector): SocialCluster[] => {
     const members = grouped.get(sector) ?? [];
     if (members.length < 2) return [];
     const averageDistanceFeet = members.reduce((sum, item) => sum + item.distanceFeet, 0) / members.length;
