@@ -210,7 +210,7 @@ export async function getUserEvents(userId: string): Promise<EventRow[]> {
   }
 
   const events = (data ?? [])
-    .map((row) => row.events)
+    .map((row) => (Array.isArray(row.events) ? row.events[0] : row.events))
     .filter((event): event is EventRow => Boolean(event));
 
   return events.sort((left, right) => {
