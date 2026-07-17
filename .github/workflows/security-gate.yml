@@ -103,6 +103,60 @@ jobs:
             exit 1
           fi
 
+  dependency-resolution-preview:
+    name: Dependency remediation preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Align Expo SDK patch versions
+        run: >-
+          npx expo install
+          expo@~55.0.28
+          expo-asset@~55.0.18
+          expo-camera@~55.0.21
+          expo-device@~55.0.19
+          expo-file-system@~55.0.24
+          expo-gl@~55.0.16
+          expo-image-picker@~55.0.22
+          expo-location@~55.1.12
+          expo-notifications@~55.0.25
+          expo-video@~55.0.19
+
+      - name: Apply compatible transitive security fixes
+        run: npm audit fix --package-lock-only --omit=dev
+
+      - name: Validate remediated dependency graph
+        shell: bash
+        run: |
+          npm ci --ignore-scripts
+          npx expo-doctor
+          npm audit --omit=dev --audit-level=high
+
+      - name: Upload remediated dependency manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: remediated-dependency-manifests
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 7
+
   android-bundle-smoke:
     name: Android bundle smoke test
     runs-on: ubuntu-latest
