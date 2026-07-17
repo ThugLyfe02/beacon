@@ -5,6 +5,7 @@ export const FEATURE_FLAGS = {
   spatialProgression: true,
   spatialContracts: true,
   spatialDistrict: true,
+  spatialDirector: true,
   regretRecorder: false,
   opportunitySurge: true,
   opportunityWindowBanner: true,
