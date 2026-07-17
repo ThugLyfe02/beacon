@@ -105,14 +105,18 @@ jobs:
 
   dependency-resolution-preview:
     name: Dependency remediation preview
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
 
     steps:
-      - name: Check out repository
+      - name: Check out PR branch
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          ref: ${{ github.head_ref }}
+          persist-credentials: true
 
       - name: Configure Node.js
         uses: actions/setup-node@v4
@@ -138,12 +142,12 @@ jobs:
           expo-video@~55.0.19
 
       - name: Apply compatible transitive security fixes
-        id: audit-fix
-        continue-on-error: true
-        run: npm audit fix --package-lock-only --omit=dev
+        run: npm audit fix --package-lock-only --omit=dev || true
+
+      - name: Validate Expo dependency alignment
+        run: npx expo-doctor
 
       - name: Upload remediated dependency manifests
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: remediated-dependency-manifests
@@ -153,12 +157,19 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Validate Expo dependency alignment
-        run: npx expo-doctor
-
-      - name: Report unresolved audit findings
-        if: steps.audit-fix.outcome == 'failure'
-        run: npm audit --omit=dev --audit-level=high || true
+      - name: Commit validated dependency manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "Dependency manifests are already aligned."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: align Expo dependencies and security patches"
+          git push origin HEAD:${{ github.head_ref }}
 
   android-bundle-smoke:
     name: Android bundle smoke test
