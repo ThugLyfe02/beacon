@@ -73,6 +73,7 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
   const inFlightRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const permissionRef = useRef<boolean | null>(null);
+  const failureCountRef = useRef(0);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -85,6 +86,7 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
   useEffect(() => {
     cancelledRef.current = false;
     if (!eventId || !observerId) {
+      failureCountRef.current = 0;
       setFeed(initialFeedState());
       return;
     }
@@ -136,7 +138,6 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
 
         const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
-          mayShowUserSettingsDialog: true,
         });
         const latitude = location.coords.latitude;
         const longitude = location.coords.longitude;
@@ -151,6 +152,7 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
 
         if (cancelledRef.current) return;
         const completedAt = Date.now();
+        failureCountRef.current = 0;
         setFeed({
           rawSignals: signals,
           signalsSent,
@@ -167,9 +169,10 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
       } catch (error) {
         if (cancelledRef.current) return;
         const message = error instanceof Error ? error.message : String(error);
+        const failures = failureCountRef.current + 1;
+        failureCountRef.current = failures;
+        const delay = computeRetryDelayMs(failures);
         setFeed((current) => {
-          const failures = current.consecutiveFailures + 1;
-          const delay = computeRetryDelayMs(failures);
           const discard = shouldDiscardPresence(current.lastUpdatedAt);
           return {
             ...current,
@@ -180,8 +183,7 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
             nextRetryAt: Date.now() + delay,
           };
         });
-        const nextFailureCount = feed.consecutiveFailures + 1;
-        schedule(computeRetryDelayMs(nextFailureCount));
+        schedule(delay);
       } finally {
         inFlightRef.current = false;
       }
