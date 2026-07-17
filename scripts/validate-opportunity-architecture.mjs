@@ -39,6 +39,9 @@ const requiredFiles = [
   'src/spatial/OpportunityField.tsx',
   'src/spatial/SpatialExperienceEngine.ts',
   'src/spatial/SpatialSignalLayer.tsx',
+  'src/spatial/SpatialProgressionEngine.ts',
+  'src/spatial/SpatialProgressHUD.tsx',
+  'src/spatial/SpatialMilestoneLayer.tsx',
   'src/screens/MatchesScreen.tsx',
   'supabase/migrations/019_vault_signal_scarcity.sql',
   'supabase/migrations/020_verified_access_protocol.sql',
@@ -129,6 +132,21 @@ requireText(
   'the spatial field must derive its visual hierarchy from live presence state',
 );
 requireText(
+  'src/spatial/SpatialFieldScreen.tsx',
+  'buildSpatialProgression',
+  'the spatial field must retain verified event-session progression',
+);
+requireText(
+  'src/spatial/SpatialFieldScreen.tsx',
+  '<SpatialMilestoneLayer',
+  'verified progress must remain visible inside the 3D scene',
+);
+requireText(
+  'src/spatial/SpatialFieldScreen.tsx',
+  '<SpatialProgressHUD',
+  'the user must receive a clear explanation of live field progress',
+);
+requireText(
   'src/spatial/OpportunityField.tsx',
   'mutualMatches > 0',
   'the mutual beacon must remain grounded in a real mutual',
@@ -153,6 +171,21 @@ requireText(
   'depthWrite={false}',
   'spatial routes must not corrupt avatar scene depth',
 );
+requireText(
+  'src/spatial/SpatialProgressionEngine.ts',
+  'verifiedActionPoints',
+  'progression must be grounded in verifiable event actions',
+);
+requireText(
+  'src/spatial/SpatialProgressionEngine.ts',
+  'does not use',
+  'progression must preserve its anti-dark-pattern contract',
+);
+forbidText(
+  'src/spatial/SpatialProgressionEngine.ts',
+  'Math.random(',
+  'progression must remain deterministic and cannot use random rewards',
+);
 
 const flags = read('src/config/featureFlags.ts');
 for (const enabledFlag of [
@@ -163,6 +196,7 @@ for (const enabledFlag of [
   'decisionProvenance: true',
   'runtimeReliability: true',
   'spatialOpportunityField: true',
+  'spatialProgression: true',
 ]) {
   if (!flags.includes(enabledFlag)) {
     failures.push(`src/config/featureFlags.ts: integrated flag must remain enabled: ${enabledFlag}`);
