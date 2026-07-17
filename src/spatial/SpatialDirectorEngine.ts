@@ -102,7 +102,7 @@ export function buildSpatialDirector(input: SpatialDirectorInput): SpatialDirect
   const endsAt = new Date(input.eventEndsAt).getTime();
   const closingMinutes = Math.max(0, Math.floor((endsAt - now) / 60_000));
   const act = determineAct(now, startsAt, endsAt, input.presence, input.mutualMatches);
-  const degraded = input.runtime.state !== 'healthy';
+  const degraded = input.runtime.health !== 'healthy';
   const copy = copyForAct(act, input.mutualMatches, input.progression, closingMinutes);
 
   const density = clamp01(input.presence.density / 12);
