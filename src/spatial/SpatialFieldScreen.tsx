@@ -17,10 +17,13 @@ import SpatialDirectorLayer from "./SpatialDirectorLayer";
 import SpatialDirectorHUD from "./SpatialDirectorHUD";
 import SpatialProgressHUD from "./SpatialProgressHUD";
 import SpatialContractHUD from "./SpatialContractHUD";
+import SpatialWorldIntelligenceLayer from "./SpatialWorldIntelligenceLayer";
+import SpatialWorldIntelligenceHUD from "./SpatialWorldIntelligenceHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { buildSpatialContractBoard } from "./SpatialContractEngine";
 import { buildSpatialDirector } from "./SpatialDirectorEngine";
+import { buildSpatialWorldIntelligence } from "./SpatialWorldIntelligenceEngine";
 import { RING_RADII } from "./fieldConstants";
 import AvatarActionSheet from "./AvatarActionSheet";
 import { usePresenceEngine } from "../presence/usePresenceEngine";
@@ -50,11 +53,7 @@ function FieldFloor() {
     <>
       <primitive object={grid} />
       {RING_RADII.map((radius) => (
-        <mesh
-          key={radius}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, -2.99, 0]}
-        >
+        <mesh key={radius} rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.99, 0]}>
           <ringGeometry args={[radius - 0.04, radius, 96]} />
           <meshBasicMaterial color="#7c8eff" transparent opacity={0.35} side={DoubleSide} />
         </mesh>
@@ -95,12 +94,7 @@ export default function SpatialFieldScreen() {
     };
   }, [eventId]);
 
-  const {
-    rawSignals,
-    signalsSent,
-    mutualMatches,
-    runtime,
-  } = usePresenceFeed(eventId, userId);
+  const { rawSignals, signalsSent, mutualMatches, runtime } = usePresenceFeed(eventId, userId);
 
   const fallbackEndsAt = eventTiming?.endsAt ?? new Date(Date.now() + 60 * 60_000).toISOString();
   const fallbackStartsAt = eventTiming?.startsAt ?? new Date(Date.now() - 15 * 60_000).toISOString();
@@ -130,9 +124,18 @@ export default function SpatialFieldScreen() {
     [presence, progression, runtime, mutualMatches, fallbackStartsAt, fallbackEndsAt],
   );
 
-  const spatialExperience = useMemo(
-    () => buildSpatialExperience(presence),
-    [presence],
+  const spatialExperience = useMemo(() => buildSpatialExperience(presence), [presence]);
+
+  const worldIntelligence = useMemo(
+    () => buildSpatialWorldIntelligence({
+      presence,
+      runtime,
+      mutualMatches,
+      eventStartsAt: fallbackStartsAt,
+      eventEndsAt: fallbackEndsAt,
+      venueMemory: null,
+    }),
+    [presence, runtime, mutualMatches, fallbackStartsAt, fallbackEndsAt],
   );
 
   const contractBoard = useMemo(
@@ -149,19 +152,12 @@ export default function SpatialFieldScreen() {
   const handleConnect = async (targetId: string) => {
     const result = await sendConnectionRequest(eventId, userId, targetId);
     if (result.error) {
-      throw new Error(
-        "message" in result.error ? result.error.message : "Could not send request"
-      );
+      throw new Error("message" in result.error ? result.error.message : "Could not send request");
     }
   };
 
-  const handleViewProfile = (targetId: string) => {
-    navigation.navigate("Profile", { userId: targetId });
-  };
-
-  const handleOfficeHours = (targetId: string) => {
-    navigation.navigate("OfficeHoursRequest", { eventId, recipientId: targetId });
-  };
+  const handleViewProfile = (targetId: string) => navigation.navigate("Profile", { userId: targetId });
+  const handleOfficeHours = (targetId: string) => navigation.navigate("OfficeHoursRequest", { eventId, recipientId: targetId });
 
   if (!presence || !eventTiming) {
     return (
@@ -170,6 +166,11 @@ export default function SpatialFieldScreen() {
       </View>
     );
   }
+
+  const trustedDetailBudget = Math.max(
+    1,
+    Math.floor(director.detailBudget * worldIntelligence.trust.detailMultiplier),
+  );
 
   return (
     <View style={styles.container}>
@@ -181,11 +182,8 @@ export default function SpatialFieldScreen() {
         <pointLight position={[10, 10, 10]} intensity={0.8} />
         <FieldFloor />
         <SpatialDirectorLayer director={director} />
-        <SpatialDistrictLayer
-          progression={progression}
-          accent={director.accent}
-          premium={isPremium}
-        />
+        <SpatialWorldIntelligenceLayer intelligence={worldIntelligence} />
+        <SpatialDistrictLayer progression={progression} accent={director.accent} premium={isPremium} />
         <OpportunityField
           tensionScore={presence.tensionScore}
           density={presence.density}
@@ -195,7 +193,7 @@ export default function SpatialFieldScreen() {
         <SpatialSignalLayer
           focusTargets={spatialExperience.focusTargets}
           accent={director.accent}
-          detailBudget={director.detailBudget}
+          detailBudget={trustedDetailBudget}
         />
         <SpatialMilestoneLayer progression={progression} accent={director.accent} />
         <Suspense fallback={null}>
@@ -204,18 +202,15 @@ export default function SpatialFieldScreen() {
       </Canvas>
 
       <SpatialDirectorHUD director={director} />
-      <SpatialContractHUD
-        board={contractBoard}
-        accent={director.accent}
-        isPremium={isPremium}
-      />
+      <SpatialWorldIntelligenceHUD intelligence={worldIntelligence} />
+      <SpatialContractHUD board={contractBoard} accent={director.accent} isPremium={isPremium} />
       <SpatialProgressHUD progression={progression} accent={director.accent} />
 
       <View style={styles.overlay}>
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              act: {director.act} · detail: {director.detailBudget}/{spatialExperience.focusTargets.length} · intensity: {director.worldIntensity.toFixed(2)} · signals: {rawSignals.length}
+              act: {director.act} · trust: {worldIntelligence.trust.band} · clusters: {worldIntelligence.clusters.length} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
             </Text>
             {presence.visibleTargets.slice(0, 3).map((target) => (
               <Text key={target.targetId} style={styles.debugText}>
@@ -242,22 +237,9 @@ export default function SpatialFieldScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a" },
   canvas: { flex: 1 },
-  overlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  debugHud: {
-    backgroundColor: "rgba(0,0,0,0.6)",
-    padding: 8,
-    gap: 2,
-  },
-  debugText: {
-    color: "#f5f5f5",
-    fontSize: 11,
-    fontFamily: "Menlo",
-  },
+  overlay: { position: "absolute", left: 0, right: 0, bottom: 0 },
+  debugHud: { backgroundColor: "rgba(0,0,0,0.6)", padding: 8, gap: 2 },
+  debugText: { color: "#f5f5f5", fontSize: 11, fontFamily: "Menlo" },
   fallback: {
     flex: 1,
     alignItems: "center",
