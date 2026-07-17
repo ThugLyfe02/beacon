@@ -12,15 +12,19 @@ import AvatarRenderer from "./AvatarRenderer";
 import OpportunityField from "./OpportunityField";
 import SpatialSignalLayer from "./SpatialSignalLayer";
 import SpatialMilestoneLayer from "./SpatialMilestoneLayer";
+import SpatialDistrictLayer from "./SpatialDistrictLayer";
 import SpatialProgressHUD from "./SpatialProgressHUD";
+import SpatialContractHUD from "./SpatialContractHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
+import { buildSpatialContractBoard } from "./SpatialContractEngine";
 import { RING_RADII } from "./fieldConstants";
 import AvatarActionSheet from "./AvatarActionSheet";
 import { usePresenceEngine } from "../presence/usePresenceEngine";
 import TensionBar from "../components/TensionBar";
 import { useAuth } from "../hooks/useAuth";
 import { usePresenceFeed } from "../hooks/usePresenceFeed";
+import { usePremiumStatus } from "../premium/usePremium";
 import { getEventById } from "../services/event.service";
 import { sendConnectionRequest } from "../services/match.service";
 import type { ProximitySignal } from "../presence/PresenceEngine";
@@ -62,6 +66,7 @@ export default function SpatialFieldScreen() {
   const { eventId } = route.params;
   const { user } = useAuth();
   const userId = user?.id ?? "";
+  const isPremium = usePremiumStatus();
 
   const [eventEnd, setEventEnd] = useState<string | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
@@ -98,6 +103,17 @@ export default function SpatialFieldScreen() {
     [presence, signalsSent, mutualMatches],
   );
 
+  const contractBoard = useMemo(
+    () => buildSpatialContractBoard({
+      presence,
+      progression,
+      signalsSent,
+      mutualMatches,
+      isPremium,
+    }),
+    [presence, progression, signalsSent, mutualMatches, isPremium],
+  );
+
   const handleConnect = async (targetId: string) => {
     const result = await sendConnectionRequest(eventId, userId, targetId);
     if (result.error) {
@@ -132,6 +148,11 @@ export default function SpatialFieldScreen() {
         <ambientLight intensity={0.35} />
         <pointLight position={[10, 10, 10]} intensity={0.8} />
         <FieldFloor />
+        <SpatialDistrictLayer
+          progression={progression}
+          accent={spatialExperience.accent}
+          premium={isPremium}
+        />
         <OpportunityField
           tensionScore={presence.tensionScore}
           density={presence.density}
@@ -170,6 +191,11 @@ export default function SpatialFieldScreen() {
         </View>
       </View>
 
+      <SpatialContractHUD
+        board={contractBoard}
+        accent={spatialExperience.accent}
+        isPremium={isPremium}
+      />
       <SpatialProgressHUD progression={progression} accent={spatialExperience.accent} />
 
       <View style={styles.overlay}>
