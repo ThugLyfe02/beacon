@@ -35,6 +35,8 @@ const requiredFiles = [
   'src/spatial/OpportunityField.tsx',
   'src/spatial/SpatialExperienceEngine.ts',
   'src/spatial/SpatialSignalLayer.tsx',
+  'src/spatial/SpatialLayoutEngine.ts',
+  'src/spatial/SpatialAvatarLayer.tsx',
   'src/spatial/SpatialProgressionEngine.ts',
   'src/spatial/SpatialProgressHUD.tsx',
   'src/spatial/SpatialMilestoneLayer.tsx',
@@ -76,6 +78,7 @@ for (const [text, explanation] of [
   ['<OpportunityField', 'the spatial field must retain aggregate live-state geometry'],
   ['<SpatialSignalLayer', 'the spatial field must retain real target route visualization'],
   ['detailBudget={director.detailBudget}', 'the full field must use adaptive route detail rather than a fixed people cap'],
+  ['<SpatialAvatarLayer', 'all visible avatars must pass through collision-aware layout'],
   ['buildSpatialExperience', 'the spatial field must derive its visual hierarchy from live presence state'],
   ['buildSpatialProgression', 'the spatial field must retain verified event-session progression'],
   ['<SpatialMilestoneLayer', 'verified progress must remain visible inside the 3D scene'],
@@ -90,11 +93,15 @@ for (const [text, explanation] of [
 requireText('src/spatial/OpportunityField.tsx', 'mutualMatches > 0', 'the mutual beacon must remain grounded in a real mutual');
 requireText('src/spatial/OpportunityField.tsx', 'depthWrite: false', 'additive field effects must avoid corrupting scene depth');
 requireText('src/spatial/SpatialExperienceEngine.ts', 'Every visible attendee remains represented', 'spatial hierarchy must preserve the full visible field');
-requireText('src/spatial/SpatialExperienceEngine.ts', "tier: tierForRank", 'spatial detail must be tiered by salience');
+requireText('src/spatial/SpatialExperienceEngine.ts', 'tier: tierForRank', 'spatial detail must be tiered by salience');
 forbidText('src/spatial/SpatialExperienceEngine.ts', '.slice(0, 3)', 'spatial experience cannot return to a fixed three-person cap');
 requireText('src/spatial/SpatialSignalLayer.tsx', '<AmbientMarker', 'lower-priority attendees must remain represented as ambient markers');
 requireText('src/spatial/SpatialSignalLayer.tsx', 'detailBudget', 'route complexity must use an adaptive detail budget');
 requireText('src/spatial/SpatialSignalLayer.tsx', 'depthWrite={false}', 'spatial routes must not corrupt avatar scene depth');
+requireText('src/spatial/SpatialLayoutEngine.ts', 'collision-aware placement', 'crowded fields must preserve readable avatar separation');
+requireText('src/spatial/SpatialLayoutEngine.ts', 'deterministic across refreshes', 'avatar placement must remain stable rather than jumping between polls');
+forbidText('src/spatial/SpatialLayoutEngine.ts', 'Math.random(', 'crowded-field layout must remain deterministic');
+requireText('src/spatial/SpatialAvatarLayer.tsx', 'targets.map', 'every visible attendee must remain rendered by the avatar layer');
 requireText('src/spatial/SpatialProgressionEngine.ts', 'verifiedActionPoints', 'progression must be grounded in verifiable event actions');
 requireText('src/spatial/SpatialProgressionEngine.ts', 'does not use', 'progression must preserve its anti-dark-pattern contract');
 forbidText('src/spatial/SpatialProgressionEngine.ts', 'Math.random(', 'progression must remain deterministic and cannot use random rewards');
