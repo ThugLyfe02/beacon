@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber/native';
 import { AdditiveBlending, DoubleSide, Group, Mesh, MeshBasicMaterial } from 'three';
 import type { SpatialDirectorState } from './SpatialDirectorEngine';
@@ -25,6 +25,8 @@ export default function SpatialDirectorLayer({ director }: Readonly<SpatialDirec
     }),
     [director.accent, director.worldIntensity],
   );
+
+  useEffect(() => () => arcMaterial.dispose(), [arcMaterial]);
 
   useFrame((state, delta) => {
     const elapsed = state.clock.elapsedTime;
