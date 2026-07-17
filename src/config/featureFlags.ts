@@ -1,6 +1,7 @@
 export const FEATURE_FLAGS = {
   presenceEngine: true,
   spatialField: true,
+  spatialOpportunityField: true,
   regretRecorder: false,
   opportunitySurge: true,
   opportunityWindowBanner: true,
