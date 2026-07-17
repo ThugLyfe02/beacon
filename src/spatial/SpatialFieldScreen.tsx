@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import {
   useNavigation,
@@ -19,11 +19,23 @@ import SpatialProgressHUD from "./SpatialProgressHUD";
 import SpatialContractHUD from "./SpatialContractHUD";
 import SpatialWorldIntelligenceLayer from "./SpatialWorldIntelligenceLayer";
 import SpatialWorldIntelligenceHUD from "./SpatialWorldIntelligenceHUD";
+import SpatialInteractionLayer from "./SpatialInteractionLayer";
+import SpatialNarrativeHUD from "./SpatialNarrativeHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { buildSpatialContractBoard } from "./SpatialContractEngine";
 import { buildSpatialDirector } from "./SpatialDirectorEngine";
 import { buildSpatialWorldIntelligence } from "./SpatialWorldIntelligenceEngine";
+import { buildTemporalArchitecture } from "./TemporalArchitectureEngine";
+import { buildSpatialWorldOrchestration } from "./SpatialWorldOrchestrator";
+import {
+  createSpatialInteractionPulse,
+  detectAlmostDiscoveredMoments,
+  pruneAlmostDiscoveredMoments,
+  pruneInteractionPulses,
+  type AlmostDiscoveredMoment,
+  type SpatialInteractionPulse,
+} from "./SpatialInteractionEngine";
 import { RING_RADII } from "./fieldConstants";
 import AvatarActionSheet from "./AvatarActionSheet";
 import { usePresenceEngine } from "../presence/usePresenceEngine";
@@ -78,6 +90,9 @@ export default function SpatialFieldScreen() {
 
   const [eventTiming, setEventTiming] = useState<EventTiming | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
+  const [interactionPulses, setInteractionPulses] = useState<SpatialInteractionPulse[]>([]);
+  const [almostDiscovered, setAlmostDiscovered] = useState<AlmostDiscoveredMoment[]>([]);
+  const previousTargetsRef = useRef<Target[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +121,31 @@ export default function SpatialFieldScreen() {
     mutualMatches,
     officeHoursActive: false,
   });
+
+  useEffect(() => {
+    const now = Date.now();
+    const moments = detectAlmostDiscoveredMoments({
+      previousTargets: previousTargetsRef.current,
+      currentTargets: presence.visibleTargets,
+      now,
+    });
+    if (moments.length > 0) {
+      setAlmostDiscovered((current) => [...pruneAlmostDiscoveredMoments(current, now), ...moments].slice(-4));
+    } else {
+      setAlmostDiscovered((current) => pruneAlmostDiscoveredMoments(current, now));
+    }
+    previousTargetsRef.current = presence.visibleTargets;
+  }, [presence.visibleTargets]);
+
+  useEffect(() => {
+    if (interactionPulses.length === 0 && almostDiscovered.length === 0) return;
+    const timer = setTimeout(() => {
+      const now = Date.now();
+      setInteractionPulses((current) => pruneInteractionPulses(current, now));
+      setAlmostDiscovered((current) => pruneAlmostDiscoveredMoments(current, now));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [interactionPulses, almostDiscovered]);
 
   const progression = useMemo(
     () => buildSpatialProgression({ presence, signalsSent, mutualMatches }),
@@ -138,6 +178,18 @@ export default function SpatialFieldScreen() {
     [presence, runtime, mutualMatches, fallbackStartsAt, fallbackEndsAt],
   );
 
+  const temporal = useMemo(
+    () => buildTemporalArchitecture({
+      presence,
+      progression,
+      runtime,
+      mutualMatches,
+      eventStartsAt: fallbackStartsAt,
+      eventEndsAt: fallbackEndsAt,
+    }),
+    [presence, progression, runtime, mutualMatches, fallbackStartsAt, fallbackEndsAt],
+  );
+
   const contractBoard = useMemo(
     () => buildSpatialContractBoard({
       presence,
@@ -149,15 +201,41 @@ export default function SpatialFieldScreen() {
     [presence, progression, signalsSent, mutualMatches, isPremium],
   );
 
+  const orchestration = useMemo(
+    () => buildSpatialWorldOrchestration({
+      runtime,
+      director,
+      intelligence: worldIntelligence,
+      temporal,
+      progression,
+      contracts: contractBoard,
+    }),
+    [runtime, director, worldIntelligence, temporal, progression, contractBoard],
+  );
+
+  const emitPulse = (targetId: string, kind: "inspect" | "signal" | "mutual" | "office-hours") => {
+    const pulse = createSpatialInteractionPulse(targetId, kind);
+    setInteractionPulses((current) => [...pruneInteractionPulses(current), pulse].slice(-8));
+  };
+
+  const handleTargetTap = (target: Target) => {
+    emitPulse(target.targetId, target.mutual ? "mutual" : "inspect");
+    setSelectedTarget(target);
+  };
+
   const handleConnect = async (targetId: string) => {
     const result = await sendConnectionRequest(eventId, userId, targetId);
     if (result.error) {
       throw new Error("message" in result.error ? result.error.message : "Could not send request");
     }
+    emitPulse(targetId, "signal");
   };
 
   const handleViewProfile = (targetId: string) => navigation.navigate("Profile", { userId: targetId });
-  const handleOfficeHours = (targetId: string) => navigation.navigate("OfficeHoursRequest", { eventId, recipientId: targetId });
+  const handleOfficeHours = (targetId: string) => {
+    emitPulse(targetId, "office-hours");
+    navigation.navigate("OfficeHoursRequest", { eventId, recipientId: targetId });
+  };
 
   if (!presence || !eventTiming) {
     return (
@@ -169,7 +247,12 @@ export default function SpatialFieldScreen() {
 
   const trustedDetailBudget = Math.max(
     1,
-    Math.floor(director.detailBudget * worldIntelligence.trust.detailMultiplier),
+    Math.floor(
+      director.detailBudget
+      * worldIntelligence.trust.detailMultiplier
+      * temporal.routeWeightMultiplier
+      * (0.72 + orchestration.routeEnergy * 0.28),
+    ),
   );
 
   return (
@@ -178,11 +261,17 @@ export default function SpatialFieldScreen() {
         <color attach="background" args={["#060716"]} />
         <fog attach="fog" args={["#060716", 6, 55]} />
         <hemisphereLight args={["#6b88ff", "#3a2a14", 0.55]} />
-        <ambientLight intensity={0.35} />
-        <pointLight position={[10, 10, 10]} intensity={0.8} />
+        <ambientLight intensity={0.25 + orchestration.districtEnergy * 0.2} />
+        <pointLight position={[10, 10, 10]} intensity={0.55 + orchestration.routeEnergy * 0.45} />
         <FieldFloor />
         <SpatialDirectorLayer director={director} />
         <SpatialWorldIntelligenceLayer intelligence={worldIntelligence} />
+        <SpatialInteractionLayer
+          pulses={interactionPulses}
+          almostDiscovered={almostDiscovered}
+          targets={presence.visibleTargets}
+          accent={director.accent}
+        />
         <SpatialDistrictLayer progression={progression} accent={director.accent} premium={isPremium} />
         <OpportunityField
           tensionScore={presence.tensionScore}
@@ -197,12 +286,18 @@ export default function SpatialFieldScreen() {
         />
         <SpatialMilestoneLayer progression={progression} accent={director.accent} />
         <Suspense fallback={null}>
-          <SpatialAvatarLayer targets={presence.visibleTargets} onTap={setSelectedTarget} />
+          <SpatialAvatarLayer targets={presence.visibleTargets} onTap={handleTargetTap} />
         </Suspense>
       </Canvas>
 
       <SpatialDirectorHUD director={director} />
       <SpatialWorldIntelligenceHUD intelligence={worldIntelligence} />
+      <SpatialNarrativeHUD
+        temporal={temporal}
+        orchestration={orchestration}
+        almostDiscovered={almostDiscovered}
+        accent={director.accent}
+      />
       <SpatialContractHUD board={contractBoard} accent={director.accent} isPremium={isPremium} />
       <SpatialProgressHUD progression={progression} accent={director.accent} />
 
@@ -210,11 +305,11 @@ export default function SpatialFieldScreen() {
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              act: {director.act} · trust: {worldIntelligence.trust.band} · clusters: {worldIntelligence.clusters.length} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
+              phase: {temporal.phase} · coherence: {orchestration.worldCoherence.toFixed(2)} · trust: {worldIntelligence.trust.band} · almost: {almostDiscovered.length} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
             </Text>
             {presence.visibleTargets.slice(0, 3).map((target) => (
               <Text key={target.targetId} style={styles.debugText}>
-                · {target.targetId.slice(0, 8)} @ {Math.round(target.distanceFeet)}ft {target.targetAvatarUrl3d ? '(glb)' : '(sphere)'}
+                · {target.targetId.slice(0, 8)} @ {Math.round(target.distanceFeet)}ft {target.targetAvatarUrl3d ? "(glb)" : "(sphere)"}
               </Text>
             ))}
           </View>
