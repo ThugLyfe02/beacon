@@ -1,4 +1,4 @@
-import type { PresenceState } from '../presence/PresenceEngine';
+import { calculateBucket, type PresenceState } from '../presence/PresenceEngine';
 import type { SpatialProgressionState } from './SpatialProgressionEngine';
 
 export type ContractKind = 'scan' | 'signal' | 'convert' | 'close';
@@ -71,7 +71,9 @@ export function buildSpatialContractBoard({
   mutualMatches,
   isPremium,
 }: SpatialContractInput): SpatialContractBoard {
-  const closeTargets = presence.visibleTargets.filter((target) => (target.bucket ?? 0) >= 3).length;
+  const closeTargets = presence.visibleTargets.filter(
+    (target) => calculateBucket(target.distanceFeet) >= 3,
+  ).length;
   const contracts = [
     contract(
       'field-scan',
