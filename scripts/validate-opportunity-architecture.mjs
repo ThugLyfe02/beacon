@@ -37,6 +37,8 @@ const requiredFiles = [
   'src/reliability/RuntimeReliabilityEngine.ts',
   'src/components/RuntimeStatusCard.tsx',
   'src/spatial/OpportunityField.tsx',
+  'src/spatial/SpatialExperienceEngine.ts',
+  'src/spatial/SpatialSignalLayer.tsx',
   'src/screens/MatchesScreen.tsx',
   'supabase/migrations/019_vault_signal_scarcity.sql',
   'supabase/migrations/020_verified_access_protocol.sql',
@@ -117,6 +119,16 @@ requireText(
   'the spatial field must retain aggregate live-state geometry',
 );
 requireText(
+  'src/spatial/SpatialFieldScreen.tsx',
+  '<SpatialSignalLayer',
+  'the spatial field must retain real target route visualization',
+);
+requireText(
+  'src/spatial/SpatialFieldScreen.tsx',
+  'buildSpatialExperience',
+  'the spatial field must derive its visual hierarchy from live presence state',
+);
+requireText(
   'src/spatial/OpportunityField.tsx',
   'mutualMatches > 0',
   'the mutual beacon must remain grounded in a real mutual',
@@ -125,6 +137,21 @@ requireText(
   'src/spatial/OpportunityField.tsx',
   'depthWrite: false',
   'additive field effects must avoid corrupting scene depth',
+);
+requireText(
+  'src/spatial/SpatialExperienceEngine.ts',
+  '.slice(0, 3)',
+  'spatial prioritization must remain intentionally restrained',
+);
+requireText(
+  'src/spatial/SpatialExperienceEngine.ts',
+  'never fabricates demand',
+  'spatial experience must preserve honest urgency constraints',
+);
+requireText(
+  'src/spatial/SpatialSignalLayer.tsx',
+  'depthWrite={false}',
+  'spatial routes must not corrupt avatar scene depth',
 );
 
 const flags = read('src/config/featureFlags.ts');
