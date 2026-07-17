@@ -61,6 +61,9 @@ jobs:
       - name: Validate opportunity architecture integration
         run: node scripts/validate-opportunity-architecture.mjs
 
+      - name: Validate product preservation contract
+        run: node scripts/validate-product-preservation.mjs
+
       - name: Audit production dependencies
         id: dependency-audit
         continue-on-error: true
