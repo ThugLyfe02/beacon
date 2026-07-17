@@ -1,10 +1,13 @@
 import type { ProximitySignal, PresenceState } from '../presence/PresenceEngine';
 
 export type SpatialMood = 'quiet' | 'forming' | 'active' | 'surge';
+export type SpatialAttentionTier = 'hero' | 'active' | 'ambient';
 
 export interface SpatialFocusTarget {
   target: ProximitySignal & { bucket?: number };
   score: number;
+  rank: number;
+  tier: SpatialAttentionTier;
   reason: 'mutual' | 'premium-nearby' | 'closest' | 'momentum';
 }
 
@@ -14,15 +17,18 @@ export interface SpatialExperienceState {
   detail: string;
   accent: string;
   focusTargets: SpatialFocusTarget[];
-  hiddenOpportunityCount: number;
+  ambientOpportunityCount: number;
 }
 
-function scoreTarget(target: ProximitySignal & { bucket?: number }): SpatialFocusTarget {
+function scoreTarget(target: ProximitySignal & { bucket?: number }): Omit<SpatialFocusTarget, 'rank' | 'tier'> {
   const distanceScore = Math.max(0, 42 - target.distanceFeet);
   const mutualBoost = target.mutual ? 38 : 0;
   const premiumBoost = target.targetPremium ? 14 : 0;
   const bucketBoost = (target.bucket ?? 0) * 5;
-  const score = distanceScore + mutualBoost + premiumBoost + bucketBoost;
+  const freshnessBoost = target.timestamp != null
+    ? Math.max(0, 6 - Math.floor((Date.now() - target.timestamp) / 10_000))
+    : 0;
+  const score = distanceScore + mutualBoost + premiumBoost + bucketBoost + freshnessBoost;
 
   let reason: SpatialFocusTarget['reason'] = 'closest';
   if (target.mutual) reason = 'mutual';
@@ -37,6 +43,12 @@ function determineMood(presence: PresenceState): SpatialMood {
   if (presence.urgencyLevel === 'elevated') return 'active';
   if (presence.density > 0) return 'forming';
   return 'quiet';
+}
+
+function tierForRank(rank: number, score: number): SpatialAttentionTier {
+  if (rank === 0 || score >= 70) return 'hero';
+  if (rank < 8 || score >= 36) return 'active';
+  return 'ambient';
 }
 
 function copyForState(
@@ -65,7 +77,7 @@ function copyForState(
   if (mood === 'surge') {
     return {
       headline: 'This window is moving quickly',
-      detail: `${focusTargets.length} nearby path${focusTargets.length === 1 ? '' : 's'} stand out with ${timeRemainingMinutes}m left.`,
+      detail: `${focusTargets.length} live path${focusTargets.length === 1 ? '' : 's'} are visible with ${timeRemainingMinutes}m left. Beacon increases detail around the strongest ones without hiding the rest.`,
       accent: '#fb7185',
     };
   }
@@ -73,28 +85,32 @@ function copyForState(
   if (primary.reason === 'premium-nearby') {
     return {
       headline: 'A high-value path is close',
-      detail: 'Beacon is highlighting the strongest live route without exposing private movement.',
+      detail: 'The strongest route is emphasized while the full live field remains visible around it.',
       accent: '#f59e0b',
     };
   }
 
   return {
     headline: 'The room is starting to take shape',
-    detail: `${focusTargets.length} nearby path${focusTargets.length === 1 ? '' : 's'} currently stand out.`,
+    detail: `${focusTargets.length} live path${focusTargets.length === 1 ? '' : 's'} are currently represented in the field.`,
     accent: mood === 'active' ? '#a78bfa' : '#60a5fa',
   };
 }
 
 /**
- * Converts the existing PresenceState into a restrained visual hierarchy.
- * It ranks only people already visible to the user and never fabricates demand,
- * identity, movement trails, or urgency.
+ * Converts the existing PresenceState into a scalable visual hierarchy.
+ * Every visible attendee remains represented. Detail is allocated by salience,
+ * while lower-priority paths become ambient markers instead of disappearing.
  */
 export function buildSpatialExperience(presence: PresenceState): SpatialExperienceState {
   const focusTargets = presence.visibleTargets
     .map(scoreTarget)
     .sort((left, right) => right.score - left.score)
-    .slice(0, 3);
+    .map((focus, rank) => ({
+      ...focus,
+      rank,
+      tier: tierForRank(rank, focus.score),
+    }));
 
   const mood = determineMood(presence);
   const copy = copyForState(mood, focusTargets, presence.timeRemainingMinutes);
@@ -103,7 +119,7 @@ export function buildSpatialExperience(presence: PresenceState): SpatialExperien
     mood,
     ...copy,
     focusTargets,
-    hiddenOpportunityCount: Math.max(0, presence.visibleTargets.length - focusTargets.length),
+    ambientOpportunityCount: focusTargets.filter((target) => target.tier === 'ambient').length,
   };
 }
 
