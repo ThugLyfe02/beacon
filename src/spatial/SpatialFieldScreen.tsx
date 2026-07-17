@@ -113,11 +113,6 @@ export default function SpatialFieldScreen() {
     officeHoursActive: false,
   });
 
-  const spatialExperience = useMemo(
-    () => buildSpatialExperience(presence),
-    [presence],
-  );
-
   const progression = useMemo(
     () => buildSpatialProgression({ presence, signalsSent, mutualMatches }),
     [presence, signalsSent, mutualMatches],
@@ -135,6 +130,11 @@ export default function SpatialFieldScreen() {
     [presence, progression, runtime, mutualMatches, fallbackStartsAt, fallbackEndsAt],
   );
 
+  const spatialExperience = useMemo(
+    () => buildSpatialExperience(presence),
+    [presence],
+  );
+
   const contractBoard = useMemo(
     () => buildSpatialContractBoard({
       presence,
@@ -144,11 +144,6 @@ export default function SpatialFieldScreen() {
       isPremium,
     }),
     [presence, progression, signalsSent, mutualMatches, isPremium],
-  );
-
-  const directedFocusTargets = useMemo(
-    () => spatialExperience.focusTargets.slice(0, director.focusLimit),
-    [spatialExperience.focusTargets, director.focusLimit],
   );
 
   const handleConnect = async (targetId: string) => {
@@ -198,8 +193,9 @@ export default function SpatialFieldScreen() {
           urgencyLevel={presence.urgencyLevel}
         />
         <SpatialSignalLayer
-          focusTargets={directedFocusTargets}
+          focusTargets={spatialExperience.focusTargets}
           accent={director.accent}
+          detailBudget={director.detailBudget}
         />
         <SpatialMilestoneLayer progression={progression} accent={director.accent} />
         <Suspense fallback={null}>
@@ -225,7 +221,7 @@ export default function SpatialFieldScreen() {
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              act: {director.act} · intensity: {director.worldIntensity.toFixed(2)} · signals: {rawSignals.length} · targets: {presence.visibleTargets.length}
+              act: {director.act} · detail: {director.detailBudget}/{spatialExperience.focusTargets.length} · intensity: {director.worldIntensity.toFixed(2)} · signals: {rawSignals.length}
             </Text>
             {presence.visibleTargets.slice(0, 3).map((target) => (
               <Text key={target.targetId} style={styles.debugText}>
