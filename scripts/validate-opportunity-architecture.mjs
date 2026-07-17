@@ -34,6 +34,8 @@ const requiredFiles = [
   'src/security/SecurityRiskEngine.ts',
   'src/access/VerifiedAccessEngine.ts',
   'src/organizer/OutcomeIntelligenceEngine.ts',
+  'src/reliability/RuntimeReliabilityEngine.ts',
+  'src/components/RuntimeStatusCard.tsx',
   'src/screens/MatchesScreen.tsx',
   'supabase/migrations/019_vault_signal_scarcity.sql',
   'supabase/migrations/020_verified_access_protocol.sql',
@@ -44,6 +46,7 @@ const requiredFiles = [
   'supabase/migrations/025_outcome_handshake_privacy_boundary.sql',
   'supabase/migrations/026_outcome_conversion_metrics.sql',
   'supabase/migrations/027_secure_connection_activation.sql',
+  'supabase/migrations/028_decision_provenance.sql',
 ];
 
 for (const path of requiredFiles) read(path);
@@ -86,8 +89,36 @@ requireText(
   'Vault opportunity memory must be integrated into the mutual surface',
 );
 
+requireText(
+  'src/hooks/usePresenceFeed.ts',
+  "AppState.addEventListener('change'",
+  'live presence must pause and recover with the native app lifecycle',
+);
+requireText(
+  'src/hooks/usePresenceFeed.ts',
+  'computeRetryDelayMs',
+  'live presence must use bounded backoff rather than a fixed retry storm',
+);
+requireText(
+  'src/hooks/usePresenceFeed.ts',
+  'shouldDiscardPresence',
+  'stale proximity must expire instead of remaining falsely live',
+);
+forbidText(
+  'src/hooks/usePresenceFeed.ts',
+  'setInterval(',
+  'presence polling must remain single-flight and self-scheduled',
+);
+
 const flags = read('src/config/featureFlags.ts');
-for (const enabledFlag of ['vault: true', 'signalScarcity: true', 'securityControlPlane: true', 'outcomeHandshakeProtocol: true']) {
+for (const enabledFlag of [
+  'vault: true',
+  'signalScarcity: true',
+  'securityControlPlane: true',
+  'outcomeHandshakeProtocol: true',
+  'decisionProvenance: true',
+  'runtimeReliability: true',
+]) {
   if (!flags.includes(enabledFlag)) {
     failures.push(`src/config/featureFlags.ts: integrated flag must remain enabled: ${enabledFlag}`);
   }
