@@ -1,4 +1,4 @@
-import type { PresenceState } from '../presence/PresenceEngine';
+import { calculateBucket, type PresenceState } from '../presence/PresenceEngine';
 
 export type FieldRank = 'Observer' | 'Connector' | 'Catalyst' | 'Signal';
 
@@ -47,7 +47,7 @@ function levelForPoints(points: number): number {
 
 function nextActionFor(input: SpatialProgressionInput): string {
   if (input.mutualMatches > 0) return 'Open the gold route and turn a mutual into a real next step.';
-  if (input.presence.visibleTargets.some((target) => (target.bucket ?? 0) >= 3)) {
+  if (input.presence.visibleTargets.some((target) => calculateBucket(target.distanceFeet) >= 3)) {
     return 'A close path is active. Tap the nearest avatar before the room shifts.';
   }
   if (input.presence.visibleTargets.length > 0) {
