@@ -11,7 +11,10 @@ import { DoubleSide, GridHelper, Color } from "three";
 import AvatarRenderer from "./AvatarRenderer";
 import OpportunityField from "./OpportunityField";
 import SpatialSignalLayer from "./SpatialSignalLayer";
+import SpatialMilestoneLayer from "./SpatialMilestoneLayer";
+import SpatialProgressHUD from "./SpatialProgressHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
+import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { RING_RADII } from "./fieldConstants";
 import AvatarActionSheet from "./AvatarActionSheet";
 import { usePresenceEngine } from "../presence/usePresenceEngine";
@@ -90,6 +93,11 @@ export default function SpatialFieldScreen() {
     [presence],
   );
 
+  const progression = useMemo(
+    () => buildSpatialProgression({ presence, signalsSent, mutualMatches }),
+    [presence, signalsSent, mutualMatches],
+  );
+
   const handleConnect = async (targetId: string) => {
     const result = await sendConnectionRequest(eventId, userId, targetId);
     if (result.error) {
@@ -134,6 +142,7 @@ export default function SpatialFieldScreen() {
           focusTargets={spatialExperience.focusTargets}
           accent={spatialExperience.accent}
         />
+        <SpatialMilestoneLayer progression={progression} accent={spatialExperience.accent} />
         <Suspense fallback={null}>
           {presence.visibleTargets.map((target) => (
             <AvatarRenderer
@@ -160,6 +169,8 @@ export default function SpatialFieldScreen() {
           )}
         </View>
       </View>
+
+      <SpatialProgressHUD progression={progression} accent={spatialExperience.accent} />
 
       <View style={styles.overlay}>
         {__DEV__ && (
