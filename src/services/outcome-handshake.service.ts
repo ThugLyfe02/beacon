@@ -5,6 +5,7 @@ import type {
   OutcomeHandshakeStatus,
   OutcomeIntent,
 } from '../outcomes/OutcomeHandshakeEngine';
+import { recordDecisionProvenance } from './decision-provenance.service';
 
 interface OutcomeStateRow {
   handshake_id: string | null;
@@ -22,6 +23,12 @@ interface ProposeOutcomeRow {
   counterpart_intent: OutcomeIntent | null;
   activation_type: OutcomeActivationType | null;
   expires_at: string;
+}
+
+interface MatchContextRow {
+  event_id: string;
+  user_a_id: string;
+  user_b_id: string;
 }
 
 function createIdempotencyNonce(): string {
@@ -54,6 +61,16 @@ function mapState(matchId: string, row: OutcomeStateRow): OutcomeHandshakeState 
   };
 }
 
+async function getMatchContext(matchId: string): Promise<MatchContextRow | null> {
+  const { data, error } = await supabase
+    .from('matches')
+    .select('event_id, user_a_id, user_b_id')
+    .eq('id', matchId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as MatchContextRow;
+}
+
 export async function getOutcomeHandshakeState(
   matchId: string,
   userId: string,
@@ -77,6 +94,7 @@ export async function proposeOutcomeHandshake(input: {
   intent: OutcomeIntent;
   note?: string | null;
 }): Promise<OutcomeHandshakeState> {
+  const matchContextPromise = getMatchContext(input.matchId);
   const { data, error } = await supabase
     .rpc('propose_outcome_handshake', {
       p_match_id: input.matchId,
@@ -92,6 +110,25 @@ export async function proposeOutcomeHandshake(input: {
   }
 
   const row = data as ProposeOutcomeRow;
+  const context = await matchContextPromise;
+  if (context) {
+    void recordDecisionProvenance({
+      eventId: context.event_id,
+      domain: 'outcome_handshake',
+      outcome: row.handshake_status === 'aligned' ? 'align' : 'defer',
+      reasonCodes: row.handshake_status === 'aligned'
+        ? ['compatible_reciprocal_intent']
+        : ['counterpart_intent_not_yet_aligned'],
+      policyVersion: 'outcome-handshake-v1',
+      expiresAt: row.expires_at,
+      metadata: {
+        intent: input.intent,
+        status: row.handshake_status,
+        activationType: row.activation_type,
+      },
+    });
+  }
+
   return {
     id: row.handshake_id,
     matchId: input.matchId,
@@ -105,6 +142,12 @@ export async function proposeOutcomeHandshake(input: {
 
 export async function completeOutcomeHandshake(handshakeId: string): Promise<boolean> {
   if (!handshakeId) return false;
+  const { data: context } = await supabase
+    .from('outcome_handshakes')
+    .select('event_id')
+    .eq('id', handshakeId)
+    .maybeSingle();
+
   const { data, error } = await supabase.rpc('complete_outcome_handshake', {
     p_handshake_id: handshakeId,
   });
@@ -112,6 +155,17 @@ export async function completeOutcomeHandshake(handshakeId: string): Promise<boo
   if (error) {
     console.error('[outcome-handshake.service] complete:', error);
     return false;
+  }
+
+  if (data === true && context?.event_id) {
+    void recordDecisionProvenance({
+      eventId: context.event_id,
+      domain: 'outcome_handshake',
+      outcome: 'complete',
+      reasonCodes: ['participant_confirmed_real_world_outcome'],
+      policyVersion: 'outcome-handshake-v1',
+      metadata: { handshakeId },
+    });
   }
 
   return data === true;
