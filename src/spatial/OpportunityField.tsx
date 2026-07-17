@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber/native';
 import {
   AdditiveBlending,
@@ -7,12 +7,13 @@ import {
   Mesh,
   MeshBasicMaterial,
 } from 'three';
+import type { PresenceState } from '../presence/PresenceEngine';
 
 interface OpportunityFieldProps {
   tensionScore: number;
   density: number;
   mutualMatches: number;
-  urgencyLevel: string;
+  urgencyLevel: PresenceState['urgencyLevel'];
 }
 
 interface PulseSpec {
@@ -52,11 +53,13 @@ export default function OpportunityField({
 
   const normalizedTension = clamp01(tensionScore / 100);
   const normalizedDensity = clamp01(density / 12);
-  const fieldColor = urgencyLevel === 'critical'
+  const fieldColor = urgencyLevel === 'surge'
     ? '#fb7185'
-    : urgencyLevel === 'high'
+    : urgencyLevel === 'elevated'
       ? '#f59e0b'
-      : '#60a5fa';
+      : urgencyLevel === 'active'
+        ? '#818cf8'
+        : '#60a5fa';
 
   const pulseOpacity = 0.08 + normalizedDensity * 0.22;
   const cadenceMultiplier = 0.7 + normalizedTension * 1.8;
@@ -72,6 +75,11 @@ export default function OpportunityField({
       blending: AdditiveBlending,
     })),
     [fieldColor, pulseOpacity],
+  );
+
+  useEffect(
+    () => () => pulseMaterials.forEach((material) => material.dispose()),
+    [pulseMaterials],
   );
 
   useFrame((state, delta) => {
