@@ -22,7 +22,7 @@ export interface SpatialDirectorState {
   worldIntensity: number;
   revealRadius: number;
   pulseRate: number;
-  focusLimit: 1 | 2 | 3;
+  detailBudget: number;
   degraded: boolean;
   closingMinutes: number;
 }
@@ -84,10 +84,29 @@ function copyForAct(
     default:
       return {
         title: 'Explore with intent',
-        direction: 'Move through the room and let Beacon narrow the field as stronger paths appear.',
+        direction: 'Move through the room and let Beacon increase detail around stronger paths as they emerge.',
         accent: '#818cf8',
       };
   }
+}
+
+function computeDetailBudget(
+  presence: PresenceState,
+  act: SpatialAct,
+  degraded: boolean,
+  worldIntensity: number,
+): number {
+  const visible = presence.visibleTargets.length;
+  if (visible === 0) return 0;
+  if (degraded) return Math.min(visible, 2);
+
+  const actBonus = act === 'convergence' || act === 'closing' ? 3 : act === 'exploration' ? 1 : 0;
+  const densityBudget = Math.ceil(Math.sqrt(visible) * 2);
+  const intensityBudget = Math.ceil(worldIntensity * 4);
+
+  // This is a rendering-detail budget, not a people cap. Every visible attendee
+  // remains represented; this only decides how many receive full route geometry.
+  return Math.min(visible, Math.max(3, densityBudget + intensityBudget + actBonus));
 }
 
 /**
@@ -120,7 +139,7 @@ export function buildSpatialDirector(input: SpatialDirectorInput): SpatialDirect
     worldIntensity,
     revealRadius: 6 + worldIntensity * 18,
     pulseRate: 0.35 + worldIntensity * 1.45,
-    focusLimit: degraded ? 1 : act === 'convergence' || act === 'closing' ? 3 : 2,
+    detailBudget: computeDetailBudget(input.presence, act, degraded, worldIntensity),
     degraded,
     closingMinutes,
   };
