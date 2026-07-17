@@ -1,0 +1,221 @@
+name: Security Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 7 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application-security:
+    name: TypeScript and dependency security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify strict TypeScript compilation
+        id: typescript
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsc --noEmit --pretty false 2>&1 | tee tsc-errors.txt
+
+      - name: Upload TypeScript diagnostics
+        if: steps.typescript.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-diagnostics
+          path: tsc-errors.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on TypeScript errors
+        if: steps.typescript.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate opportunity architecture integration
+        run: node scripts/validate-opportunity-architecture.mjs
+
+      - name: Validate product preservation contract
+        run: node scripts/validate-product-preservation.mjs
+
+      - name: Audit production dependencies
+        id: dependency-audit
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm audit --omit=dev --audit-level=high --json 2>&1 | tee npm-audit.json
+
+      - name: Upload dependency audit diagnostics
+        if: steps.dependency-audit.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-diagnostics
+          path: npm-audit.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on high-severity dependency findings
+        if: steps.dependency-audit.outcome == 'failure'
+        run: exit 1
+
+      - name: Detect accidentally committed environment files
+        shell: bash
+        run: |
+          set -euo pipefail
+          tracked_env_files=$(git ls-files | grep -E '(^|/)(\.env|\.env\..+)$' || true)
+          if [[ -n "$tracked_env_files" ]]; then
+            echo "Tracked environment files are not allowed:"
+            echo "$tracked_env_files"
+            exit 1
+          fi
+
+      - name: Detect high-risk credential patterns in tracked text
+        shell: bash
+        run: |
+          set -euo pipefail
+          patterns='(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|EXPO_PUBLIC_SUPABASE_SERVICE_ROLE)'
+          if git grep -I -n -E "$patterns" -- . ':(exclude)package-lock.json' ':(exclude)*.md' ':(exclude).github/workflows/security-gate.yml'; then
+            echo "Potential credential material detected in tracked source."
+            exit 1
+          fi
+
+  android-bundle-smoke:
+    name: Android bundle smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      EXPO_PUBLIC_SENTRY_ENV: ci
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate Expo configuration
+        id: expo-doctor
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npx expo-doctor 2>&1 | tee expo-doctor.txt
+
+      - name: Upload Expo Doctor diagnostics
+        if: steps.expo-doctor.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: expo-doctor-diagnostics
+          path: expo-doctor.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on Expo configuration errors
+        if: steps.expo-doctor.outcome == 'failure'
+        run: exit 1
+
+      - name: Produce Android production bundle
+        run: npx expo export --platform android --output-dir dist-android --clear
+
+      - name: Verify Android bundle output
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d dist-android
+          test -n "$(find dist-android -maxdepth 4 -type f -print -quit)"
+          du -sh dist-android
+
+      - name: Upload Android bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-production-bundle
+          path: dist-android
+          if-no-files-found: error
+          retention-days: 7
+
+  codeql:
+    name: CodeQL analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript-typescript'
+
+  dependency-review:
+    name: Dependency review (advisory)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Review dependency changes
+        id: dependency-review
+        continue-on-error: true
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0, AGPL-3.0
+
+      - name: Explain advisory status
+        if: steps.dependency-review.outcome == 'failure'
+        run: |
+          echo "Dependency review could not produce a blocking result for this repository configuration."
+          echo "npm audit remains the blocking dependency vulnerability control."

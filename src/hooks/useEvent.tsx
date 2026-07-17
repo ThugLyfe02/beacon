@@ -2,10 +2,9 @@
 // Beacon MVP — useEvent Hook (with Context Provider)
 // =============================================================================
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { ActiveEventContext } from '../types/database';
-import * as eventService from '../services/event.service';
-
-// ─── Context Types ────────────────────────────────────────────────────────────
+import type { ActiveEventContext } from '../types/database';
+import { getEventByCode } from '../services/event.service';
+import { requestToJoinEvent } from '../services/participant.service';
 
 interface EventContextValue {
   activeEvent: ActiveEventContext | null;
@@ -15,11 +14,7 @@ interface EventContextValue {
   clearEvent: () => void;
 }
 
-// ─── Context Creation ─────────────────────────────────────────────────────────
-
 const EventContext = createContext<EventContextValue | undefined>(undefined);
-
-// ─── Provider Component ───────────────────────────────────────────────────────
 
 interface EventProviderProps {
   children: ReactNode;
@@ -31,31 +26,28 @@ export function EventProvider({ children }: EventProviderProps) {
   const [error, setError] = useState<string | null>(null);
 
   const joinEventByCode = async (joinCode: string, userId: string) => {
-    console.log('[EventProvider] joinEventByCode called:', { joinCode, userId });
     setLoading(true);
     setError(null);
 
-    const { data, error: joinError } = await eventService.joinEventByCode(
-      joinCode,
-      userId
-    );
+    try {
+      const event = await getEventByCode(joinCode);
+      if (!event) {
+        const message = 'Event not found';
+        setError(message);
+        return { error: message };
+      }
 
-    console.log('[EventProvider] Service result:', { data, error: joinError });
-    setLoading(false);
-
-    if (joinError || !data) {
-      const errorMsg =
-        joinError && typeof joinError === 'object' && 'message' in joinError
-          ? joinError.message
-          : 'Failed to join event';
-      console.log('[EventProvider] Error:', errorMsg);
-      setError(errorMsg);
-      return { error: errorMsg };
+      const participant = await requestToJoinEvent(event.id, userId);
+      const data: ActiveEventContext = { event, participant };
+      setActiveEvent(data);
+      return { data };
+    } catch (joinError) {
+      const message = joinError instanceof Error ? joinError.message : 'Failed to join event';
+      setError(message);
+      return { error: message };
+    } finally {
+      setLoading(false);
     }
-
-    console.log('[EventProvider] Setting activeEvent:', data);
-    setActiveEvent(data);
-    return { data };
   };
 
   const clearEvent = () => {
@@ -63,25 +55,17 @@ export function EventProvider({ children }: EventProviderProps) {
     setError(null);
   };
 
-  const value: EventContextValue = {
-    activeEvent,
-    loading,
-    error,
-    joinEventByCode,
-    clearEvent,
-  };
-
-  return <EventContext.Provider value={value}>{children}</EventContext.Provider>;
+  return (
+    <EventContext.Provider value={{ activeEvent, loading, error, joinEventByCode, clearEvent }}>
+      {children}
+    </EventContext.Provider>
+  );
 }
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useEvent(): EventContextValue {
   const context = useContext(EventContext);
-
   if (context === undefined) {
     throw new Error('useEvent must be used within an EventProvider');
   }
-
   return context;
 }

@@ -31,6 +31,12 @@ export interface OfficeHoursRequestWithPeer extends OfficeHoursRequest {
   direction: 'incoming' | 'outgoing';
 }
 
+function createIdempotencyNonce(): string {
+  const first = Math.random().toString(36).slice(2);
+  const second = Math.random().toString(36).slice(2);
+  return `office-hours-${Date.now().toString(36)}-${first}${second}`.slice(0, 120);
+}
+
 export async function createOfficeHoursRequest(input: {
   eventId: string;
   requesterId: string;
@@ -38,21 +44,28 @@ export async function createOfficeHoursRequest(input: {
   proposedStart: Date;
   proposedEnd: Date;
 }): Promise<OfficeHoursRequest> {
-  const { data, error } = await supabase
-    .from('office_hours_requests')
-    .insert({
-      event_id: input.eventId,
-      requester_id: input.requesterId,
-      recipient_id: input.recipientId,
-      proposed_start: input.proposedStart.toISOString(),
-      proposed_end: input.proposedEnd.toISOString(),
-    } as never)
-    .select('*')
-    .single();
-  if (error) {
-    console.error('[officeHours.service] create error:', error);
-    throw new Error(error.message ?? 'Could not create office hours request');
+  if (!input.eventId || !input.requesterId || !input.recipientId) {
+    throw new Error('Event and participants are required');
   }
+  if (input.proposedEnd.getTime() <= input.proposedStart.getTime()) {
+    throw new Error('Office Hours end time must be after start time');
+  }
+
+  const { data, error } = await supabase
+    .rpc('secure_create_office_hours_request', {
+      p_event_id: input.eventId,
+      p_recipient_id: input.recipientId,
+      p_proposed_start: input.proposedStart.toISOString(),
+      p_proposed_end: input.proposedEnd.toISOString(),
+      p_nonce: createIdempotencyNonce(),
+    })
+    .single();
+
+  if (error || !data) {
+    console.error('[officeHours.service] secure create error:', error);
+    throw new Error(error?.message ?? 'Could not create Office Hours request');
+  }
+
   return data as OfficeHoursRequest;
 }
 

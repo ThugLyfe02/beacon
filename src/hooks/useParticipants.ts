@@ -2,8 +2,9 @@
 // Beacon MVP — useParticipants Hook
 // =============================================================================
 import { useState, useCallback } from 'react';
-import { DiscoverableParticipant } from '../types/database';
-import * as participantService from '../services/participant.service';
+import type { DiscoverableParticipant } from '../types/database';
+import { getApprovedParticipants } from '../services/participant.service';
+import { setDiscoverable } from '../services/premium.service';
 
 export function useParticipants() {
   const [participants, setParticipants] = useState<DiscoverableParticipant[]>([]);
@@ -13,39 +14,31 @@ export function useParticipants() {
   const loadDiscoverableParticipants = useCallback(
     async (eventId: string, callerUserId: string) => {
       setLoading(true);
-      const { data, error } = await participantService.listDiscoverableParticipants(
-        eventId,
-        callerUserId
-      );
-      setLoading(false);
-
-      if (error) {
+      try {
+        const data = await getApprovedParticipants(eventId, callerUserId);
+        setParticipants(data);
+        return { data };
+      } catch (error) {
         return { error };
+      } finally {
+        setLoading(false);
       }
-
-      setParticipants(data);
-      return { data };
     },
     []
   );
 
   const toggleDiscoverable = async (
-    eventId: string,
+    _eventId: string,
     userId: string,
     discoverable: boolean
   ) => {
-    const { data, error } = await participantService.toggleDiscoverable(
-      eventId,
-      userId,
-      discoverable
-    );
-
-    if (error) {
+    try {
+      await setDiscoverable(userId, discoverable);
+      setIsDiscoverable(discoverable);
+      return { data: discoverable };
+    } catch (error) {
       return { error };
     }
-
-    setIsDiscoverable(discoverable);
-    return { data };
   };
 
   return {
