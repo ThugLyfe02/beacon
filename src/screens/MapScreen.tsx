@@ -205,7 +205,7 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
-        showsPointsOfInterest={false}
+        showsPointsOfInterests={false}
         showsBuildings={false}
         showsTraffic={false}
       >
