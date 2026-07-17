@@ -49,6 +49,11 @@ const requiredFiles = [
   'src/spatial/SpatialWorldIntelligenceEngine.ts',
   'src/spatial/SpatialWorldIntelligenceLayer.tsx',
   'src/spatial/SpatialWorldIntelligenceHUD.tsx',
+  'src/spatial/TemporalArchitectureEngine.ts',
+  'src/spatial/SpatialInteractionEngine.ts',
+  'src/spatial/SpatialInteractionLayer.tsx',
+  'src/spatial/SpatialWorldOrchestrator.ts',
+  'src/spatial/SpatialNarrativeHUD.tsx',
   'src/services/world-memory.service.ts',
   'src/screens/MatchesScreen.tsx',
   'supabase/migrations/019_vault_signal_scarcity.sql',
@@ -96,6 +101,11 @@ for (const [text, explanation] of [
   ['buildSpatialWorldIntelligence', 'the field must retain aggregate world learning and prediction'],
   ['<SpatialWorldIntelligenceLayer', 'social emergence and trust must remain visible in the world'],
   ['<SpatialWorldIntelligenceHUD', 'world intelligence must remain explainable rather than subliminal'],
+  ['buildTemporalArchitecture', 'event time must change world rules rather than only copy'],
+  ['buildSpatialWorldOrchestration', 'major systems must remain causally coupled'],
+  ['<SpatialInteractionLayer', 'taps and verified departures must receive physical acknowledgement'],
+  ['<SpatialNarrativeHUD', 'temporal and system causality must remain legible'],
+  ['detectAlmostDiscoveredMoments', 'near-miss learning must remain grounded in verified field changes'],
 ]) requireText('src/spatial/SpatialFieldScreen.tsx', text, explanation);
 
 requireText('src/spatial/OpportunityField.tsx', 'mutualMatches > 0', 'the mutual beacon must remain grounded in a real mutual');
@@ -122,6 +132,16 @@ requireText('src/spatial/SpatialDirectorLayer.tsx', 'depthWrite={false}', 'direc
 requireText('src/spatial/SpatialWorldIntelligenceEngine.ts', 'predicts opportunity density, never a person', 'forecasting must remain aggregate and non-creepy');
 requireText('src/spatial/SpatialWorldIntelligenceEngine.ts', 'sample-size gated', 'historical claims must remain evidence gated');
 forbidText('src/spatial/SpatialWorldIntelligenceEngine.ts', 'Math.random(', 'world intelligence must remain deterministic');
+requireText('src/spatial/TemporalArchitectureEngine.ts', "'arrival'", 'temporal architecture must preserve an arrival phase');
+requireText('src/spatial/TemporalArchitectureEngine.ts', "'reflection'", 'temporal architecture must preserve reflection and handoff');
+requireText('src/spatial/TemporalArchitectureEngine.ts', 'availableContractKinds', 'temporal phases must change available objectives');
+forbidText('src/spatial/TemporalArchitectureEngine.ts', 'Math.random(', 'temporal world rules must remain deterministic');
+requireText('src/spatial/SpatialInteractionEngine.ts', 'does not infer rejection', 'near-miss messaging must avoid manipulative inference');
+requireText('src/spatial/SpatialInteractionEngine.ts', 'previousTargets', 'almost-discovered moments must be derived from verified transitions');
+forbidText('src/spatial/SpatialInteractionEngine.ts', 'Math.random(', 'micro-interactions and near misses must remain deterministic');
+requireText('src/spatial/SpatialInteractionLayer.tsx', 'depthWrite={false}', 'interaction effects must not corrupt scene depth');
+requireText('src/spatial/SpatialWorldOrchestrator.ts', 'runtime confidence constrains the Director', 'system coupling must preserve explicit causal direction');
+requireText('src/spatial/SpatialWorldOrchestrator.ts', 'vaultGravity', 'live systems must hand unfinished value into the Vault');
 requireText('src/services/world-memory.service.ts', 'sample_size < 3', 'immature venue memory must remain hidden');
 requireText('supabase/migrations/029_spatial_world_memory.sql', 'No attendee movement trails', 'world memory must preserve its privacy boundary');
 requireText('supabase/migrations/029_spatial_world_memory.sql', 'service_role', 'aggregate memory refresh must remain server controlled');
@@ -139,6 +159,11 @@ for (const enabledFlag of [
   'spatialContracts: true',
   'spatialDistrict: true',
   'spatialDirector: true',
+  'spatialWorldIntelligence: true',
+  'spatialTemporalNarrative: true',
+  'spatialMicroInteractions: true',
+  'spatialAlmostDiscovered: true',
+  'spatialWorldOrchestration: true',
 ]) {
   if (!flags.includes(enabledFlag)) failures.push(`src/config/featureFlags.ts: integrated flag must remain enabled: ${enabledFlag}`);
 }
