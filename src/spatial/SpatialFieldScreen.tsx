@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     color: "#F8FAFC",
     fontSize: 17,
     lineHeight: 22,
-    fontWeight: "750",
+    fontWeight: "700",
   },
   liveReadDetail: {
     marginTop: 5,
