@@ -70,7 +70,8 @@ function ClusterBeacon({
 
 export default function SpatialWorldIntelligenceLayer({ intelligence }: Readonly<Props>) {
   const rootRef = useRef<Group | null>(null);
-  const forecastAngle = intelligence.forecast ? angleForSector(intelligence.forecast.sector) : 0;
+  const forecast = intelligence.forecast;
+  const forecastAngle = forecast ? angleForSector(forecast.sector) : 0;
   const trustMaterial = useMemo(() => new MeshBasicMaterial({
     color: intelligence.trust.band === 'verified'
       ? '#34d399'
@@ -111,7 +112,7 @@ export default function SpatialWorldIntelligenceLayer({ intelligence }: Readonly
         />
       ))}
 
-      {intelligence.forecast && (
+      {forecast && (
         <group rotation={[0, forecastAngle, 0]}>
           {[0, 1, 2].map((index) => (
             <mesh
@@ -123,7 +124,7 @@ export default function SpatialWorldIntelligenceLayer({ intelligence }: Readonly
               <meshBasicMaterial
                 color="#fbbf24"
                 transparent
-                opacity={(0.18 + intelligence.forecast.confidence * 0.25) * intelligence.trust.routeBrightness}
+                opacity={(0.18 + forecast.confidence * 0.25) * intelligence.trust.routeBrightness}
                 depthWrite={false}
                 side={DoubleSide}
                 blending={AdditiveBlending}
