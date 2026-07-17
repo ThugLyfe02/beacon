@@ -9,6 +9,7 @@ import {
 import { Canvas } from "@react-three/fiber/native";
 import { DoubleSide, GridHelper, Color } from "three";
 import AvatarRenderer from "./AvatarRenderer";
+import OpportunityField from "./OpportunityField";
 import { RING_RADII } from "./fieldConstants";
 import AvatarActionSheet from "./AvatarActionSheet";
 import { usePresenceEngine } from "../presence/usePresenceEngine";
@@ -129,6 +130,12 @@ export default function SpatialFieldScreen() {
         <ambientLight intensity={0.35} />
         <pointLight position={[10, 10, 10]} intensity={0.8} />
         <FieldFloor />
+        <OpportunityField
+          tensionScore={presence.tensionScore}
+          density={presence.density}
+          mutualMatches={mutualMatches}
+          urgencyLevel={presence.urgencyLevel}
+        />
         <Suspense fallback={null}>
           {presence.visibleTargets.map((target) => (
             <AvatarRenderer
@@ -140,16 +147,18 @@ export default function SpatialFieldScreen() {
         </Suspense>
       </Canvas>
       <View style={styles.overlay}>
-        <View style={styles.debugHud}>
-          <Text style={styles.debugText}>
-            signals: {rawSignals.length} · targets: {presence.visibleTargets.length} · sent: {signalsSent} · matches: {mutualMatches}
-          </Text>
-          {presence.visibleTargets.slice(0, 3).map((t) => (
-            <Text key={t.targetId} style={styles.debugText}>
-              · {t.targetId.slice(0, 8)} @ {Math.round(t.distanceFeet)}ft {t.targetAvatarUrl3d ? '(glb)' : '(sphere)'}
+        {__DEV__ && (
+          <View style={styles.debugHud}>
+            <Text style={styles.debugText}>
+              signals: {rawSignals.length} · targets: {presence.visibleTargets.length} · sent: {signalsSent} · matches: {mutualMatches}
             </Text>
-          ))}
-        </View>
+            {presence.visibleTargets.slice(0, 3).map((t) => (
+              <Text key={t.targetId} style={styles.debugText}>
+                · {t.targetId.slice(0, 8)} @ {Math.round(t.distanceFeet)}ft {t.targetAvatarUrl3d ? '(glb)' : '(sphere)'}
+              </Text>
+            ))}
+          </View>
+        )}
         <TensionBar tensionScore={presence.tensionScore} urgencyLevel={presence.urgencyLevel} />
       </View>
 
