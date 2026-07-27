@@ -1,6 +1,6 @@
 import type { ProximitySignal } from '../presence/PresenceEngine';
 import type { SpatialWorldIntelligence } from './SpatialWorldIntelligenceEngine';
-import type { SpatialWorldOrchestrationState } from './SpatialWorldOrchestrator';
+import type { SpatialWorldOrchestration } from './SpatialWorldOrchestrator';
 import type { SpatialLayoutNode } from './SpatialLayoutEngine';
 import { positionForSpatialTarget } from './SpatialExperienceEngine';
 
@@ -27,7 +27,7 @@ export interface SpatialLandmarkState {
 export interface SpatialLandmarkInput {
   visibleTargets: ProximitySignal[];
   intelligence: SpatialWorldIntelligence;
-  orchestration: SpatialWorldOrchestrationState;
+  orchestration: SpatialWorldOrchestration;
   activeLandmarkId?: string | null;
   layout?: SpatialLayoutNode[];
 }
