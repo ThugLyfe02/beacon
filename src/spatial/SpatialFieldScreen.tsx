@@ -21,6 +21,8 @@ import SpatialWorldIntelligenceLayer from "./SpatialWorldIntelligenceLayer";
 import SpatialWorldIntelligenceHUD from "./SpatialWorldIntelligenceHUD";
 import SpatialInteractionLayer from "./SpatialInteractionLayer";
 import SpatialNarrativeHUD from "./SpatialNarrativeHUD";
+import SpatialCameraRig from "./SpatialCameraRig";
+import SpatialNavigationHUD from "./SpatialNavigationHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { buildSpatialContractBoard } from "./SpatialContractEngine";
@@ -28,6 +30,7 @@ import { buildSpatialDirector } from "./SpatialDirectorEngine";
 import { buildSpatialWorldIntelligence } from "./SpatialWorldIntelligenceEngine";
 import { buildTemporalArchitecture } from "./TemporalArchitectureEngine";
 import { buildSpatialWorldOrchestration } from "./SpatialWorldOrchestrator";
+import { buildSpatialNavigation, type SpatialCameraMode } from "./SpatialNavigationEngine";
 import {
   createSpatialInteractionPulse,
   detectAlmostDiscoveredMoments,
@@ -90,6 +93,7 @@ export default function SpatialFieldScreen() {
 
   const [eventTiming, setEventTiming] = useState<EventTiming | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
+  const [cameraMode, setCameraMode] = useState<SpatialCameraMode>("overview");
   const [interactionPulses, setInteractionPulses] = useState<SpatialInteractionPulse[]>([]);
   const [almostDiscovered, setAlmostDiscovered] = useState<AlmostDiscoveredMoment[]>([]);
   const previousTargetsRef = useRef<Target[]>([]);
@@ -213,6 +217,17 @@ export default function SpatialFieldScreen() {
     [runtime, director, worldIntelligence, temporal, progression, contractBoard],
   );
 
+  const cinematicNavigation = useMemo(
+    () => buildSpatialNavigation({
+      requestedMode: cameraMode,
+      selectedTarget,
+      visibleCount: presence.visibleTargets.length,
+      temporal,
+      orchestration,
+    }),
+    [cameraMode, selectedTarget, presence.visibleTargets.length, temporal, orchestration],
+  );
+
   const emitPulse = (targetId: string, kind: "inspect" | "signal" | "mutual" | "office-hours") => {
     const pulse = createSpatialInteractionPulse(targetId, kind);
     setInteractionPulses((current) => [...pruneInteractionPulses(current), pulse].slice(-8));
@@ -221,6 +236,7 @@ export default function SpatialFieldScreen() {
   const handleTargetTap = (target: Target) => {
     emitPulse(target.targetId, target.mutual ? "mutual" : "inspect");
     setSelectedTarget(target);
+    setCameraMode("focus");
   };
 
   const handleConnect = async (targetId: string) => {
@@ -235,6 +251,11 @@ export default function SpatialFieldScreen() {
   const handleOfficeHours = (targetId: string) => {
     emitPulse(targetId, "office-hours");
     navigation.navigate("OfficeHoursRequest", { eventId, recipientId: targetId });
+  };
+
+  const handleCloseTarget = () => {
+    setSelectedTarget(null);
+    if (cameraMode === "focus") setCameraMode("overview");
   };
 
   if (!presence || !eventTiming) {
@@ -263,6 +284,7 @@ export default function SpatialFieldScreen() {
         <hemisphereLight args={["#6b88ff", "#3a2a14", 0.55]} />
         <ambientLight intensity={0.25 + orchestration.districtEnergy * 0.2} />
         <pointLight position={[10, 10, 10]} intensity={0.55 + orchestration.routeEnergy * 0.45} />
+        <SpatialCameraRig navigation={cinematicNavigation} />
         <FieldFloor />
         <SpatialDirectorLayer director={director} />
         <SpatialWorldIntelligenceLayer intelligence={worldIntelligence} />
@@ -298,6 +320,7 @@ export default function SpatialFieldScreen() {
         almostDiscovered={almostDiscovered}
         accent={director.accent}
       />
+      <SpatialNavigationHUD navigation={cinematicNavigation} onModeChange={setCameraMode} />
       <SpatialContractHUD board={contractBoard} accent={director.accent} isPremium={isPremium} />
       <SpatialProgressHUD progression={progression} accent={director.accent} />
 
@@ -305,13 +328,8 @@ export default function SpatialFieldScreen() {
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              phase: {temporal.phase} · coherence: {orchestration.worldCoherence.toFixed(2)} · trust: {worldIntelligence.trust.band} · almost: {almostDiscovered.length} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
+              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · coherence: {orchestration.worldCoherence.toFixed(2)} · trust: {worldIntelligence.trust.band} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
             </Text>
-            {presence.visibleTargets.slice(0, 3).map((target) => (
-              <Text key={target.targetId} style={styles.debugText}>
-                · {target.targetId.slice(0, 8)} @ {Math.round(target.distanceFeet)}ft {target.targetAvatarUrl3d ? "(glb)" : "(sphere)"}
-              </Text>
-            ))}
           </View>
         )}
         <TensionBar tensionScore={presence.tensionScore} urgencyLevel={presence.urgencyLevel} />
@@ -320,7 +338,7 @@ export default function SpatialFieldScreen() {
       <AvatarActionSheet
         target={selectedTarget}
         visible={selectedTarget !== null}
-        onClose={() => setSelectedTarget(null)}
+        onClose={handleCloseTarget}
         onConnect={handleConnect}
         onViewProfile={handleViewProfile}
         onOfficeHours={handleOfficeHours}
