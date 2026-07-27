@@ -26,6 +26,7 @@ import SpatialCameraRig from "./SpatialCameraRig";
 import SpatialNavigationHUD from "./SpatialNavigationHUD";
 import SpatialLandmarkHUD from "./SpatialLandmarkHUD";
 import SpatialTourHUD from "./SpatialTourHUD";
+import SpatialRenderQualityController from "./SpatialRenderQualityController";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialLayout } from "./SpatialLayoutEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
@@ -413,9 +414,9 @@ export default function SpatialFieldScreen() {
     <View style={styles.container}>
       <Canvas
         camera={{ position: [0, 2.5, 12], fov: 60 }}
-        dpr={[1, quality.pixelRatioCap]}
         style={styles.canvas}
       >
+        <SpatialRenderQualityController pixelRatioCap={quality.pixelRatioCap} />
         <color attach="background" args={["#060716"]} />
         <fog attach="fog" args={["#060716", 6, 55]} />
         <hemisphereLight args={["#6b88ff", "#3a2a14", 0.55]} />
