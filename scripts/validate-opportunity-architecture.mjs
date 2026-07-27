@@ -141,7 +141,7 @@ requireText('src/spatial/SpatialSignalLayer.tsx', 'depthWrite={false}', 'spatial
 requireText('src/spatial/SpatialLayoutEngine.ts', 'collision-aware placement', 'crowded fields must preserve readable avatar separation');
 requireText('src/spatial/SpatialLayoutEngine.ts', 'deterministic across refreshes', 'avatar placement must remain stable rather than jumping between polls');
 forbidText('src/spatial/SpatialLayoutEngine.ts', 'Math.random(', 'crowded-field layout must remain deterministic');
-requireText('src/spatial/SpatialAvatarLayer.tsx', 'targets.map', 'every visible attendee must remain rendered by the avatar layer');
+requireText('src/spatial/SpatialAvatarLayer.tsx', 'layout.map', 'every collision-resolved attendee must remain rendered by the avatar layer');
 requireText('src/spatial/SpatialAvatarLayer.tsx', 'precomputed layout', 'rendering must support a layout shared with camera and landmarks');
 requireText('src/spatial/SpatialProgressionEngine.ts', 'verifiedActionPoints', 'progression must be grounded in verifiable event actions');
 requireText('src/spatial/SpatialProgressionEngine.ts', 'does not use', 'progression must preserve its anti-dark-pattern contract');
