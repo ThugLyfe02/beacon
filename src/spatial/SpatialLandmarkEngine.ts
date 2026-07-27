@@ -1,6 +1,7 @@
 import type { ProximitySignal } from '../presence/PresenceEngine';
 import type { SpatialWorldIntelligence } from './SpatialWorldIntelligenceEngine';
 import type { SpatialWorldOrchestrationState } from './SpatialWorldOrchestrator';
+import type { SpatialLayoutNode } from './SpatialLayoutEngine';
 import { positionForSpatialTarget } from './SpatialExperienceEngine';
 
 export type SpatialLandmarkKind = 'mutual' | 'cluster' | 'forecast' | 'field-center';
@@ -28,6 +29,7 @@ export interface SpatialLandmarkInput {
   intelligence: SpatialWorldIntelligence;
   orchestration: SpatialWorldOrchestrationState;
   activeLandmarkId?: string | null;
+  layout?: SpatialLayoutNode[];
 }
 
 const SECTOR_POSITION: Record<'north' | 'east' | 'south' | 'west', [number, number, number]> = {
@@ -48,6 +50,9 @@ function clamp01(value: number): number {
  */
 export function buildSpatialLandmarks(input: SpatialLandmarkInput): SpatialLandmarkState {
   const landmarks: SpatialLandmark[] = [];
+  const layoutByTarget = new Map(
+    (input.layout ?? []).map((node) => [node.target.targetId, node.position] as const),
+  );
 
   const mutuals = input.visibleTargets
     .filter((target) => target.mutual)
@@ -60,7 +65,7 @@ export function buildSpatialLandmarks(input: SpatialLandmarkInput): SpatialLandm
       kind: 'mutual',
       title: index === 0 ? 'Closest mutual route' : 'Active mutual route',
       detail: 'A verified mutual already visible in the field.',
-      position: positionForSpatialTarget(target),
+      position: layoutByTarget.get(target.targetId) ?? positionForSpatialTarget(target),
       confidence: 1,
       salience: clamp01(0.86 + (1 - Math.min(target.distanceFeet, 40) / 40) * 0.14),
       targetId: target.targetId,
@@ -106,13 +111,14 @@ export function buildSpatialLandmarks(input: SpatialLandmarkInput): SpatialLandm
   }
 
   landmarks.sort((left, right) => right.salience - left.salience || left.id.localeCompare(right.id));
-  const activeIndex = Math.max(0, landmarks.findIndex((item) => item.id === input.activeLandmarkId));
-  const active = landmarks.length > 0 ? landmarks[activeIndex === -1 ? 0 : activeIndex] : null;
+  const requestedIndex = landmarks.findIndex((item) => item.id === input.activeLandmarkId);
+  const activeIndex = requestedIndex >= 0 ? requestedIndex : 0;
+  const active = landmarks.length > 0 ? landmarks[activeIndex] : null;
 
   return {
     landmarks,
     active,
-    activeIndex: active ? Math.max(0, landmarks.indexOf(active)) : -1,
+    activeIndex: active ? activeIndex : -1,
     canCycle: landmarks.length > 1,
   };
 }
