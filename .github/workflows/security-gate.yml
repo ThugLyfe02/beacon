@@ -2,9 +2,10 @@ name: Security Gate
 
 on:
   pull_request:
-    branches: [main]
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'feature/**'
   schedule:
     - cron: '17 7 * * 1'
 
