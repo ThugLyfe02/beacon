@@ -1,5 +1,5 @@
 import type { ProximitySignal } from '../presence/PresenceEngine';
-import type { SpatialWorldOrchestrationState } from './SpatialWorldOrchestrator';
+import type { SpatialWorldOrchestration } from './SpatialWorldOrchestrator';
 import type { TemporalArchitectureState } from './TemporalArchitectureEngine';
 import type { SpatialLandmark } from './SpatialLandmarkEngine';
 import { positionForSpatialTarget } from './SpatialExperienceEngine';
@@ -31,7 +31,7 @@ export interface SpatialNavigationInput {
   activeLandmark?: SpatialLandmark | null;
   visibleCount: number;
   temporal: TemporalArchitectureState;
-  orchestration: SpatialWorldOrchestrationState;
+  orchestration: SpatialWorldOrchestration;
   reducedMotion?: boolean;
   dampingMultiplier?: number;
 }
