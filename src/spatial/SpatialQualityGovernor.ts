@@ -1,5 +1,5 @@
 import type { RuntimeReliabilitySnapshot } from '../reliability/RuntimeReliabilityEngine';
-import type { SpatialWorldOrchestrationState } from './SpatialWorldOrchestrator';
+import type { SpatialWorldOrchestration } from './SpatialWorldOrchestrator';
 
 export type SpatialQualityTier = 'cinematic' | 'balanced' | 'efficient' | 'recovery';
 
@@ -16,7 +16,7 @@ export interface SpatialQualityState {
 export interface SpatialQualityInput {
   visibleCount: number;
   runtime: RuntimeReliabilitySnapshot;
-  orchestration: SpatialWorldOrchestrationState;
+  orchestration: SpatialWorldOrchestration;
   reducedMotion?: boolean;
 }
 
