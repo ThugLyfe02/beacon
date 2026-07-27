@@ -60,7 +60,25 @@ jobs:
         run: exit 1
 
       - name: Validate opportunity architecture integration
-        run: node scripts/validate-opportunity-architecture.mjs
+        id: architecture
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-opportunity-architecture.mjs 2>&1 | tee architecture-validation.txt
+
+      - name: Upload architecture validation diagnostics
+        if: steps.architecture.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-validation-diagnostics
+          path: architecture-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on architecture contract violations
+        if: steps.architecture.outcome == 'failure'
+        run: exit 1
 
       - name: Validate product preservation contract
         run: node scripts/validate-product-preservation.mjs
