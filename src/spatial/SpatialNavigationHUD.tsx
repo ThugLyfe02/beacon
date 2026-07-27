@@ -11,6 +11,7 @@ const MODES: Array<{ mode: SpatialCameraMode; label: string }> = [
   { mode: 'overview', label: 'Overview' },
   { mode: 'explore', label: 'Explore' },
   { mode: 'focus', label: 'Focus' },
+  { mode: 'landmark', label: 'Landmark' },
   { mode: 'convergence', label: 'Converge' },
   { mode: 'reflection', label: 'Reflect' },
 ];
@@ -28,7 +29,8 @@ export default function SpatialNavigationHUD({ navigation, onModeChange }: Reado
         <View style={styles.controls}>
           {MODES.map(({ mode, label }) => {
             const active = navigation.mode === mode;
-            const disabled = mode === 'focus' && !navigation.canFocus;
+            const disabled = (mode === 'focus' && !navigation.canFocus)
+              || (mode === 'landmark' && !navigation.canFrameLandmark);
             return (
               <Pressable
                 key={mode}
