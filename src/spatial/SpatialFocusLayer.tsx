@@ -6,6 +6,7 @@ import { positionForSpatialTarget } from './SpatialExperienceEngine';
 
 interface Props {
   target: ProximitySignal | null;
+  position?: [number, number, number] | null;
   accent: string;
   intensity: number;
 }
@@ -14,8 +15,16 @@ interface Props {
  * Adds a restrained cinematic focus language around an explicitly selected,
  * already-visible attendee. The halo contains no hidden recommendation or
  * inferred intent; it is purely a reversible camera/attention affordance.
+ *
+ * When crowded-field layout moves an avatar, the resolved render position is
+ * supplied here so focus geometry and camera framing remain perfectly aligned.
  */
-export default function SpatialFocusLayer({ target, accent, intensity }: Readonly<Props>) {
+export default function SpatialFocusLayer({
+  target,
+  position,
+  accent,
+  intensity,
+}: Readonly<Props>) {
   const rootRef = useRef<Group | null>(null);
   const ringRef = useRef<Mesh | null>(null);
 
@@ -30,7 +39,7 @@ export default function SpatialFocusLayer({ target, accent, intensity }: Readonl
   });
 
   if (!target) return null;
-  const [x, y, z] = positionForSpatialTarget(target);
+  const [x, y, z] = position ?? positionForSpatialTarget(target);
   const color = target.mutual ? '#fbbf24' : accent;
 
   return (
