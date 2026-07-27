@@ -27,6 +27,7 @@ export interface SpatialNavigationState {
 export interface SpatialNavigationInput {
   requestedMode: SpatialCameraMode;
   selectedTarget?: ProximitySignal | null;
+  selectedTargetPosition?: [number, number, number] | null;
   activeLandmark?: SpatialLandmark | null;
   visibleCount: number;
   temporal: TemporalArchitectureState;
@@ -67,9 +68,13 @@ function poseForPoint(
   };
 }
 
-function poseForTarget(target: ProximitySignal, transitionSeconds: number): SpatialCameraPose {
+function poseForTarget(
+  target: ProximitySignal,
+  renderedPosition: [number, number, number] | null | undefined,
+  transitionSeconds: number,
+): SpatialCameraPose {
   const pullback = clamp(4.8 + target.distanceFeet * 0.035, 4.8, 7.2);
-  return poseForPoint(positionForSpatialTarget(target), transitionSeconds, pullback, 48);
+  return poseForPoint(renderedPosition ?? positionForSpatialTarget(target), transitionSeconds, pullback, 48);
 }
 
 /**
@@ -78,7 +83,8 @@ function poseForTarget(target: ProximitySignal, transitionSeconds: number): Spat
  * The camera never teleports randomly, never chases private movement, and never
  * overrides the user's explicit mode. It frames only visible people or
  * explainable aggregate landmarks and constrains acceleration to reduce motion
- * sickness.
+ * sickness. Focus uses the collision-resolved render position when available so
+ * the camera and the avatar can never disagree about where a person appears.
  */
 export function buildSpatialNavigation(input: SpatialNavigationInput): SpatialNavigationState {
   const reducedMotion = input.reducedMotion ?? false;
@@ -97,7 +103,7 @@ export function buildSpatialNavigation(input: SpatialNavigationInput): SpatialNa
   if (mode === 'focus' && input.selectedTarget) {
     return {
       mode,
-      pose: poseForTarget(input.selectedTarget, transitionSeconds),
+      pose: poseForTarget(input.selectedTarget, input.selectedTargetPosition, transitionSeconds),
       title: 'Focus lock',
       detail: 'Beacon is framing one visible path while keeping the wider field alive around it.',
       canFocus,
