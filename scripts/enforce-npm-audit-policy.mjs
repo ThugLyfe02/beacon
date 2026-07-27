@@ -22,7 +22,7 @@ function readJson(path, label) {
 
 function assertPolicy(policy) {
   if (policy.schemaVersion !== 1) throw new Error('Unsupported npm audit policy schema');
-  if (!severityRank.hasOwnProperty(policy.minimumBlockingSeverity)) {
+  if (!Object.prototype.hasOwnProperty.call(severityRank, policy.minimumBlockingSeverity)) {
     throw new Error(`Unknown minimumBlockingSeverity: ${policy.minimumBlockingSeverity}`);
   }
 
@@ -90,7 +90,7 @@ for (const [name, vulnerability] of Object.entries(vulnerabilities)) {
   blockers.push({
     name,
     vulnerability,
-    reason: runtime reachable, directly advised, or outside the explicit toolchain boundary,
+    reason: 'runtime reachable, directly advised, or outside the explicit toolchain boundary',
   });
 }
 
