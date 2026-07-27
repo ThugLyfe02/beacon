@@ -9,6 +9,7 @@ import {
 import { Canvas } from "@react-three/fiber/native";
 import { DoubleSide, GridHelper, Color } from "three";
 import SpatialAvatarLayer from "./SpatialAvatarLayer";
+import SpatialFocusLayer from "./SpatialFocusLayer";
 import OpportunityField from "./OpportunityField";
 import SpatialSignalLayer from "./SpatialSignalLayer";
 import SpatialMilestoneLayer from "./SpatialMilestoneLayer";
@@ -24,7 +25,9 @@ import SpatialNarrativeHUD from "./SpatialNarrativeHUD";
 import SpatialCameraRig from "./SpatialCameraRig";
 import SpatialNavigationHUD from "./SpatialNavigationHUD";
 import SpatialLandmarkHUD from "./SpatialLandmarkHUD";
+import SpatialTourHUD from "./SpatialTourHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
+import { buildSpatialLayout } from "./SpatialLayoutEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { buildSpatialContractBoard } from "./SpatialContractEngine";
 import { buildSpatialDirector } from "./SpatialDirectorEngine";
@@ -34,6 +37,8 @@ import { buildSpatialWorldOrchestration } from "./SpatialWorldOrchestrator";
 import { buildSpatialNavigation, type SpatialCameraMode } from "./SpatialNavigationEngine";
 import { buildSpatialLandmarks, cycleSpatialLandmark } from "./SpatialLandmarkEngine";
 import { buildSpatialQualityState } from "./SpatialQualityGovernor";
+import { buildSpatialAttentionPlan } from "./SpatialAttentionEngine";
+import { useSpatialTour } from "./useSpatialTour";
 import {
   createSpatialInteractionPulse,
   detectAlmostDiscoveredMoments,
@@ -48,6 +53,7 @@ import { usePresenceEngine } from "../presence/usePresenceEngine";
 import TensionBar from "../components/TensionBar";
 import { useAuth } from "../hooks/useAuth";
 import { usePresenceFeed } from "../hooks/usePresenceFeed";
+import { useReducedMotionPreference } from "../hooks/useReducedMotionPreference";
 import { usePremiumStatus } from "../premium/usePremium";
 import { getEventById } from "../services/event.service";
 import { sendConnectionRequest } from "../services/match.service";
@@ -93,6 +99,7 @@ export default function SpatialFieldScreen() {
   const { user } = useAuth();
   const userId = user?.id ?? "";
   const isPremium = usePremiumStatus();
+  const reducedMotion = useReducedMotionPreference();
 
   const [eventTiming, setEventTiming] = useState<EventTiming | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
@@ -101,6 +108,7 @@ export default function SpatialFieldScreen() {
   const [interactionPulses, setInteractionPulses] = useState<SpatialInteractionPulse[]>([]);
   const [almostDiscovered, setAlmostDiscovered] = useState<AlmostDiscoveredMoment[]>([]);
   const previousTargetsRef = useRef<Target[]>([]);
+  const tourOwnedCameraRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,6 +136,26 @@ export default function SpatialFieldScreen() {
     mutualMatches,
     officeHoursActive: false,
   });
+
+  const spatialLayout = useMemo(
+    () => buildSpatialLayout(presence.visibleTargets),
+    [presence.visibleTargets],
+  );
+  const selectedLayoutPosition = useMemo(
+    () => selectedTarget
+      ? spatialLayout.find((node) => node.target.targetId === selectedTarget.targetId)?.position ?? null
+      : null,
+    [selectedTarget, spatialLayout],
+  );
+
+  useEffect(() => {
+    if (!selectedTarget) return;
+    const stillVisible = presence.visibleTargets.some((target) => target.targetId === selectedTarget.targetId);
+    if (!stillVisible) {
+      setSelectedTarget(null);
+      if (cameraMode === "focus") setCameraMode("overview");
+    }
+  }, [presence.visibleTargets, selectedTarget, cameraMode]);
 
   useEffect(() => {
     const now = Date.now();
@@ -219,8 +247,9 @@ export default function SpatialFieldScreen() {
       visibleCount: presence.visibleTargets.length,
       runtime,
       orchestration,
+      reducedMotion,
     }),
-    [presence.visibleTargets.length, runtime, orchestration],
+    [presence.visibleTargets.length, runtime, orchestration, reducedMotion],
   );
 
   const landmarkState = useMemo(
@@ -229,26 +258,92 @@ export default function SpatialFieldScreen() {
       intelligence: worldIntelligence,
       orchestration,
       activeLandmarkId,
+      layout: spatialLayout,
     }),
-    [presence.visibleTargets, worldIntelligence, orchestration, activeLandmarkId],
+    [presence.visibleTargets, worldIntelligence, orchestration, activeLandmarkId, spatialLayout],
   );
+
+  const tour = useSpatialTour(landmarkState.landmarks, eventId);
 
   useEffect(() => {
     if (landmarkState.active && !activeLandmarkId) setActiveLandmarkId(landmarkState.active.id);
+    if (activeLandmarkId && !landmarkState.landmarks.some((landmark) => landmark.id === activeLandmarkId)) {
+      setActiveLandmarkId(landmarkState.active?.id ?? null);
+    }
     if (!landmarkState.active && cameraMode === "landmark") setCameraMode("overview");
-  }, [landmarkState.active, activeLandmarkId, cameraMode]);
+  }, [landmarkState, activeLandmarkId, cameraMode]);
+
+  useEffect(() => {
+    const tourActive = tour.status === "running" || tour.status === "paused";
+    if (tourActive && tour.currentStep) {
+      tourOwnedCameraRef.current = true;
+      setSelectedTarget(null);
+      setActiveLandmarkId(tour.currentStep.landmarkId);
+      setCameraMode("landmark");
+      return;
+    }
+
+    if (tour.status === "complete" && tourOwnedCameraRef.current) {
+      setCameraMode(temporal.phase === "reflection" ? "reflection" : "overview");
+      return;
+    }
+
+    if (tour.status === "idle" && tourOwnedCameraRef.current) {
+      tourOwnedCameraRef.current = false;
+      if (cameraMode === "landmark") setCameraMode("overview");
+    }
+  }, [tour.status, tour.currentStep, temporal.phase, cameraMode]);
+
+  const attention = useMemo(
+    () => buildSpatialAttentionPlan({
+      cameraMode,
+      temporalPhase: temporal.phase,
+      runtimeHealth: runtime.health,
+      qualityTier: quality.tier,
+      tourStatus: tour.status,
+      landmarkCount: landmarkState.landmarks.length,
+      unseenLandmarkCount: tour.unseenCount,
+      hasForecast: Boolean(worldIntelligence.forecast),
+      hasAlmostDiscovered: almostDiscovered.length > 0,
+      hasSelectedTarget: Boolean(selectedTarget),
+    }),
+    [
+      cameraMode,
+      temporal.phase,
+      runtime.health,
+      quality.tier,
+      tour.status,
+      landmarkState.landmarks.length,
+      tour.unseenCount,
+      worldIntelligence.forecast,
+      almostDiscovered.length,
+      selectedTarget,
+    ],
+  );
 
   const cinematicNavigation = useMemo(
     () => buildSpatialNavigation({
       requestedMode: cameraMode,
       selectedTarget,
+      selectedTargetPosition: selectedLayoutPosition,
       activeLandmark: landmarkState.active,
       visibleCount: presence.visibleTargets.length,
       temporal,
       orchestration,
+      reducedMotion,
       dampingMultiplier: quality.cameraDampingMultiplier,
     }),
-    [cameraMode, selectedTarget, landmarkState.active, presence.visibleTargets.length, temporal, orchestration, quality.cameraDampingMultiplier],
+    [
+      cameraMode,
+      selectedTarget,
+      selectedLayoutPosition,
+      landmarkState.active,
+      presence.visibleTargets.length,
+      temporal,
+      orchestration,
+      reducedMotion,
+      quality.cameraDampingMultiplier,
+    ],
   );
 
   const emitPulse = (targetId: string, kind: "inspect" | "signal" | "mutual" | "office-hours") => {
@@ -257,6 +352,7 @@ export default function SpatialFieldScreen() {
   };
 
   const handleTargetTap = (target: Target) => {
+    if (tour.status === "running" || tour.status === "paused") tour.stop();
     emitPulse(target.targetId, target.mutual ? "mutual" : "inspect");
     setSelectedTarget(target);
     setCameraMode("focus");
@@ -283,7 +379,15 @@ export default function SpatialFieldScreen() {
 
   const cycleLandmark = (direction: 1 | -1) => {
     const id = cycleSpatialLandmark(landmarkState, direction);
-    if (id) setActiveLandmarkId(id);
+    if (id) {
+      setActiveLandmarkId(id);
+      tour.markSeen(id);
+    }
+  };
+
+  const frameActiveLandmark = () => {
+    if (landmarkState.active) tour.markSeen(landmarkState.active.id);
+    setCameraMode("landmark");
   };
 
   if (!presence || !eventTiming) {
@@ -339,35 +443,64 @@ export default function SpatialFieldScreen() {
           accent={director.accent}
           detailBudget={trustedDetailBudget}
         />
+        <SpatialFocusLayer
+          target={cameraMode === "focus" ? selectedTarget : null}
+          position={selectedLayoutPosition}
+          accent={director.accent}
+          intensity={cinematicNavigation.cinematicIntensity}
+        />
         <SpatialMilestoneLayer progression={progression} accent={director.accent} />
         <Suspense fallback={null}>
-          <SpatialAvatarLayer targets={presence.visibleTargets} onTap={handleTargetTap} />
+          <SpatialAvatarLayer
+            targets={presence.visibleTargets}
+            layout={spatialLayout}
+            onTap={handleTargetTap}
+          />
         </Suspense>
       </Canvas>
 
-      <SpatialDirectorHUD director={director} />
-      <SpatialWorldIntelligenceHUD intelligence={worldIntelligence} />
-      <SpatialNarrativeHUD
-        temporal={temporal}
-        orchestration={orchestration}
-        almostDiscovered={almostDiscovered}
-        accent={director.accent}
-      />
-      <SpatialLandmarkHUD
-        state={landmarkState}
-        onPrevious={() => cycleLandmark(-1)}
-        onNext={() => cycleLandmark(1)}
-        onOpen={() => setCameraMode("landmark")}
-      />
-      <SpatialNavigationHUD navigation={cinematicNavigation} onModeChange={setCameraMode} />
-      <SpatialContractHUD board={contractBoard} accent={director.accent} isPremium={isPremium} />
-      <SpatialProgressHUD progression={progression} accent={director.accent} />
+      {attention.visible.director && <SpatialDirectorHUD director={director} />}
+      {attention.visible["world-intelligence"] && (
+        <SpatialWorldIntelligenceHUD intelligence={worldIntelligence} />
+      )}
+      {attention.visible.narrative && (
+        <SpatialNarrativeHUD
+          temporal={temporal}
+          orchestration={orchestration}
+          almostDiscovered={almostDiscovered}
+          accent={director.accent}
+        />
+      )}
+      {attention.visible.landmark && (
+        <SpatialLandmarkHUD
+          state={landmarkState}
+          onPrevious={() => cycleLandmark(-1)}
+          onNext={() => cycleLandmark(1)}
+          onOpen={frameActiveLandmark}
+        />
+      )}
+      {attention.visible.tour && (
+        <SpatialTourHUD
+          tour={tour}
+          landmarkCount={landmarkState.landmarks.length}
+          accent={director.accent}
+        />
+      )}
+      {attention.visible.navigation && (
+        <SpatialNavigationHUD navigation={cinematicNavigation} onModeChange={setCameraMode} />
+      )}
+      {attention.visible.contract && (
+        <SpatialContractHUD board={contractBoard} accent={director.accent} isPremium={isPremium} />
+      )}
+      {attention.visible.progress && (
+        <SpatialProgressHUD progression={progression} accent={director.accent} />
+      )}
 
       <View style={styles.overlay}>
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · quality: {quality.tier} · landmarks: {landmarkState.landmarks.length} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
+              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · attention: {attention.primary} · tour: {tour.status} · quality: {quality.tier} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
             </Text>
           </View>
         )}
