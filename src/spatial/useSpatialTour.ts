@@ -16,6 +16,7 @@ export interface SpatialTourController {
   progress: number;
   unseenCount: number;
   seenLandmarkIds: string[];
+  markSeen: (landmarkId: string) => void;
   start: () => void;
   pause: () => void;
   resume: () => void;
@@ -135,6 +136,7 @@ export function useSpatialTour(
     progress: spatialTourProgress(plan, stepIndex),
     unseenCount,
     seenLandmarkIds,
+    markSeen,
     start,
     pause,
     resume,
