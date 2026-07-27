@@ -23,6 +23,7 @@ import SpatialInteractionLayer from "./SpatialInteractionLayer";
 import SpatialNarrativeHUD from "./SpatialNarrativeHUD";
 import SpatialCameraRig from "./SpatialCameraRig";
 import SpatialNavigationHUD from "./SpatialNavigationHUD";
+import SpatialLandmarkHUD from "./SpatialLandmarkHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { buildSpatialContractBoard } from "./SpatialContractEngine";
@@ -31,6 +32,8 @@ import { buildSpatialWorldIntelligence } from "./SpatialWorldIntelligenceEngine"
 import { buildTemporalArchitecture } from "./TemporalArchitectureEngine";
 import { buildSpatialWorldOrchestration } from "./SpatialWorldOrchestrator";
 import { buildSpatialNavigation, type SpatialCameraMode } from "./SpatialNavigationEngine";
+import { buildSpatialLandmarks, cycleSpatialLandmark } from "./SpatialLandmarkEngine";
+import { buildSpatialQualityState } from "./SpatialQualityGovernor";
 import {
   createSpatialInteractionPulse,
   detectAlmostDiscoveredMoments,
@@ -94,6 +97,7 @@ export default function SpatialFieldScreen() {
   const [eventTiming, setEventTiming] = useState<EventTiming | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
   const [cameraMode, setCameraMode] = useState<SpatialCameraMode>("overview");
+  const [activeLandmarkId, setActiveLandmarkId] = useState<string | null>(null);
   const [interactionPulses, setInteractionPulses] = useState<SpatialInteractionPulse[]>([]);
   const [almostDiscovered, setAlmostDiscovered] = useState<AlmostDiscoveredMoment[]>([]);
   const previousTargetsRef = useRef<Target[]>([]);
@@ -114,7 +118,6 @@ export default function SpatialFieldScreen() {
   }, [eventId]);
 
   const { rawSignals, signalsSent, mutualMatches, runtime } = usePresenceFeed(eventId, userId);
-
   const fallbackEndsAt = eventTiming?.endsAt ?? new Date(Date.now() + 60 * 60_000).toISOString();
   const fallbackStartsAt = eventTiming?.startsAt ?? new Date(Date.now() - 15 * 60_000).toISOString();
 
@@ -195,13 +198,7 @@ export default function SpatialFieldScreen() {
   );
 
   const contractBoard = useMemo(
-    () => buildSpatialContractBoard({
-      presence,
-      progression,
-      signalsSent,
-      mutualMatches,
-      isPremium,
-    }),
+    () => buildSpatialContractBoard({ presence, progression, signalsSent, mutualMatches, isPremium }),
     [presence, progression, signalsSent, mutualMatches, isPremium],
   );
 
@@ -217,15 +214,41 @@ export default function SpatialFieldScreen() {
     [runtime, director, worldIntelligence, temporal, progression, contractBoard],
   );
 
+  const quality = useMemo(
+    () => buildSpatialQualityState({
+      visibleCount: presence.visibleTargets.length,
+      runtime,
+      orchestration,
+    }),
+    [presence.visibleTargets.length, runtime, orchestration],
+  );
+
+  const landmarkState = useMemo(
+    () => buildSpatialLandmarks({
+      visibleTargets: presence.visibleTargets,
+      intelligence: worldIntelligence,
+      orchestration,
+      activeLandmarkId,
+    }),
+    [presence.visibleTargets, worldIntelligence, orchestration, activeLandmarkId],
+  );
+
+  useEffect(() => {
+    if (landmarkState.active && !activeLandmarkId) setActiveLandmarkId(landmarkState.active.id);
+    if (!landmarkState.active && cameraMode === "landmark") setCameraMode("overview");
+  }, [landmarkState.active, activeLandmarkId, cameraMode]);
+
   const cinematicNavigation = useMemo(
     () => buildSpatialNavigation({
       requestedMode: cameraMode,
       selectedTarget,
+      activeLandmark: landmarkState.active,
       visibleCount: presence.visibleTargets.length,
       temporal,
       orchestration,
+      dampingMultiplier: quality.cameraDampingMultiplier,
     }),
-    [cameraMode, selectedTarget, presence.visibleTargets.length, temporal, orchestration],
+    [cameraMode, selectedTarget, landmarkState.active, presence.visibleTargets.length, temporal, orchestration, quality.cameraDampingMultiplier],
   );
 
   const emitPulse = (targetId: string, kind: "inspect" | "signal" | "mutual" | "office-hours") => {
@@ -258,6 +281,11 @@ export default function SpatialFieldScreen() {
     if (cameraMode === "focus") setCameraMode("overview");
   };
 
+  const cycleLandmark = (direction: 1 | -1) => {
+    const id = cycleSpatialLandmark(landmarkState, direction);
+    if (id) setActiveLandmarkId(id);
+  };
+
   if (!presence || !eventTiming) {
     return (
       <View style={styles.fallback}>
@@ -272,18 +300,23 @@ export default function SpatialFieldScreen() {
       director.detailBudget
       * worldIntelligence.trust.detailMultiplier
       * temporal.routeWeightMultiplier
-      * (0.72 + orchestration.routeEnergy * 0.28),
+      * (0.72 + orchestration.routeEnergy * 0.28)
+      * quality.routeDetailMultiplier,
     ),
   );
 
   return (
     <View style={styles.container}>
-      <Canvas camera={{ position: [0, 2.5, 12], fov: 60 }} style={styles.canvas}>
+      <Canvas
+        camera={{ position: [0, 2.5, 12], fov: 60 }}
+        dpr={[1, quality.pixelRatioCap]}
+        style={styles.canvas}
+      >
         <color attach="background" args={["#060716"]} />
         <fog attach="fog" args={["#060716", 6, 55]} />
         <hemisphereLight args={["#6b88ff", "#3a2a14", 0.55]} />
-        <ambientLight intensity={0.25 + orchestration.districtEnergy * 0.2} />
-        <pointLight position={[10, 10, 10]} intensity={0.55 + orchestration.routeEnergy * 0.45} />
+        <ambientLight intensity={(0.25 + orchestration.districtEnergy * 0.2) * quality.environmentDetailMultiplier} />
+        <pointLight position={[10, 10, 10]} intensity={(0.55 + orchestration.routeEnergy * 0.45) * quality.environmentDetailMultiplier} />
         <SpatialCameraRig navigation={cinematicNavigation} />
         <FieldFloor />
         <SpatialDirectorLayer director={director} />
@@ -320,6 +353,12 @@ export default function SpatialFieldScreen() {
         almostDiscovered={almostDiscovered}
         accent={director.accent}
       />
+      <SpatialLandmarkHUD
+        state={landmarkState}
+        onPrevious={() => cycleLandmark(-1)}
+        onNext={() => cycleLandmark(1)}
+        onOpen={() => setCameraMode("landmark")}
+      />
       <SpatialNavigationHUD navigation={cinematicNavigation} onModeChange={setCameraMode} />
       <SpatialContractHUD board={contractBoard} accent={director.accent} isPremium={isPremium} />
       <SpatialProgressHUD progression={progression} accent={director.accent} />
@@ -328,7 +367,7 @@ export default function SpatialFieldScreen() {
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · coherence: {orchestration.worldCoherence.toFixed(2)} · trust: {worldIntelligence.trust.band} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
+              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · quality: {quality.tier} · landmarks: {landmarkState.landmarks.length} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
             </Text>
           </View>
         )}
