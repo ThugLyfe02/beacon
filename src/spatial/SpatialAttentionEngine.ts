@@ -12,7 +12,8 @@ export type SpatialHudPanel =
   | 'navigation'
   | 'contract'
   | 'progress'
-  | 'tour';
+  | 'tour'
+  | 'outcome-bridge';
 
 export interface SpatialAttentionInput {
   cameraMode: SpatialCameraMode;
@@ -25,6 +26,7 @@ export interface SpatialAttentionInput {
   hasForecast: boolean;
   hasAlmostDiscovered: boolean;
   hasSelectedTarget: boolean;
+  hasOutcomeHandoff: boolean;
 }
 
 export interface SpatialAttentionPlan {
@@ -45,6 +47,7 @@ function emptyVisibility(): Record<SpatialHudPanel, boolean> {
     contract: false,
     progress: false,
     tour: false,
+    'outcome-bridge': false,
   };
 }
 
@@ -120,6 +123,26 @@ export function buildSpatialAttentionPlan(input: SpatialAttentionInput): Spatial
         : ['landmark', 'navigation'],
       'balanced',
       'Landmark framing needs evidence, context and an immediate route back to direct camera control.',
+    );
+  }
+
+  if (input.temporalPhase === 'reflection' && input.hasOutcomeHandoff) {
+    return plan(
+      'outcome-bridge',
+      'progress',
+      ['outcome-bridge', 'progress', 'navigation'],
+      'balanced',
+      'Reflection gives verified follow-through priority so the event produces real-world value instead of ending as a visual memory.',
+    );
+  }
+
+  if ((input.temporalPhase === 'closing' || input.temporalPhase === 'commitment') && input.hasOutcomeHandoff) {
+    return plan(
+      'outcome-bridge',
+      'contract',
+      ['outcome-bridge', 'contract', 'navigation'],
+      'balanced',
+      'Late-event attention shifts from broad discovery to one evidence-backed real-world handoff.',
     );
   }
 
