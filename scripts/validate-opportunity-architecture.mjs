@@ -67,6 +67,8 @@ const requiredFiles = [
   'src/spatial/SpatialTourHUD.tsx',
   'src/spatial/SpatialOutcomeBridgeEngine.ts',
   'src/spatial/SpatialOutcomeBridgeHUD.tsx',
+  'src/spatial/SpatialCommitmentEngine.ts',
+  'src/spatial/SpatialCommitmentHUD.tsx',
   'src/hooks/useReducedMotionPreference.ts',
   'src/services/world-memory.service.ts',
   'src/screens/MatchesScreen.tsx',
@@ -131,6 +133,8 @@ for (const [text, explanation] of [
   ['<SpatialTourHUD', 'guided scouting must remain visible and controllable'],
   ['buildSpatialOutcomeBridge', 'the live field must translate verified activity into real-world follow-through'],
   ['<SpatialOutcomeBridgeHUD', 'real-world handoff must remain visible and actionable'],
+  ['buildSpatialCommitments', 'verified event activity must be reduced into a concrete commitment queue'],
+  ['<SpatialCommitmentHUD', 'the primary evidence-backed commitment must be actionable'],
   ['useReducedMotionPreference', 'native reduced-motion preference must reach the spatial policy'],
 ]) requireText('src/spatial/SpatialFieldScreen.tsx', text, explanation);
 
@@ -186,6 +190,9 @@ requireText('src/spatial/useSpatialTour.ts', 'never starts or advances unless th
 requireText('src/spatial/SpatialOutcomeBridgeEngine.ts', 'does not invent outcomes or urgency', 'real-world handoff must remain evidence grounded');
 requireText('src/spatial/SpatialOutcomeBridgeEngine.ts', 'completionEvidence', 'outcome bridge must expose verifiable reasons for its state');
 forbidText('src/spatial/SpatialOutcomeBridgeEngine.ts', 'Math.random(', 'outcome handoff must remain deterministic');
+requireText('src/spatial/SpatialCommitmentEngine.ts', 'every candidate is explainable, reversible', 'commitment queue must preserve explicit evidence and user control');
+requireText('src/spatial/SpatialCommitmentEngine.ts', 'completionRatio', 'commitment queue must expose measurable follow-through state');
+forbidText('src/spatial/SpatialCommitmentEngine.ts', 'Math.random(', 'commitment ranking must remain deterministic');
 requireText('src/hooks/useReducedMotionPreference.ts', 'reduceMotionChanged', 'spatial motion must respond live to OS accessibility settings');
 requireText('.github/workflows/security-gate.yml', "'feature/**'", 'stacked feature branches must receive push-based validation');
 
