@@ -27,6 +27,7 @@ import SpatialNavigationHUD from "./SpatialNavigationHUD";
 import SpatialLandmarkHUD from "./SpatialLandmarkHUD";
 import SpatialTourHUD from "./SpatialTourHUD";
 import SpatialRenderQualityController from "./SpatialRenderQualityController";
+import SpatialOutcomeBridgeHUD from "./SpatialOutcomeBridgeHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialLayout } from "./SpatialLayoutEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
@@ -39,6 +40,7 @@ import { buildSpatialNavigation, type SpatialCameraMode } from "./SpatialNavigat
 import { buildSpatialLandmarks, cycleSpatialLandmark } from "./SpatialLandmarkEngine";
 import { buildSpatialQualityState } from "./SpatialQualityGovernor";
 import { buildSpatialAttentionPlan } from "./SpatialAttentionEngine";
+import { buildSpatialOutcomeBridge } from "./SpatialOutcomeBridgeEngine";
 import { useSpatialTour } from "./useSpatialTour";
 import {
   createSpatialInteractionPulse,
@@ -266,6 +268,19 @@ export default function SpatialFieldScreen() {
 
   const tour = useSpatialTour(landmarkState.landmarks, eventId);
 
+  const outcomeBridge = useMemo(
+    () => buildSpatialOutcomeBridge({
+      temporal,
+      contracts: contractBoard,
+      progression,
+      landmarks: landmarkState,
+      tourStatus: tour.status,
+      mutualMatches,
+      signalsSent,
+    }),
+    [temporal, contractBoard, progression, landmarkState, tour.status, mutualMatches, signalsSent],
+  );
+
   useEffect(() => {
     if (landmarkState.active && !activeLandmarkId) setActiveLandmarkId(landmarkState.active.id);
     if (activeLandmarkId && !landmarkState.landmarks.some((landmark) => landmark.id === activeLandmarkId)) {
@@ -307,6 +322,7 @@ export default function SpatialFieldScreen() {
       hasForecast: Boolean(worldIntelligence.forecast),
       hasAlmostDiscovered: almostDiscovered.length > 0,
       hasSelectedTarget: Boolean(selectedTarget),
+      hasOutcomeHandoff: outcomeBridge.state !== "live",
     }),
     [
       cameraMode,
@@ -319,6 +335,7 @@ export default function SpatialFieldScreen() {
       worldIntelligence.forecast,
       almostDiscovered.length,
       selectedTarget,
+      outcomeBridge.state,
     ],
   );
 
@@ -389,6 +406,23 @@ export default function SpatialFieldScreen() {
   const frameActiveLandmark = () => {
     if (landmarkState.active) tour.markSeen(landmarkState.active.id);
     setCameraMode("landmark");
+  };
+
+  const handleOutcomeAction = () => {
+    switch (outcomeBridge.primaryAction) {
+      case "review-vault":
+        navigation.navigate("VaultRecap", { eventId });
+        break;
+      case "open-mutual":
+        navigation.navigate("Matches", { eventId });
+        break;
+      case "finish-contract":
+        setCameraMode("convergence");
+        break;
+      default:
+        if (tour.status === "idle" || tour.status === "complete") tour.start();
+        else setCameraMode("overview");
+    }
   };
 
   if (!presence || !eventTiming) {
@@ -496,12 +530,19 @@ export default function SpatialFieldScreen() {
       {attention.visible.progress && (
         <SpatialProgressHUD progression={progression} accent={director.accent} />
       )}
+      {attention.visible["outcome-bridge"] && (
+        <SpatialOutcomeBridgeHUD
+          bridge={outcomeBridge}
+          accent={director.accent}
+          onPrimaryAction={handleOutcomeAction}
+        />
+      )}
 
       <View style={styles.overlay}>
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · attention: {attention.primary} · tour: {tour.status} · quality: {quality.tier} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
+              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · attention: {attention.primary} · outcome: {outcomeBridge.state} · tour: {tour.status} · quality: {quality.tier} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
             </Text>
           </View>
         )}
