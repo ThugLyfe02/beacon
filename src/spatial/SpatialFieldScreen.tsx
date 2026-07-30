@@ -28,6 +28,7 @@ import SpatialLandmarkHUD from "./SpatialLandmarkHUD";
 import SpatialTourHUD from "./SpatialTourHUD";
 import SpatialRenderQualityController from "./SpatialRenderQualityController";
 import SpatialOutcomeBridgeHUD from "./SpatialOutcomeBridgeHUD";
+import SpatialCommitmentHUD from "./SpatialCommitmentHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialLayout } from "./SpatialLayoutEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
@@ -41,6 +42,7 @@ import { buildSpatialLandmarks, cycleSpatialLandmark } from "./SpatialLandmarkEn
 import { buildSpatialQualityState } from "./SpatialQualityGovernor";
 import { buildSpatialAttentionPlan } from "./SpatialAttentionEngine";
 import { buildSpatialOutcomeBridge } from "./SpatialOutcomeBridgeEngine";
+import { buildSpatialCommitments } from "./SpatialCommitmentEngine";
 import { useSpatialTour } from "./useSpatialTour";
 import {
   createSpatialInteractionPulse,
@@ -281,6 +283,18 @@ export default function SpatialFieldScreen() {
     [temporal, contractBoard, progression, landmarkState, tour.status, mutualMatches, signalsSent],
   );
 
+  const commitments = useMemo(
+    () => buildSpatialCommitments({
+      bridge: outcomeBridge,
+      temporal,
+      contracts: contractBoard,
+      progression,
+      mutualMatches,
+      signalsSent,
+    }),
+    [outcomeBridge, temporal, contractBoard, progression, mutualMatches, signalsSent],
+  );
+
   useEffect(() => {
     if (landmarkState.active && !activeLandmarkId) setActiveLandmarkId(landmarkState.active.id);
     if (activeLandmarkId && !landmarkState.landmarks.some((landmark) => landmark.id === activeLandmarkId)) {
@@ -408,20 +422,31 @@ export default function SpatialFieldScreen() {
     setCameraMode("landmark");
   };
 
-  const handleOutcomeAction = () => {
+  const openOutcomeAction = () => {
     switch (outcomeBridge.primaryAction) {
+      case "open-mutual":
+        navigation.navigate("Matches");
+        break;
       case "review-vault":
         navigation.navigate("VaultRecap", { eventId });
-        break;
-      case "open-mutual":
-        navigation.navigate("Matches", { eventId });
         break;
       case "finish-contract":
         setCameraMode("convergence");
         break;
       default:
-        if (tour.status === "idle" || tour.status === "complete") tour.start();
-        else setCameraMode("overview");
+        tour.start();
+    }
+  };
+
+  const openPrimaryCommitment = () => {
+    const primary = commitments.primary;
+    if (!primary) return;
+    if (primary.destination === "Matches") navigation.navigate("Matches");
+    else if (primary.destination === "VaultRecap") navigation.navigate("VaultRecap", { eventId });
+    else if (primary.destination === "OfficeHoursRequest" && selectedTarget) {
+      navigation.navigate("OfficeHoursRequest", { eventId, recipientId: selectedTarget.targetId });
+    } else {
+      setCameraMode(primary.kind === "introduction" ? "convergence" : "overview");
     }
   };
 
@@ -444,12 +469,11 @@ export default function SpatialFieldScreen() {
     ),
   );
 
+  const showCommitmentQueue = outcomeBridge.state === "commit" || outcomeBridge.state === "closing";
+
   return (
     <View style={styles.container}>
-      <Canvas
-        camera={{ position: [0, 2.5, 12], fov: 60 }}
-        style={styles.canvas}
-      >
+      <Canvas camera={{ position: [0, 2.5, 12], fov: 60 }} style={styles.canvas}>
         <SpatialRenderQualityController pixelRatioCap={quality.pixelRatioCap} />
         <color attach="background" args={["#060716"]} />
         <fog attach="fog" args={["#060716", 6, 55]} />
@@ -486,63 +510,34 @@ export default function SpatialFieldScreen() {
         />
         <SpatialMilestoneLayer progression={progression} accent={director.accent} />
         <Suspense fallback={null}>
-          <SpatialAvatarLayer
-            targets={presence.visibleTargets}
-            layout={spatialLayout}
-            onTap={handleTargetTap}
-          />
+          <SpatialAvatarLayer targets={presence.visibleTargets} layout={spatialLayout} onTap={handleTargetTap} />
         </Suspense>
       </Canvas>
 
       {attention.visible.director && <SpatialDirectorHUD director={director} />}
-      {attention.visible["world-intelligence"] && (
-        <SpatialWorldIntelligenceHUD intelligence={worldIntelligence} />
-      )}
+      {attention.visible["world-intelligence"] && <SpatialWorldIntelligenceHUD intelligence={worldIntelligence} />}
       {attention.visible.narrative && (
-        <SpatialNarrativeHUD
-          temporal={temporal}
-          orchestration={orchestration}
-          almostDiscovered={almostDiscovered}
-          accent={director.accent}
-        />
+        <SpatialNarrativeHUD temporal={temporal} orchestration={orchestration} almostDiscovered={almostDiscovered} accent={director.accent} />
       )}
       {attention.visible.landmark && (
-        <SpatialLandmarkHUD
-          state={landmarkState}
-          onPrevious={() => cycleLandmark(-1)}
-          onNext={() => cycleLandmark(1)}
-          onOpen={frameActiveLandmark}
-        />
+        <SpatialLandmarkHUD state={landmarkState} onPrevious={() => cycleLandmark(-1)} onNext={() => cycleLandmark(1)} onOpen={frameActiveLandmark} />
       )}
-      {attention.visible.tour && (
-        <SpatialTourHUD
-          tour={tour}
-          landmarkCount={landmarkState.landmarks.length}
-          accent={director.accent}
-        />
+      {attention.visible.tour && <SpatialTourHUD tour={tour} landmarkCount={landmarkState.landmarks.length} accent={director.accent} />}
+      {attention.visible.navigation && <SpatialNavigationHUD navigation={cinematicNavigation} onModeChange={setCameraMode} />}
+      {attention.visible.contract && <SpatialContractHUD board={contractBoard} accent={director.accent} isPremium={isPremium} />}
+      {attention.visible.progress && <SpatialProgressHUD progression={progression} accent={director.accent} />}
+      {attention.visible.outcome && !showCommitmentQueue && (
+        <SpatialOutcomeBridgeHUD bridge={outcomeBridge} accent={director.accent} onPrimaryAction={openOutcomeAction} />
       )}
-      {attention.visible.navigation && (
-        <SpatialNavigationHUD navigation={cinematicNavigation} onModeChange={setCameraMode} />
-      )}
-      {attention.visible.contract && (
-        <SpatialContractHUD board={contractBoard} accent={director.accent} isPremium={isPremium} />
-      )}
-      {attention.visible.progress && (
-        <SpatialProgressHUD progression={progression} accent={director.accent} />
-      )}
-      {attention.visible["outcome-bridge"] && (
-        <SpatialOutcomeBridgeHUD
-          bridge={outcomeBridge}
-          accent={director.accent}
-          onPrimaryAction={handleOutcomeAction}
-        />
+      {attention.visible.outcome && showCommitmentQueue && (
+        <SpatialCommitmentHUD state={commitments} accent={director.accent} onOpenPrimary={openPrimaryCommitment} />
       )}
 
       <View style={styles.overlay}>
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · attention: {attention.primary} · outcome: {outcomeBridge.state} · tour: {tour.status} · quality: {quality.tier} · detail: {trustedDetailBudget}/{spatialExperience.focusTargets.length}
+              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · attention: {attention.primary} · outcome: {outcomeBridge.state} · commitments: {commitments.remainingCount} · quality: {quality.tier}
             </Text>
           </View>
         )}
