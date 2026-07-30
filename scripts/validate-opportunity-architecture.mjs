@@ -65,6 +65,8 @@ const requiredFiles = [
   'src/spatial/SpatialTourEngine.ts',
   'src/spatial/useSpatialTour.ts',
   'src/spatial/SpatialTourHUD.tsx',
+  'src/spatial/SpatialOutcomeBridgeEngine.ts',
+  'src/spatial/SpatialOutcomeBridgeHUD.tsx',
   'src/hooks/useReducedMotionPreference.ts',
   'src/services/world-memory.service.ts',
   'src/screens/MatchesScreen.tsx',
@@ -127,6 +129,8 @@ for (const [text, explanation] of [
   ['buildSpatialAttentionPlan', 'HUD visibility must be governed by an explicit attention budget'],
   ['useSpatialTour', 'the field must retain user-initiated guided scouting'],
   ['<SpatialTourHUD', 'guided scouting must remain visible and controllable'],
+  ['buildSpatialOutcomeBridge', 'the live field must translate verified activity into real-world follow-through'],
+  ['<SpatialOutcomeBridgeHUD', 'real-world handoff must remain visible and actionable'],
   ['useReducedMotionPreference', 'native reduced-motion preference must reach the spatial policy'],
 ]) requireText('src/spatial/SpatialFieldScreen.tsx', text, explanation);
 
@@ -174,10 +178,14 @@ requireText('src/spatial/SpatialLandmarkEngine.ts', 'layoutByTarget', 'mutual la
 requireText('src/spatial/SpatialQualityGovernor.ts', 'never removes attendees', 'quality adaptation must never become a visibility cap');
 requireText('src/spatial/SpatialAttentionEngine.ts', 'rendering every explanation at once', 'HUD orchestration must protect the world from dashboard clutter');
 requireText('src/spatial/SpatialAttentionEngine.ts', "tourStatus === 'running'", 'guided scouting must receive a dedicated attention state');
+requireText('src/spatial/SpatialAttentionEngine.ts', "'outcome-bridge'", 'real-world handoff must receive dedicated attention ownership');
 requireText('src/spatial/SpatialTourEngine.ts', 'user-initiated cinematic tour', 'Field Scout must remain explicitly user initiated');
 requireText('src/spatial/SpatialTourEngine.ts', 'step budget controls tour length, not world visibility', 'tour length must remain separate from attendee visibility');
 forbidText('src/spatial/SpatialTourEngine.ts', 'Math.random(', 'tour sequencing must remain deterministic');
 requireText('src/spatial/useSpatialTour.ts', 'never starts or advances unless the user explicitly begins', 'guided scouting cannot become a forced cinematic');
+requireText('src/spatial/SpatialOutcomeBridgeEngine.ts', 'does not invent outcomes or urgency', 'real-world handoff must remain evidence grounded');
+requireText('src/spatial/SpatialOutcomeBridgeEngine.ts', 'completionEvidence', 'outcome bridge must expose verifiable reasons for its state');
+forbidText('src/spatial/SpatialOutcomeBridgeEngine.ts', 'Math.random(', 'outcome handoff must remain deterministic');
 requireText('src/hooks/useReducedMotionPreference.ts', 'reduceMotionChanged', 'spatial motion must respond live to OS accessibility settings');
 requireText('.github/workflows/security-gate.yml', "'feature/**'", 'stacked feature branches must receive push-based validation');
 
