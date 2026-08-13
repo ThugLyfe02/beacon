@@ -2,9 +2,10 @@ name: Security Gate
 
 on:
   pull_request:
-    branches: [main]
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'feature/**'
   schedule:
     - cron: '17 7 * * 1'
 
@@ -59,29 +60,50 @@ jobs:
         run: exit 1
 
       - name: Validate opportunity architecture integration
-        run: node scripts/validate-opportunity-architecture.mjs
-
-      - name: Validate product preservation contract
-        run: node scripts/validate-product-preservation.mjs
-
-      - name: Audit production dependencies
-        id: dependency-audit
+        id: architecture
         continue-on-error: true
         shell: bash
         run: |
           set -o pipefail
-          npm audit --omit=dev --audit-level=high --json 2>&1 | tee npm-audit.json
+          node scripts/validate-opportunity-architecture.mjs 2>&1 | tee architecture-validation.txt
+
+      - name: Upload architecture validation diagnostics
+        if: steps.architecture.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-validation-diagnostics
+          path: architecture-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on architecture contract violations
+        if: steps.architecture.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate product preservation contract
+        run: node scripts/validate-product-preservation.mjs
+
+      - name: Enforce production dependency policy
+        id: dependency-audit
+        continue-on-error: true
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > npm-audit.json || true
+          set -o pipefail
+          node scripts/enforce-npm-audit-policy.mjs npm-audit.json security/npm-audit-policy.json 2>&1 | tee npm-audit-policy-summary.txt
 
       - name: Upload dependency audit diagnostics
         if: steps.dependency-audit.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: npm-audit-diagnostics
-          path: npm-audit.json
+          path: |
+            npm-audit.json
+            npm-audit-policy-summary.txt
           if-no-files-found: error
           retention-days: 7
 
-      - name: Fail on high-severity dependency findings
+      - name: Fail on production dependency policy violations
         if: steps.dependency-audit.outcome == 'failure'
         run: exit 1
 
@@ -218,4 +240,4 @@ jobs:
         if: steps.dependency-review.outcome == 'failure'
         run: |
           echo "Dependency review could not produce a blocking result for this repository configuration."
-          echo "npm audit remains the blocking dependency vulnerability control."
+          echo "The runtime-aware npm audit policy remains the blocking dependency vulnerability control."

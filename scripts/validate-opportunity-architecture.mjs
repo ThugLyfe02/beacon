@@ -54,6 +54,28 @@ const requiredFiles = [
   'src/spatial/SpatialInteractionLayer.tsx',
   'src/spatial/SpatialWorldOrchestrator.ts',
   'src/spatial/SpatialNarrativeHUD.tsx',
+  'src/spatial/SpatialNavigationEngine.ts',
+  'src/spatial/SpatialCameraRig.tsx',
+  'src/spatial/SpatialNavigationHUD.tsx',
+  'src/spatial/SpatialFocusLayer.tsx',
+  'src/spatial/SpatialLandmarkEngine.ts',
+  'src/spatial/SpatialLandmarkHUD.tsx',
+  'src/spatial/SpatialQualityGovernor.ts',
+  'src/spatial/SpatialAttentionEngine.ts',
+  'src/spatial/SpatialTourEngine.ts',
+  'src/spatial/useSpatialTour.ts',
+  'src/spatial/SpatialTourHUD.tsx',
+  'src/spatial/SpatialOutcomeBridgeEngine.ts',
+  'src/spatial/SpatialOutcomeBridgeHUD.tsx',
+  'src/spatial/SpatialCommitmentEngine.ts',
+  'src/spatial/SpatialCommitmentHUD.tsx',
+  'src/spatial/SpatialReciprocityEngine.ts',
+  'src/spatial/SpatialReciprocityHUD.tsx',
+  'src/spatial/SpatialNetworkEffectEngine.ts',
+  'src/spatial/SpatialNetworkEffectHUD.tsx',
+  'src/spatial/SpatialCounterfactualEngine.ts',
+  'src/spatial/SpatialCounterfactualHUD.tsx',
+  'src/hooks/useReducedMotionPreference.ts',
   'src/services/world-memory.service.ts',
   'src/screens/MatchesScreen.tsx',
   'supabase/migrations/019_vault_signal_scarcity.sql',
@@ -89,6 +111,8 @@ for (const [text, explanation] of [
   ['<SpatialSignalLayer', 'the spatial field must retain real target route visualization'],
   ['detailBudget={trustedDetailBudget}', 'route detail must scale down when trust confidence falls'],
   ['<SpatialAvatarLayer', 'all visible avatars must pass through collision-aware layout'],
+  ['layout={spatialLayout}', 'camera systems and avatar rendering must share one collision-resolved layout'],
+  ['<SpatialFocusLayer', 'explicit person focus must remain physically visible in the world'],
   ['buildSpatialExperience', 'the spatial field must derive its visual hierarchy from live presence state'],
   ['buildSpatialProgression', 'the spatial field must retain verified event-session progression'],
   ['<SpatialMilestoneLayer', 'verified progress must remain visible inside the 3D scene'],
@@ -106,6 +130,24 @@ for (const [text, explanation] of [
   ['<SpatialInteractionLayer', 'taps and verified departures must receive physical acknowledgement'],
   ['<SpatialNarrativeHUD', 'temporal and system causality must remain legible'],
   ['detectAlmostDiscoveredMoments', 'near-miss learning must remain grounded in verified field changes'],
+  ['buildSpatialNavigation', 'camera behavior must remain policy driven and explainable'],
+  ['selectedTargetPosition', 'focus camera must use the collision-resolved avatar position'],
+  ['buildSpatialLandmarks', 'aggregate and visible world state must remain navigable'],
+  ['buildSpatialQualityState', 'spatial cost must adapt before frame failure'],
+  ['buildSpatialAttentionPlan', 'HUD visibility must be governed by an explicit attention budget'],
+  ['useSpatialTour', 'the field must retain user-initiated guided scouting'],
+  ['<SpatialTourHUD', 'guided scouting must remain visible and controllable'],
+  ['buildSpatialOutcomeBridge', 'the live field must translate verified activity into real-world follow-through'],
+  ['<SpatialOutcomeBridgeHUD', 'real-world handoff must remain visible and actionable'],
+  ['buildSpatialCommitments', 'verified event activity must be reduced into a concrete commitment queue'],
+  ['<SpatialCommitmentHUD', 'the primary evidence-backed commitment must be actionable'],
+  ['buildSpatialReciprocity', 'commitments must be evaluated through explicit reciprocity evidence'],
+  ['<SpatialReciprocityHUD', 'reciprocity readiness must remain visible and actionable'],
+  ['buildSpatialNetworkEffects', 'verified event value must expose compounding network loops'],
+  ['<SpatialNetworkEffectHUD', 'the strongest compounding loop must be actionable'],
+  ['buildSpatialCounterfactuals', 'Beacon must expose evidence-backed opportunity deltas rather than generic urgency'],
+  ['<SpatialCounterfactualHUD', 'counterfactual opportunity must remain explainable and actionable'],
+  ['useReducedMotionPreference', 'native reduced-motion preference must reach the spatial policy'],
 ]) requireText('src/spatial/SpatialFieldScreen.tsx', text, explanation);
 
 requireText('src/spatial/OpportunityField.tsx', 'mutualMatches > 0', 'the mutual beacon must remain grounded in a real mutual');
@@ -119,7 +161,8 @@ requireText('src/spatial/SpatialSignalLayer.tsx', 'depthWrite={false}', 'spatial
 requireText('src/spatial/SpatialLayoutEngine.ts', 'collision-aware placement', 'crowded fields must preserve readable avatar separation');
 requireText('src/spatial/SpatialLayoutEngine.ts', 'deterministic across refreshes', 'avatar placement must remain stable rather than jumping between polls');
 forbidText('src/spatial/SpatialLayoutEngine.ts', 'Math.random(', 'crowded-field layout must remain deterministic');
-requireText('src/spatial/SpatialAvatarLayer.tsx', 'targets.map', 'every visible attendee must remain rendered by the avatar layer');
+requireText('src/spatial/SpatialAvatarLayer.tsx', 'layout.map', 'every collision-resolved attendee must remain rendered by the avatar layer');
+requireText('src/spatial/SpatialAvatarLayer.tsx', 'precomputed layout', 'rendering must support a layout shared with camera and landmarks');
 requireText('src/spatial/SpatialProgressionEngine.ts', 'verifiedActionPoints', 'progression must be grounded in verifiable event actions');
 requireText('src/spatial/SpatialProgressionEngine.ts', 'does not use', 'progression must preserve its anti-dark-pattern contract');
 forbidText('src/spatial/SpatialProgressionEngine.ts', 'Math.random(', 'progression must remain deterministic and cannot use random rewards');
@@ -142,6 +185,36 @@ forbidText('src/spatial/SpatialInteractionEngine.ts', 'Math.random(', 'micro-int
 requireText('src/spatial/SpatialInteractionLayer.tsx', 'depthWrite={false}', 'interaction effects must not corrupt scene depth');
 requireText('src/spatial/SpatialWorldOrchestrator.ts', 'runtime confidence constrains the Director', 'system coupling must preserve explicit causal direction');
 requireText('src/spatial/SpatialWorldOrchestrator.ts', 'vaultGravity', 'live systems must hand unfinished value into the Vault');
+requireText('src/spatial/SpatialNavigationEngine.ts', 'never chases private movement', 'camera navigation must preserve its privacy boundary');
+requireText('src/spatial/SpatialNavigationEngine.ts', 'selectedTargetPosition', 'focus must address the actual rendered avatar position');
+forbidText('src/spatial/SpatialNavigationEngine.ts', 'Math.random(', 'camera composition must remain deterministic');
+requireText('src/spatial/SpatialFocusLayer.tsx', 'resolved render position', 'focus geometry must align with crowded-field displacement');
+requireText('src/spatial/SpatialLandmarkEngine.ts', 'layoutByTarget', 'mutual landmarks must use collision-resolved positions');
+requireText('src/spatial/SpatialQualityGovernor.ts', 'never removes attendees', 'quality adaptation must never become a visibility cap');
+requireText('src/spatial/SpatialAttentionEngine.ts', 'rendering every explanation at once', 'HUD orchestration must protect the world from dashboard clutter');
+requireText('src/spatial/SpatialAttentionEngine.ts', "tourStatus === 'running'", 'guided scouting must receive a dedicated attention state');
+requireText('src/spatial/SpatialAttentionEngine.ts', "'outcome-bridge'", 'real-world handoff must receive dedicated attention ownership');
+requireText('src/spatial/SpatialTourEngine.ts', 'user-initiated cinematic tour', 'Field Scout must remain explicitly user initiated');
+requireText('src/spatial/SpatialTourEngine.ts', 'step budget controls tour length, not world visibility', 'tour length must remain separate from attendee visibility');
+forbidText('src/spatial/SpatialTourEngine.ts', 'Math.random(', 'tour sequencing must remain deterministic');
+requireText('src/spatial/useSpatialTour.ts', 'never starts or advances unless the user explicitly begins', 'guided scouting cannot become a forced cinematic');
+requireText('src/spatial/SpatialOutcomeBridgeEngine.ts', 'does not invent outcomes or urgency', 'real-world handoff must remain evidence grounded');
+requireText('src/spatial/SpatialOutcomeBridgeEngine.ts', 'completionEvidence', 'outcome bridge must expose verifiable reasons for its state');
+forbidText('src/spatial/SpatialOutcomeBridgeEngine.ts', 'Math.random(', 'outcome handoff must remain deterministic');
+requireText('src/spatial/SpatialCommitmentEngine.ts', 'every candidate is explainable, reversible', 'commitment queue must preserve explicit evidence and user control');
+requireText('src/spatial/SpatialCommitmentEngine.ts', 'completionRatio', 'commitment queue must expose measurable follow-through state');
+forbidText('src/spatial/SpatialCommitmentEngine.ts', 'Math.random(', 'commitment ranking must remain deterministic');
+requireText('src/spatial/SpatialReciprocityEngine.ts', 'never infers hidden interest', 'reciprocity must remain grounded in explicit event evidence');
+requireText('src/spatial/SpatialReciprocityEngine.ts', 'readiness', 'reciprocity paths must expose measurable readiness');
+forbidText('src/spatial/SpatialReciprocityEngine.ts', 'Math.random(', 'reciprocity ranking must remain deterministic');
+requireText('src/spatial/SpatialNetworkEffectEngine.ts', 'never manufactures invitations, referrals, demand, or social proof', 'growth loops must remain evidence backed');
+requireText('src/spatial/SpatialNetworkEffectEngine.ts', 'compoundingScore', 'network effects must expose measurable leverage');
+forbidText('src/spatial/SpatialNetworkEffectEngine.ts', 'Math.random(', 'network effect ranking must remain deterministic');
+requireText('src/spatial/SpatialCounterfactualEngine.ts', 'not a behavioral prediction engine', 'counterfactuals must not predict private human behavior');
+requireText('src/spatial/SpatialCounterfactualEngine.ts', 'opportunityDelta', 'counterfactuals must expose measurable system-level opportunity delta');
+forbidText('src/spatial/SpatialCounterfactualEngine.ts', 'Math.random(', 'counterfactual ranking must remain deterministic');
+requireText('src/hooks/useReducedMotionPreference.ts', 'reduceMotionChanged', 'spatial motion must respond live to OS accessibility settings');
+requireText('.github/workflows/security-gate.yml', "'feature/**'", 'stacked feature branches must receive push-based validation');
 requireText('src/services/world-memory.service.ts', 'sample_size < 3', 'immature venue memory must remain hidden');
 requireText('supabase/migrations/029_spatial_world_memory.sql', 'No attendee movement trails', 'world memory must preserve its privacy boundary');
 requireText('supabase/migrations/029_spatial_world_memory.sql', 'service_role', 'aggregate memory refresh must remain server controlled');
