@@ -30,6 +30,8 @@ import SpatialRenderQualityController from "./SpatialRenderQualityController";
 import SpatialOutcomeBridgeHUD from "./SpatialOutcomeBridgeHUD";
 import SpatialCommitmentHUD from "./SpatialCommitmentHUD";
 import SpatialReciprocityHUD from "./SpatialReciprocityHUD";
+import SpatialNetworkEffectHUD from "./SpatialNetworkEffectHUD";
+import SpatialCounterfactualHUD from "./SpatialCounterfactualHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialLayout } from "./SpatialLayoutEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
@@ -45,6 +47,8 @@ import { buildSpatialAttentionPlan } from "./SpatialAttentionEngine";
 import { buildSpatialOutcomeBridge } from "./SpatialOutcomeBridgeEngine";
 import { buildSpatialCommitments } from "./SpatialCommitmentEngine";
 import { buildSpatialReciprocity } from "./SpatialReciprocityEngine";
+import { buildSpatialNetworkEffects } from "./SpatialNetworkEffectEngine";
+import { buildSpatialCounterfactuals } from "./SpatialCounterfactualEngine";
 import { useSpatialTour } from "./useSpatialTour";
 import {
   createSpatialInteractionPulse,
@@ -144,10 +148,7 @@ export default function SpatialFieldScreen() {
     officeHoursActive: false,
   });
 
-  const spatialLayout = useMemo(
-    () => buildSpatialLayout(presence.visibleTargets),
-    [presence.visibleTargets],
-  );
+  const spatialLayout = useMemo(() => buildSpatialLayout(presence.visibleTargets), [presence.visibleTargets]);
   const selectedLayoutPosition = useMemo(
     () => selectedTarget
       ? spatialLayout.find((node) => node.target.targetId === selectedTarget.targetId)?.position ?? null
@@ -307,6 +308,23 @@ export default function SpatialFieldScreen() {
       signalsSent,
     }),
     [commitments, outcomeBridge, temporal, progression, mutualMatches, signalsSent],
+  );
+
+  const networkEffects = useMemo(
+    () => buildSpatialNetworkEffects({
+      reciprocity,
+      commitments,
+      intelligence: worldIntelligence,
+      temporal,
+      mutualMatches,
+      signalsSent,
+    }),
+    [reciprocity, commitments, worldIntelligence, temporal, mutualMatches, signalsSent],
+  );
+
+  const counterfactuals = useMemo(
+    () => buildSpatialCounterfactuals({ commitments, reciprocity, networkEffects, temporal }),
+    [commitments, reciprocity, networkEffects, temporal],
   );
 
   useEffect(() => {
@@ -486,6 +504,23 @@ export default function SpatialFieldScreen() {
     }
   };
 
+  const openNetworkEffect = () => {
+    const primary = networkEffects.primary;
+    if (!primary) return;
+    if (primary.destination === "Matches") navigation.navigate("Matches");
+    else if (primary.destination === "VaultRecap") navigation.navigate("VaultRecap", { eventId });
+    else setCameraMode("convergence");
+  };
+
+  const openCounterfactual = () => {
+    const primary = counterfactuals.primary;
+    if (!primary) return;
+    if (primary.action === "open-mutuals") navigation.navigate("Matches");
+    else if (primary.action === "review-vault") navigation.navigate("VaultRecap", { eventId });
+    else if (primary.action === "converge") setCameraMode("convergence");
+    else tour.start();
+  };
+
   if (!presence || !eventTiming) {
     return (
       <View style={styles.fallback}>
@@ -544,12 +579,18 @@ export default function SpatialFieldScreen() {
       {reciprocity.primary && reciprocity.primary.state !== "not-ready" && (
         <SpatialReciprocityHUD state={reciprocity} accent={director.accent} onOpenPrimary={openPrimaryReciprocity} />
       )}
+      {networkEffects.primary && (temporal.phase === "closing" || temporal.phase === "reflection") && (
+        <SpatialNetworkEffectHUD state={networkEffects} accent={director.accent} onPrimaryAction={openNetworkEffect} />
+      )}
+      {counterfactuals.primary && temporal.phase !== "arrival" && (
+        <SpatialCounterfactualHUD state={counterfactuals} accent={director.accent} onPrimaryAction={openCounterfactual} />
+      )}
 
       <View style={styles.overlay}>
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · attention: {attention.primary} · reciprocity: {reciprocity.primary?.state ?? "none"} · quality: {quality.tier}
+              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · reciprocity: {reciprocity.primary?.state ?? "none"} · loops: {networkEffects.opportunities.length} · delta: {Math.round(counterfactuals.opportunityDelta * 100)} · quality: {quality.tier}
             </Text>
           </View>
         )}
