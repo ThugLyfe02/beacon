@@ -1,14 +1,17 @@
 import type { OrganizerCommand } from './SpatialOrganizerCommandEngine';
 import type { VenueTwinSnapshot } from './SpatialVenueTwinEngine';
 
-export type InterventionStatus = 'proposed' | 'accepted' | 'applied' | 'reverted' | 'measured';
+export type InterventionStatus = 'proposed' | 'accepted' | 'applied' | 'observing' | 'reverted' | 'measured';
 
 export interface InterventionRecord {
   id: string;
   commandId: string;
   createdAt: number;
+  acceptedAt?: number;
   appliedAt?: number;
+  observingAt?: number;
   measuredAt?: number;
+  revertedAt?: number;
   status: InterventionStatus;
   targetZoneIds: string[];
   baseline: {
@@ -26,6 +29,7 @@ export interface InterventionRecord {
     occupancyPressureDelta: number;
   };
   rationale: string;
+  rollbackCondition?: string;
   operatorNote?: string;
 }
 
@@ -52,14 +56,47 @@ export function createInterventionRecord(
       meanOccupancyRatio: meanOccupancy(baseline),
     },
     rationale: command.rationale,
+    rollbackCondition: 'Revert if target-zone pressure worsens materially or measurement confidence falls below the declared threshold.',
   };
+}
+
+export function acceptIntervention(
+  record: InterventionRecord,
+  now = Date.now(),
+  operatorNote?: string,
+): InterventionRecord {
+  if (record.status !== 'proposed') return record;
+  return { ...record, status: 'accepted', acceptedAt: now, operatorNote: operatorNote ?? record.operatorNote };
 }
 
 export function markInterventionApplied(
   record: InterventionRecord,
   now = Date.now(),
 ): InterventionRecord {
+  if (record.status !== 'accepted' && record.status !== 'proposed') return record;
   return { ...record, status: 'applied', appliedAt: now };
+}
+
+export function markInterventionObserving(
+  record: InterventionRecord,
+  now = Date.now(),
+): InterventionRecord {
+  if (record.status !== 'applied') return record;
+  return { ...record, status: 'observing', observingAt: now };
+}
+
+export function revertIntervention(
+  record: InterventionRecord,
+  now = Date.now(),
+  operatorNote?: string,
+): InterventionRecord {
+  if (record.status === 'measured' || record.status === 'reverted') return record;
+  return {
+    ...record,
+    status: 'reverted',
+    revertedAt: now,
+    operatorNote: operatorNote ?? record.operatorNote,
+  };
 }
 
 export function measureIntervention(
@@ -67,6 +104,7 @@ export function measureIntervention(
   after: VenueTwinSnapshot,
   now = Date.now(),
 ): InterventionRecord {
+  if (record.status !== 'applied' && record.status !== 'observing') return record;
   const afterMean = meanOccupancy(after);
   return {
     ...record,
