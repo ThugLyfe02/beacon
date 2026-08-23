@@ -12,6 +12,7 @@ export interface OrganizerCommand {
   detail: string;
   operatorAction: string;
   measurement: string;
+  targetZoneIds: string[];
 }
 
 export interface SpatialOrganizerCommandState {
@@ -46,7 +47,8 @@ export function buildSpatialOrganizerCommands(
       title: flow.primary.title,
       detail: flow.primary.rationale,
       operatorAction: flow.primary.expectedEffect,
-      measurement: `Track zone occupancy ratio and ingress pressure for the next 5-10 minutes.`,
+      measurement: 'Track zone occupancy ratio and ingress pressure for the next 5-10 minutes.',
+      targetZoneIds: [flow.primary.zoneId],
     });
   }
 
@@ -63,6 +65,7 @@ export function buildSpatialOrganizerCommands(
       detail: 'Beacon has enough aggregate evidence to treat this zone as headroom rather than an active bottleneck.',
       operatorAction: 'Use this zone as the preferred destination for signage, staff guidance, or future routing if another area saturates.',
       measurement: 'Measure whether redistribution reduces peak occupancy elsewhere without collapsing activity quality here.',
+      targetZoneIds: [openCapacity.id],
     });
   }
 
@@ -78,6 +81,7 @@ export function buildSpatialOrganizerCommands(
       detail: `${activeZones.length} zones are carrying sustained aggregate activity, which suggests the event is no longer behaving like one central room.`,
       operatorAction: 'Stagger programming, staff presence, and announcements so one high-energy zone does not cannibalize the others.',
       measurement: 'Compare zone dwell pressure and cross-zone transition support before and after the programming change.',
+      targetZoneIds: activeZones.map((zone) => zone.id),
     });
   }
 
@@ -97,6 +101,7 @@ export function buildSpatialOrganizerCommands(
       detail: 'Beacon can summarize aggregate zone activation and cross-zone movement without exposing attendee-level trajectories.',
       operatorAction: 'Package validated zone activation, dwell pressure, and transition evidence into the post-event sponsor report.',
       measurement: 'Report aggregate activation and flow quality alongside configured sponsor zones and program moments.',
+      targetZoneIds: twin.zones.filter((zone) => zone.state === 'active' || zone.state === 'saturated').map((zone) => zone.id),
     });
   }
 
