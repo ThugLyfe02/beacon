@@ -7,6 +7,7 @@ import { useRegretRecorder } from "../presence/useRegretRecorder";
 import { logPresenceMetrics } from "../presence/TelemetryLogger";
 import TensionBar from "../components/TensionBar";
 import OpportunityWindowBanner from "../components/OpportunityWindowBanner";
+import VenueServiceStatusCard from "../components/VenueServiceStatusCard";
 import { FEATURE_FLAGS } from "../config/featureFlags";
 import { useAuth } from "../hooks/useAuth";
 import { usePresenceFeed } from "../hooks/usePresenceFeed";
@@ -133,6 +134,8 @@ export default function EventLobbyScreen() {
       {FEATURE_FLAGS.opportunityWindowBanner && (
         <OpportunityWindowBanner surge={intelligence.surge} />
       )}
+
+      <VenueServiceStatusCard eventId={eventId} />
 
       <View style={styles.fieldCard}>
         <Text style={styles.fieldEyebrow}>LIVE FIELD</Text>
