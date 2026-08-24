@@ -55,7 +55,7 @@ export function createInterventionRecord(
       overallConfidence: baseline.overallConfidence,
       meanOccupancyRatio: meanOccupancy(baseline),
     },
-    rationale: command.rationale,
+    rationale: command.detail,
     rollbackCondition: 'Revert if target-zone pressure worsens materially or measurement confidence falls below the declared threshold.',
   };
 }
