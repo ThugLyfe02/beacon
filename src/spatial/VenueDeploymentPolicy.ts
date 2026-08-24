@@ -1,5 +1,6 @@
 import type { VenueModelCredibilityState } from './VenueModelCredibility';
 import type { RecommendationReliability } from './VenueRecommendationReliability';
+import type { VenueRecommendationCalibrationState } from './VenueRecommendationCalibration';
 import type { VenueServiceObjectiveState } from './VenueServiceObjective';
 import type { VenueSourceQuorumState } from './VenueSourceQuorum';
 
@@ -10,6 +11,7 @@ export interface VenueDeploymentPolicyInput {
   quorum: VenueSourceQuorumState;
   serviceObjective: VenueServiceObjectiveState;
   recommendationReliability: RecommendationReliability[];
+  recommendationCalibration?: VenueRecommendationCalibrationState;
   totalMeasuredInterventions: number;
   totalRevertedInterventions: number;
   minimumOperationalSamples?: number;
@@ -24,6 +26,7 @@ export interface VenueDeploymentPolicyState {
   blockedCommandIds: string[];
   measuredSupport: number;
   revertRate: number;
+  calibrationBand: VenueRecommendationCalibrationState['band'] | 'not-supplied';
   reasons: string[];
 }
 
@@ -37,6 +40,12 @@ function clamp01(value: number): number {
  * authority from measured outcomes before it can participate in the normal
  * operator workflow. Even `operational` remains human-in-the-loop; this policy
  * does not authorize automatic physical-world intervention.
+ *
+ * Recommendation calibration is intentionally separate from ranking quality. A
+ * command class can rank useful actions correctly and still be unsafe to label
+ * "80% confidence" if measured outcomes show that label is systematically
+ * overconfident. When calibration evidence is supplied, operational promotion
+ * requires it to be mature and calibrated.
  */
 export function evaluateVenueDeploymentPolicy(
   input: VenueDeploymentPolicyInput,
@@ -49,6 +58,10 @@ export function evaluateVenueDeploymentPolicy(
   const reliableCommands = input.recommendationReliability.filter((item) => item.status === 'reliable');
   const mixedCommands = input.recommendationReliability.filter((item) => item.status === 'mixed');
   const weakCommands = input.recommendationReliability.filter((item) => item.status === 'weak');
+  const calibrationBand = input.recommendationCalibration?.band ?? 'not-supplied';
+  const calibrationBlocksLimited = calibrationBand === 'miscalibrated';
+  const calibrationAllowsOperational = calibrationBand === 'calibrated';
+  const calibrationAllowsLimited = calibrationBand === 'calibrated' || calibrationBand === 'watch' || calibrationBand === 'not-supplied';
   const reasons: string[] = [];
 
   let stage: VenueDeploymentStage = 'shadow';
@@ -59,6 +72,7 @@ export function evaluateVenueDeploymentPolicy(
     && measuredSupport >= minimumOperationalSamples
     && reliableCommands.length >= 2
     && revertRate <= 0.15
+    && calibrationAllowsOperational
   ) {
     stage = 'operational';
   } else if (
@@ -68,12 +82,15 @@ export function evaluateVenueDeploymentPolicy(
     && measuredSupport >= 6
     && reliableCommands.length >= 1
     && revertRate <= 0.3
+    && calibrationAllowsLimited
+    && !calibrationBlocksLimited
   ) {
     stage = 'limited';
   } else if (
     input.credibility.band !== 'insufficient'
     && input.quorum.state !== 'lost'
     && input.serviceObjective.objectiveScore >= 0.5
+    && !calibrationBlocksLimited
   ) {
     stage = 'advisory';
   }
@@ -84,19 +101,32 @@ export function evaluateVenueDeploymentPolicy(
   if (measuredSupport < 6) reasons.push('measured intervention support is still immature');
   if (revertRate > 0.3) reasons.push('operator reversion rate is too high for expanded recommendation authority');
   if (weakCommands.length > 0) reasons.push(`${weakCommands.length} command class${weakCommands.length === 1 ? ' has' : 'es have'} weak measured reliability`);
-  if (stage === 'operational' && reasons.length === 0) reasons.push('model credibility, sensing quorum, service objectives, measured support, and command reliability satisfy the normal deployment policy');
+  if (calibrationBand === 'miscalibrated') reasons.push('measured recommendation confidence is materially miscalibrated; action-ready promotion is blocked');
+  if (calibrationBand === 'immature') reasons.push('recommendation confidence calibration is still immature; operational promotion remains unavailable');
+  if (calibrationBand === 'watch') reasons.push('recommendation confidence calibration requires continued observation before operational promotion');
+  if (calibrationBand === 'not-supplied' && stage === 'limited') reasons.push('limited deployment is allowed for backward compatibility, but operational promotion requires explicit measured confidence calibration');
+  if (stage === 'operational' && reasons.length === 0) reasons.push('model credibility, sensing quorum, service objectives, measured support, command reliability, and confidence calibration satisfy the normal deployment policy');
   if (stage === 'limited' && reasons.length === 0) reasons.push('only measured reliable command classes may enter the action-ready operator surface');
   if (stage === 'advisory' && reasons.length === 0) reasons.push('recommendations may be shown for review, but measured support is not mature enough for action-ready status');
   if (stage === 'shadow' && reasons.length === 0) reasons.push('recommendations remain shadow-only until evidence supports operator exposure');
 
+  const overconfidentCommandIds = new Set(
+    (input.recommendationCalibration?.commands ?? [])
+      .filter((command) => command.meanConfidence - command.positiveRate > 0.2 || command.calibrationGap > 0.22)
+      .map((command) => command.commandId),
+  );
   const eligibleCommandIds = stage === 'operational'
-    ? input.recommendationReliability.filter((item) => item.status === 'reliable' || item.status === 'mixed').map((item) => item.commandId).sort()
+    ? input.recommendationReliability
+      .filter((item) => (item.status === 'reliable' || item.status === 'mixed') && !overconfidentCommandIds.has(item.commandId))
+      .map((item) => item.commandId)
+      .sort()
     : stage === 'limited'
-      ? reliableCommands.map((item) => item.commandId).sort()
+      ? reliableCommands.filter((item) => !overconfidentCommandIds.has(item.commandId)).map((item) => item.commandId).sort()
       : [];
   const blockedCommandIds = [...new Set([
     ...weakCommands.map((item) => item.commandId),
     ...(stage === 'limited' ? mixedCommands.map((item) => item.commandId) : []),
+    ...overconfidentCommandIds,
   ])].sort();
 
   return {
@@ -108,6 +138,7 @@ export function evaluateVenueDeploymentPolicy(
     blockedCommandIds,
     measuredSupport,
     revertRate: clamp01(revertRate),
+    calibrationBand,
     reasons,
   };
 }
