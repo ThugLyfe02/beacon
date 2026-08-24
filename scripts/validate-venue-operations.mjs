@@ -66,6 +66,7 @@ const requiredFiles = [
   'src/spatial/SponsorEvidenceLedger.ts',
   'docs/SPATIAL_EVENT_DIGITAL_TWIN.md',
   'docs/VENUE_OPERATIONS_LEARNING.md',
+  '.github/workflows/venue-operations-gate.yml',
 ];
 
 for (const path of requiredFiles) read(path);
@@ -113,7 +114,7 @@ for (const path of [
   forbidText(path, 'targetId', 'venue operations must not repurpose attendee target identifiers for venue analytics');
 }
 
-requireText('.github/workflows/security-gate.yml', 'validate-venue-operations.mjs', 'security gate must execute the venue operations architecture contract');
+requireText('.github/workflows/venue-operations-gate.yml', 'validate-venue-operations.mjs', 'venue operations workflow must execute the architecture contract');
 
 if (failures.length > 0) {
   console.error('Venue operations architecture validation failed:');
