@@ -1,5 +1,5 @@
 import type { OrganizerCommand } from './SpatialOrganizerCommandEngine';
-import type { VenueControlAdmissionState } from './VenueControlAdmission';
+import type { VenueControlAdmissionResult } from './VenueControlAdmission';
 
 export type DecisionDisposition = 'accepted' | 'deferred' | 'rejected' | 'reverted';
 
@@ -8,7 +8,7 @@ export interface VenueDecisionRecord {
   commandId: string;
   createdAt: number;
   disposition: DecisionDisposition;
-  admission: VenueControlAdmissionState['decision'];
+  admission: VenueControlAdmissionResult['decision'];
   operatorReasonCode:
     | 'capacity'
     | 'staffing'
@@ -27,7 +27,7 @@ export interface VenueDecisionRecord {
  */
 export function recordVenueDecision(
   command: OrganizerCommand,
-  admission: VenueControlAdmissionState,
+  admission: VenueControlAdmissionResult,
   disposition: DecisionDisposition,
   operatorReasonCode: VenueDecisionRecord['operatorReasonCode'],
   note?: string,
