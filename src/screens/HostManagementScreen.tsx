@@ -281,6 +281,19 @@ export default function HostManagementScreen({
         </Pressable>
 
         <Pressable
+          onPress={() => navigation.navigate('VenueOperators', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Venue operators</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Delegate event-scoped organizer, venue-ops, and security authority with server-enforced roles.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
           onPress={() => navigation.navigate('EscortPanel', { eventId: event.id })}
           style={styles.hostToolBtn}
         >
