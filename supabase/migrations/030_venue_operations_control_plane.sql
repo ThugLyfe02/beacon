@@ -214,9 +214,19 @@ begin
     left(p_note, 1000),
     left(p_idempotency_key, 200)
   )
-  on conflict (event_id, idempotency_key) do update set
-    idempotency_key = excluded.idempotency_key
+  on conflict (event_id, idempotency_key) do nothing
   returning id into v_id;
+
+  -- Preserve append-only semantics on retries. `DO UPDATE` would fire the
+  -- mutation-prevention trigger, so a duplicate idempotency key resolves by
+  -- reading the immutable record that already won the race.
+  if v_id is null then
+    select id
+      into v_id
+    from public.venue_operation_audit_events
+    where event_id = p_event_id
+      and idempotency_key = left(p_idempotency_key, 200);
+  end if;
 
   return v_id;
 end;
