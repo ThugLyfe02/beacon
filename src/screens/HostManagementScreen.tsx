@@ -265,16 +265,34 @@ export default function HostManagementScreen({
         </View>
       ) : null}
 
-      {event ? (
-        <View style={styles.section}>
-          <Pressable
-            onPress={() => navigation.navigate('EscortPanel', { eventId: event.id })}
-            style={styles.escortBtn}
-          >
-            <NeonText variant="label" tone="accent">ESCORT QUEUE →</NeonText>
-          </Pressable>
-        </View>
-      ) : null}
+      <View style={styles.section}>
+        <NeonText variant="label" tone="accent">HOST TOOLS</NeonText>
+        <Pressable
+          onPress={() => navigation.navigate('VenueOperations', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Venue operations</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Measured interventions, service pressure, and host-scoped operational evidence.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('EscortPanel', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Escort queue</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Manage active host-assisted connection requests.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+      </View>
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -405,11 +423,14 @@ const styles = StyleSheet.create({
     borderColor: palette.danger,
   },
   emptyCard: { width: '100%', borderRadius: radii.xl, gap: spacing.xs },
-  escortBtn: {
+  hostToolBtn: {
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: palette.accent,
-    borderRadius: radii.md,
+    borderColor: palette.hairlineStrong,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
   },
 });
