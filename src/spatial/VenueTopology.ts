@@ -63,8 +63,9 @@ function buildAdjacency(zones: VenueTopologyZone[], links: VenueTopologyLink[]) 
  * Treats semantic venue zones as a graph rather than a flat list. This closes a
  * major operational gap: spare capacity is not useful if the venue cannot reach
  * it through an enabled, sufficiently wide, and—when required—accessible path.
- * The analysis is zone-level and makes no claim about individual evacuation or
- * emergency routing.
+ * The analysis is zone-level and is not an emergency egress or life-safety
+ * routing system. Individual evacuation and emergency routing require separately
+ * validated venue procedures and applicable regulatory controls.
  */
 export function analyzeVenueTopology(
   zones: VenueTopologyZone[],
