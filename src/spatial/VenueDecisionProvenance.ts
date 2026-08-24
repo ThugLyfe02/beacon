@@ -1,6 +1,6 @@
 import type { OrganizerCommand } from './SpatialOrganizerCommandEngine';
 import type { VenueControlAdmissionResult } from './VenueControlAdmission';
-import type { VenueLayoutDescriptor } from './VenueLayoutVersioning';
+import type { VenueLayoutVersion } from './VenueLayoutVersioning';
 import type { VenueModelCredibilityState } from './VenueModelCredibility';
 import type { VenueSourceQuorumState } from './VenueSourceQuorum';
 import type { VenueTelemetryIntegrity } from './VenueTelemetryIntegrity';
@@ -8,7 +8,7 @@ import type { VenueTelemetryIntegrity } from './VenueTelemetryIntegrity';
 export interface VenueDecisionProvenanceInput {
   command: OrganizerCommand;
   admission: VenueControlAdmissionResult;
-  layout: VenueLayoutDescriptor;
+  layout: VenueLayoutVersion;
   telemetry: VenueTelemetryIntegrity;
   quorum: VenueSourceQuorumState;
   credibility: VenueModelCredibilityState;
@@ -75,7 +75,7 @@ export function buildVenueDecisionProvenance(
   const completenessSignals = [
     Boolean(input.command.id),
     Boolean(input.layout.venueId),
-    Boolean(input.layout.layoutVersion),
+    Boolean(input.layout.version),
     Boolean(input.layout.geometryHash),
     Boolean(input.policyVersion),
     Boolean(input.modelVersion),
@@ -88,7 +88,7 @@ export function buildVenueDecisionProvenance(
   const correlationMaterial = [
     input.command.id,
     input.layout.venueId,
-    input.layout.layoutVersion,
+    input.layout.version,
     input.layout.geometryHash,
     input.policyVersion,
     input.modelVersion,
@@ -106,7 +106,7 @@ export function buildVenueDecisionProvenance(
     admissionDecision: input.admission.decision,
     admissionScore: clamp01(input.admission.score),
     venueId: input.layout.venueId,
-    layoutVersion: input.layout.layoutVersion,
+    layoutVersion: input.layout.version,
     geometryHash: input.layout.geometryHash,
     policyVersion: input.policyVersion,
     modelVersion: input.modelVersion,
