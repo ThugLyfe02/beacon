@@ -1,8 +1,8 @@
-import type { VenueTelemetryIntegrityState } from './VenueTelemetryIntegrity';
+import type { VenueTelemetryIntegrity } from './VenueTelemetryIntegrity';
 import type { VenueSourceQuorumState } from './VenueSourceQuorum';
 
 export interface VenueServiceObjectiveInput {
-  telemetry: VenueTelemetryIntegrityState;
+  telemetry: VenueTelemetryIntegrity;
   quorum: VenueSourceQuorumState;
   activeRecommendations: number;
   recommendationLatencyMs: number;
@@ -29,9 +29,9 @@ function clamp01(value: number): number {
  * too slow, or too saturated to provide useful guidance.
  */
 export function evaluateVenueServiceObjective(input: VenueServiceObjectiveInput): VenueServiceObjectiveState {
-  const availability = input.telemetry.state === 'good' && input.quorum.state === 'healthy'
+  const availability = input.telemetry.level === 'good' && input.quorum.state === 'healthy'
     ? 1
-    : input.telemetry.state === 'unsafe' || input.quorum.state === 'lost'
+    : input.telemetry.level === 'unsafe' || input.quorum.state === 'lost'
       ? 0.25
       : 0.65;
   const freshness = clamp01(1 - input.snapshotAgeMs / 30_000);
