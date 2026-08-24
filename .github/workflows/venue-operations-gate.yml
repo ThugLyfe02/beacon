@@ -1,0 +1,38 @@
+name: Venue Operations Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: venue-operations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  architecture:
+    name: Venue operations architecture
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate venue operations contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/validate-venue-operations.mjs
