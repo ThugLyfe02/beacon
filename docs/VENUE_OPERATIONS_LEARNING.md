@@ -4,15 +4,37 @@
 
 Beacon's venue layer should not stop at recommending an operator action. The valuable loop is:
 
-1. establish an aggregate baseline;
-2. predeclare what success means;
-3. record the action the operator actually took;
-4. enforce cooldown and observation windows so the system does not thrash;
-5. measure the venue after the observation window;
-6. keep only repeated patterns with enough support;
-7. use those measured patterns to inform future venue setup and live operations.
+1. accept only versioned, semantically valid observations;
+2. verify source health and independent sensing support;
+3. establish an aggregate venue baseline;
+4. evaluate topology, service pressure, reserve capacity, and operating envelopes;
+5. predeclare what success means;
+6. generate a candidate recommendation;
+7. pass the recommendation through deployment, control-admission, and operator-authority policy;
+8. bind an admitted command to a short-lived evidence lease;
+9. record the action the operator actually took;
+10. enforce cooldown and observation windows so the system does not thrash;
+11. measure the venue after the observation window;
+12. replay the evidence chain and retain only repeated patterns with enough support;
+13. use those measured patterns to inform future venue setup and live operations.
 
-This is deliberately stricter than an analytics dashboard. A recommendation is not evidence that an intervention worked.
+This is deliberately stricter than an analytics dashboard. A recommendation is not evidence that an intervention worked, and an analytically plausible recommendation is not automatically authorized to influence the physical venue.
+
+## Observation contract and sensor health
+
+`VenueObservationContract` defines the ingress boundary for venue telemetry. Every aggregate observation carries an explicit schema version, venue identity, layout version, source identity, source kind, observation time, receipt time, sequence, confidence, and typed payload.
+
+The contract rejects malformed occupancy, transition, service-point, and manual-confirmation observations before they can enter the twin. This makes adapter behavior inspectable and prevents one sensing integration from silently changing the meaning of venue state.
+
+`VenueSensorHealth` evaluates the source estate before quorum. Freshness alone is not enough: packet delivery, calibration age, drift, consecutive failures, confidence, and zone coverage can reduce a source's authority. Sources can move through `healthy`, `watch`, `quarantined`, and `offline` state.
+
+Quarantine is intentionally different from deletion. An unhealthy source loses decision authority but remains visible to operators for diagnosis.
+
+## Independent source quorum
+
+`VenueSourceQuorum` requires independent healthy sensing support before the venue can carry strong operational authority. BLE, Wi-Fi, camera, edge, manual, or future sensing sources can participate without making any one hardware vendor the unquestioned source of truth.
+
+The quorum result is separate from individual source health. A venue can have several healthy sensors and still lack sufficient cross-source support for a specific operational claim.
 
 ## Measurement discipline
 
@@ -53,37 +75,142 @@ This is useful because fixed thresholds answer “is the zone high?” while cha
 
 Organizer actions should consume effective confidence, not merely the confidence that existed when the sample was created.
 
+## Topology and reachable capacity
+
+`VenueTopology` models enabled semantic zones and inter-zone links as a graph. It measures disconnected zones, single-link dependencies, narrow links, aggregate directional capacity, route redundancy, and accessibility coverage.
+
+This closes a fundamental operational gap: spare capacity is not equivalent to usable capacity. A lounge with forty open spaces is not a useful relief destination if the only path into it is closed, too narrow for the configured normal-flow policy, or incompatible with an accessibility requirement.
+
+`VenueRoutingPolicy` consumes the topology together with `VenueCapacityReserve` and the live twin. It ranks only reachable relief destinations and can return `eligible`, `review`, or `blocked` route candidates.
+
+This policy is for normal event flow and wayfinding. It is not an emergency-egress or life-safety routing system.
+
+## Service points and attendee-facing utility
+
+`VenueServicePoint` models aggregate queues at places such as check-in, food, coat check, booths, restrooms, and normal security/service desks. It computes recent arrival rate, completion throughput, queue growth, utilization, queue pressure, and a bounded wait estimate.
+
+Wait estimates are withheld when throughput or sample support is too weak. A public estimate must clear a higher confidence and support threshold than an operator-only diagnostic.
+
+This gives Beacon a direct user-value surface beyond networking: attendees can eventually receive trustworthy, privacy-preserving wait guidance while organizers see exactly where service capacity is failing.
+
+`SpatialOrganizerCommandEngine` now accepts service-point and topology-aware routing context. As a result, organizer commands can distinguish “this area looks empty” from “this area is actually reachable and has usable headroom,” and they can surface queue relief when arrivals materially exceed completions.
+
+## Capacity reserve
+
+`VenueCapacityReserve` treats unused capacity as a protected operational reserve rather than empty space. It distinguishes usable relief capacity from reserve that should remain untouched and exposes concentration risk when all spare capacity depends on a single zone.
+
+Reserve exists so the event does not consume every open area during normal operation and leave no credible relief capacity when conditions change.
+
+## Adaptive sensing load
+
+`VenueSamplingPolicy` changes observation cadence according to venue pressure, detected change points, service-point congestion, confidence gaps, and active intervention windows.
+
+The policy changes cadence, not truth. Every enabled zone retains a bounded observation floor. Stable cold zones may back off to reduce radio, edge, battery, and transport load while changing or intervention-critical zones receive tighter sampling.
+
+Unhealthy sensors do not gain authority simply because they report more frequently.
+
 ## Cooldowns and anti-thrashing
 
 `VenueInterventionGuard` blocks overlapping or rapidly reversing commands while a prior intervention is inside its configured observation window. This prevents control-loop oscillation where one noisy sample produces a reroute and the next sample immediately recommends the opposite action.
 
 Operational recommendations should prefer stability unless new evidence is materially stronger than the evidence behind the active intervention.
 
+## Deployment maturity
+
+`VenueDeploymentPolicy` prevents new decision logic from appearing action-ready simply because it exists in production code.
+
+Recommendation logic progresses through:
+
+- `shadow`: computed and measured without operator exposure;
+- `advisory`: visible for operator review but not action-ready;
+- `limited`: only measured reliable command classes can become action-ready;
+- `operational`: the normal human-in-the-loop operator workflow, still without automatic physical-world intervention.
+
+Promotion depends on model credibility, source quorum, venue-operations service objectives, measured intervention support, recommendation reliability, and reversion rate.
+
+This provides a safe path to introduce new venue logic without treating a deploy as evidence of correctness.
+
 ## Final operational policy gate
 
-`VenueOperationsPolicy` is the final seam before a generated command becomes actionable. Recommendation generation and operational permission are intentionally separate concerns.
+`VenueControlAdmission` is the final technical boundary before a generated command can become action-ready. Recommendation generation and operational permission are intentionally separate concerns.
 
-The policy combines:
+The production context can combine:
 
 - command confidence;
-- intervention guard state;
-- target-zone operating-envelope state;
-- freshness of the supporting observations;
-- measured historical reliability for the command class.
+- telemetry integrity;
+- layout compatibility;
+- sensing quorum;
+- model credibility;
+- venue readiness;
+- fallback mode;
+- load shedding;
+- service objectives;
+- sensor authority;
+- deployment maturity.
 
-It can classify a command as `observe`, `review`, `actionable`, or `blocked`. A sophisticated recommendation may therefore remain visible for operator awareness without receiving action permission.
+It returns `allow`, `review`, or `block` plus explicit blocking and review reasons and the evidence scores used in the decision.
+
+`VenueOperationsRuntime` materializes the final operator queue after admission. Blocked commands remain inspectable for diagnostics but cannot become actionable. Review-only commands remain explicitly human-gated. Sponsor recommendations can be suppressed independently when privacy, telemetry, fallback, or load-shedding policy requires it.
+
+## Operator authorization and command leases
+
+`VenueCommandAuthority` separates model admission from human authorization. An admitted recommendation must still be handled by an operator with the correct venue scope and role. High-impact `safety`-class commands require a second recent approval from a distinct qualified operator.
+
+This client policy is defense in depth. Server-side authorization must enforce the same or stricter rule before persisting or dispatching any operational action.
+
+`VenueCommandLease` binds an admitted command to the specific venue layout, geometry, admission score, and telemetry quality that justified it. The lease expires quickly. If the venue geometry changes, telemetry degrades, or the lease ages out, the command must be re-evaluated.
+
+A recommendation that was correct forty seconds ago is not assumed to remain correct after the room changes.
+
+## Decision provenance
+
+`VenueDecisionProvenance` creates a compact evidence record for the recommendation boundary. The record links the command to:
+
+- venue and layout version;
+- geometry hash;
+- policy version;
+- model version;
+- telemetry state;
+- sensing quorum;
+- model credibility;
+- admission result;
+- aggregate observation keys.
+
+The local correlation token is not a cryptographic signature. A production audit service should add authenticated append-only integrity before these records are treated as compliance or contractual evidence.
+
+## Operator decision journal
+
+`VenueDecisionJournal` records whether an operator accepted, deferred, rejected, or reverted a recommendation and captures a structured reason code. Beacon can therefore learn from expert operator disagreement without treating overrides as user error.
+
+This is a second feedback loop alongside measured outcomes: the system learns not only which interventions worked, but also where experienced operators consistently reject the software's framing.
+
+## Load shedding and graceful degradation
+
+`VenueLoadShedding` narrows the operator surface when telemetry is degraded, the venue is not ready, or too many simultaneous interventions are active. Optional analysis is reduced before truth-bearing state is removed.
+
+`VenueFallbackMode` defines `normal`, `advisory-only`, `manual-confirmation`, and `telemetry-hold` operation. In the most defensive state, recommendations freeze while essential venue state remains visible.
+
+The product should become less authoritative before it becomes less truthful.
+
+## Service objectives
+
+`VenueServiceObjective` treats the organizer layer like an operational service. It measures availability, snapshot freshness, recommendation latency, and control headroom.
+
+A digital twin that is logically correct but twenty seconds stale or several seconds slow is not operationally equivalent to a healthy real-time system. These service objectives therefore participate in deployment and control policy rather than existing only as monitoring metrics.
 
 ## Repeat-event learning
 
 `VenueOutcomeLearning` groups measured interventions by command and target-zone set. Patterns remain suppressed until at least three measured examples exist. This is a minimum maturity gate, not statistical proof. Confidence increases with repeated observations and effect consistency.
 
-`VenueRecommendationReliability` separately tracks measured count, positive outcomes, reversions, mean effect, and a bounded reliability score for each command class. The result can feed the operational policy layer so historically weak interventions receive less authority than repeatedly successful ones.
+`VenueRecommendationReliability` separately tracks measured count, positive outcomes, reversions, mean effect, and a bounded reliability score for each command class. The result feeds deployment and control policy so historically weak interventions receive less authority than repeatedly successful ones.
 
 The long-term target is a venue-specific playbook such as:
 
 - which decompression actions repeatedly reduce saturation;
 - which programming adjustments improve cross-zone utilization;
 - which zones serve as reliable headroom;
+- which service-point configurations keep queue growth bounded;
+- which normal-flow routes absorb demand without simply moving congestion downstream;
 - which sponsor areas show consistent activation under comparable programming.
 
 ## Program-moment attribution
@@ -104,20 +231,29 @@ Mobility data can remain sensitive even after direct identifiers are removed. Be
 
 The current client privacy budget is a policy seam, not a claim of formal differential privacy. A server-side implementation should define contribution bounds, an adjacency model, privacy accounting, and tested DP mechanisms before Beacon advertises mathematical privacy guarantees.
 
+## Architecture validation
+
+`scripts/validate-venue-operations.mjs` protects the venue-operations contract in CI. It requires the production artifacts, checks that critical privacy and human-control boundaries remain present, prevents deterministic venue policy from drifting back toward random behavior, and verifies that high-impact controls such as command expiry, sensor quarantine, deployment staging, topology constraints, and evidence provenance remain wired into the branch.
+
+The dedicated `Venue Operations Gate` runs this validator on pull requests and `feature/**` branches without paying the cost of reinstalling application dependencies.
+
 ## Research direction
 
-Recent crowd-management literature increasingly frames high-quality systems as closed loops: sensing, prediction or state estimation, intervention, and feedback. That maps directly to Beacon's architecture. The important engineering constraint is to preserve uncertainty and human operator control instead of turning a noisy crowd signal into an automatic physical-world command.
+Current digital-twin guidance increasingly emphasizes systems-of-systems integration, interoperability, verification/validation/uncertainty, cybersecurity, instrumentation, and lifecycle trust rather than a static visual replica. Beacon should follow that discipline: the useful product is not the phrase “digital twin,” but the operational machinery that makes the twin trustworthy enough to support bounded decisions.
 
-Digital-twin work for venues and buildings similarly emphasizes live monitoring, model calibration, scenario comparison, and closed-loop operational decision support. Beacon's differentiator should not be the phrase “digital twin”; it should be the measurable operating discipline around the twin.
+Crowd digital-twin research similarly treats monitoring, modeling, functional and non-functional requirements, and crowd-aware service optimization as separate concerns. Beacon's architecture deliberately keeps sensing, model credibility, topology, control admission, human authorization, measurement, and learning separate so each can evolve without silently expanding the authority of the others.
 
 ## Production next steps
 
-- persist intervention records server-side with append-only audit semantics;
-- bind records to event, venue-layout version, and operator identity/role;
+- persist intervention, decision, command-lease, and provenance records server-side with append-only audit semantics;
+- enforce operator role and venue scope server-side;
+- bind records to event, venue-layout version, model version, and policy version;
 - ingest venue geometry from GeoJSON or BIM-derived semantic zones;
+- maintain a signed calibration registry for production sensor sources;
 - timestamp configuration changes so outcome windows cannot span incompatible layouts;
-- add queue/service-point metrics where venues expose them;
+- connect service-point observations to real check-in, food, booth, and queue telemetry where venues expose it;
+- calibrate topology link capacity and routing thresholds on real deployments before broad operator use;
 - calibrate intervention thresholds on real events before treating them as safety-critical;
-- separate operational recommendations from emergency-management controls unless independently validated for that use;
+- separate normal venue-flow recommendations from emergency-management controls unless independently validated for that use;
 - add controlled rollout support for matched zones or staggered interventions where operators can safely test stronger causal designs;
-- expose the operating-policy reason alongside every organizer action so blocked and review-only states remain explainable.
+- expose admission, lease, authorization, and provenance reasons alongside every organizer action so blocked and review-only states remain explainable.
