@@ -1,5 +1,5 @@
 import type { VenueTwinSnapshot } from './SpatialVenueTwinEngine';
-import type { VenueTelemetryIntegrityState } from './VenueTelemetryIntegrity';
+import type { VenueTelemetryIntegrity } from './VenueTelemetryIntegrity';
 import type { VenueReadinessState } from './VenueReadiness';
 
 export type LoadSheddingTier = 'normal' | 'constrained' | 'protective' | 'freeze';
@@ -15,7 +15,7 @@ export interface VenueLoadSheddingState {
 
 interface Input {
   twin: VenueTwinSnapshot;
-  telemetry: VenueTelemetryIntegrityState;
+  telemetry: VenueTelemetryIntegrity;
   readiness: VenueReadinessState;
   activeInterventionCount: number;
 }
@@ -30,15 +30,15 @@ export function buildVenueLoadShedding(input: Input): VenueLoadSheddingState {
   const reasons: string[] = [];
   let tier: LoadSheddingTier = 'normal';
 
-  if (input.telemetry.state === 'unsafe' || input.readiness.state === 'not-ready') {
+  if (input.telemetry.level === 'unsafe' || input.readiness.level === 'not-ready') {
     tier = 'freeze';
     reasons.push('Operational guidance is frozen because venue state is not trustworthy enough for intervention.');
   } else if (input.twin.saturatedZoneCount >= 2 && input.activeInterventionCount >= 2) {
     tier = 'protective';
     reasons.push('Multiple saturated zones and concurrent interventions require a narrower operator surface.');
   } else if (
-    input.telemetry.state === 'degraded'
-    || input.readiness.state === 'monitor'
+    input.telemetry.level === 'degraded'
+    || input.readiness.level === 'monitor'
     || input.activeInterventionCount >= 2
   ) {
     tier = 'constrained';
