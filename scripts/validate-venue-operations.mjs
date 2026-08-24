@@ -34,6 +34,7 @@ const requiredFiles = [
   'src/spatial/VenueSourceQuorum.ts',
   'src/spatial/VenueSensorHealth.ts',
   'src/spatial/VenueObservationContract.ts',
+  'src/spatial/VenueObservationBuffer.ts',
   'src/spatial/VenueObservationConsensus.ts',
   'src/spatial/VenueGeometryIngest.ts',
   'src/spatial/VenueModelCredibility.ts',
@@ -69,10 +70,13 @@ const requiredFiles = [
   'src/spatial/VenueProgramAttribution.ts',
   'src/spatial/SponsorEvidenceLedger.ts',
   'src/services/venue-operations.service.ts',
+  'src/services/venue-operator.service.ts',
   'src/screens/VenueOperationsScreen.tsx',
+  'src/screens/VenueOperatorsScreen.tsx',
   'src/components/VenueServiceStatusCard.tsx',
   'supabase/migrations/030_venue_operations_control_plane.sql',
   'supabase/migrations/031_public_venue_service_status.sql',
+  'supabase/migrations/032_venue_operator_roles.sql',
   'docs/SPATIAL_EVENT_DIGITAL_TWIN.md',
   'docs/VENUE_OPERATIONS_LEARNING.md',
   '.github/workflows/venue-operations-gate.yml',
@@ -86,6 +90,9 @@ requireText('src/spatial/VenueSensorHealth.ts', "'quarantined'", 'unhealthy sens
 requireText('src/spatial/VenueSensorHealth.ts', 'authorityWeight', 'sensor health must reduce decision authority, not only display a warning');
 requireText('src/spatial/VenueObservationContract.ts', 'VENUE_OBSERVATION_SCHEMA_VERSION', 'ingress observations must use an explicit versioned contract');
 requireText('src/spatial/VenueObservationContract.ts', 'expectedLayoutVersion', 'observations must be bound to the active venue layout version');
+requireText('src/spatial/VenueObservationBuffer.ts', 'allowedOutOfOrderMs', 'multi-source observations need bounded event-time reordering');
+requireText('src/spatial/VenueObservationBuffer.ts', 'maximumBufferedObservations', 'observation buffering must remain memory bounded');
+requireText('src/spatial/VenueObservationBuffer.ts', 'duplicate', 'duplicate source sequences must be suppressed before venue consensus');
 requireText('src/spatial/VenueObservationConsensus.ts', 'weightedMedian', 'multi-source venue truth must use a robust consensus estimator');
 requireText('src/spatial/VenueObservationConsensus.ts', "sensor.state === 'quarantined'", 'quarantined sensors must be excluded from venue truth');
 requireText('src/spatial/VenueObservationConsensus.ts', 'contestedZoneIds', 'source disagreement must be visible to downstream control policy');
@@ -121,15 +128,20 @@ requireText('src/spatial/VenueInterventionLedger.ts', "'observing'", 'interventi
 requireText('src/spatial/VenueExperimentDesign.ts', 'not a', 'measurement contracts must preserve the distinction between observational evaluation and causal proof');
 requireText('src/spatial/VenueOutcomeLearning.ts', 'single event', 'outcome learning must not infer causal certainty from one event');
 requireText('src/spatial/SponsorEvidenceLedger.ts', 'sample', 'sponsor evidence must remain support gated');
-requireText('src/services/venue-operations.service.ts', ".rpc('append_venue_operator_event'", 'operator writes must use the scoped venue-operations RPC');
+requireText('src/services/venue-operations.service.ts', ".rpc('append_venue_operator_action'", 'operator writes must use the server role-enforced venue-operations RPC');
+requireText('src/services/venue-operations.service.ts', ".rpc('approve_venue_command'", 'high-impact venue commands need a server approval path');
 requireText('src/services/venue-operations.service.ts', ".rpc('get_venue_service_status'", 'participant venue utility must use the privacy-gated service-status RPC');
 forbidText('src/services/venue-operations.service.ts', ".from('venue_operation_audit_events')\n    .insert", 'operator audit events must never use direct client inserts');
+requireText('src/services/venue-operator.service.ts', ".rpc('set_venue_event_operator'", 'venue operator roster changes must be host-scoped server RPCs');
 requireText('src/screens/VenueOperationsScreen.tsx', 'No persisted operator decision evidence yet', 'host UI must distinguish absent evidence from fabricated operational history');
+requireText('src/screens/VenueOperatorsScreen.tsx', 'Role permission and analytical permission are separate checks', 'operator roster UI must preserve the distinction between human authorization and model admission');
 requireText('src/components/VenueServiceStatusCard.tsx', 'coarse wait bands', 'participant service utility must remain coarse rather than exposing raw queue telemetry');
 forbidText('src/components/VenueServiceStatusCard.tsx', 'queue_length', 'participant service UI must not expose raw queue counts');
 requireText('src/screens/EventLobbyScreen.tsx', '<VenueServiceStatusCard', 'confidence-gated venue service utility must be integrated into the attendee lobby');
 requireText('src/navigation/RootNavigator.tsx', 'VenueOperationsScreen', 'host venue operations must be reachable through navigation');
+requireText('src/navigation/RootNavigator.tsx', 'VenueOperatorsScreen', 'host venue operator roster must be reachable through navigation');
 requireText('src/screens/HostManagementScreen.tsx', "navigation.navigate('VenueOperations'", 'host control deck must expose the venue operations surface');
+requireText('src/screens/HostManagementScreen.tsx', "navigation.navigate('VenueOperators'", 'host control deck must expose venue operator delegation');
 requireText('supabase/migrations/030_venue_operations_control_plane.sql', 'append-only', 'venue operation audit evidence must be append-only');
 requireText('supabase/migrations/030_venue_operations_control_plane.sql', 'on conflict (event_id, idempotency_key) do nothing', 'operator event retries must preserve append-only idempotency');
 requireText('supabase/migrations/030_venue_operations_control_plane.sql', 'revoke insert, update, delete', 'authenticated clients must not receive direct mutation rights on venue evidence tables');
@@ -137,6 +149,10 @@ requireText('supabase/migrations/031_public_venue_service_status.sql', 'is_appro
 requireText('supabase/migrations/031_public_venue_service_status.sql', 's.sample_support >= 8', 'participant service status must be sample-support gated');
 requireText('supabase/migrations/031_public_venue_service_status.sql', 's.confidence >= 0.72', 'participant service status must be confidence gated');
 requireText('supabase/migrations/031_public_venue_service_status.sql', "interval '2 minutes'", 'participant service status must expire stale queue evidence');
+requireText('supabase/migrations/032_venue_operator_roles.sql', 'can_execute_venue_command', 'venue command class authority must be enforced server-side');
+requireText('supabase/migrations/032_venue_operator_roles.sql', 'count(distinct a.operator_id)', 'safety-class intervention application must require distinct server-recorded approvals');
+requireText('supabase/migrations/032_venue_operator_roles.sql', "interval '5 minutes'", 'high-impact approvals must expire instead of persisting indefinitely');
+requireText('supabase/migrations/032_venue_operator_roles.sql', 'append_venue_operator_action', 'assigned venue operators need a scoped append-only action path');
 
 for (const path of requiredFiles.filter((path) => path.endsWith('.ts') || path.endsWith('.tsx'))) {
   forbidText(path, 'Math.random(', 'venue operations must remain deterministic and reviewable');
@@ -145,6 +161,7 @@ for (const path of requiredFiles.filter((path) => path.endsWith('.ts') || path.e
 for (const path of [
   'src/spatial/SpatialVenueTwinEngine.ts',
   'src/spatial/VenueObservationContract.ts',
+  'src/spatial/VenueObservationBuffer.ts',
   'src/spatial/VenueObservationConsensus.ts',
   'src/spatial/VenueSensorHealth.ts',
   'src/spatial/VenueServicePoint.ts',
