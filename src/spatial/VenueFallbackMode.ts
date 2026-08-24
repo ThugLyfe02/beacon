@@ -1,6 +1,6 @@
 import type { VenueModelCredibilityState } from './VenueModelCredibility';
 import type { VenueSourceQuorumState } from './VenueSourceQuorum';
-import type { VenueTelemetryIntegrityState } from './VenueTelemetryIntegrity';
+import type { VenueTelemetryIntegrity } from './VenueTelemetryIntegrity';
 
 export type VenueFallbackMode = 'normal' | 'advisory-only' | 'manual-confirmation' | 'telemetry-hold';
 
@@ -19,11 +19,11 @@ export interface VenueFallbackState {
  * authority before it reduces truth visibility.
  */
 export function chooseVenueFallbackMode(
-  telemetry: VenueTelemetryIntegrityState,
+  telemetry: VenueTelemetryIntegrity,
   quorum: VenueSourceQuorumState,
   credibility: VenueModelCredibilityState,
 ): VenueFallbackState {
-  if (telemetry.state === 'unsafe' || quorum.state === 'lost') {
+  if (telemetry.level === 'unsafe' || quorum.state === 'lost') {
     return {
       mode: 'telemetry-hold',
       allowNewRecommendations: false,
@@ -41,11 +41,11 @@ export function chooseVenueFallbackMode(
       requireOperatorConfirmation: true,
       allowSponsorEvidence: false,
       allowOutcomeLearning: false,
-      explanation: 'The venue model is not credible enough for autonomous recommendation generation; operators may inspect state and record manual actions explicitly.',
+      explanation: 'The venue model is not credible enough for recommendation generation; operators may inspect state and record manual actions explicitly.',
     };
   }
 
-  if (telemetry.state === 'degraded' || quorum.state === 'degraded' || credibility.band === 'provisional') {
+  if (telemetry.level === 'degraded' || quorum.state === 'degraded' || credibility.band === 'provisional') {
     return {
       mode: 'advisory-only',
       allowNewRecommendations: true,
