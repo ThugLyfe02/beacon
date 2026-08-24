@@ -32,6 +32,7 @@ import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
 import OfficeHoursInboxScreen from '../screens/OfficeHoursInboxScreen';
 import OfficeHoursCallScreen from '../screens/OfficeHoursCallScreen';
 import EscortPanelScreen from '../screens/EscortPanelScreen';
+import VenueOperationsScreen from '../screens/VenueOperationsScreen';
 import ARFieldScreen from '../spatial/ARFieldScreen';
 
 const Stack = createNativeStackNavigator();
@@ -302,6 +303,19 @@ export function RootNavigator() {
           options={{
             headerShown: true,
             title: 'Escort Queue',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="VenueOperations"
+          component={VenueOperationsScreen}
+          options={{
+            headerShown: true,
+            title: 'Venue Operations',
             headerStyle: { backgroundColor: palette.space },
             headerTitleStyle: { color: palette.text, fontWeight: '700' },
             headerTintColor: palette.accent,
