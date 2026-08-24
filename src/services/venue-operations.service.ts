@@ -69,6 +69,16 @@ export interface VenueServicePointSampleRow {
   created_at: string;
 }
 
+export interface PublicVenueServiceStatus {
+  service_point_id: string;
+  zone_id: string;
+  kind: VenueServicePointSampleRow['kind'];
+  status: 'clear' | 'steady' | 'busy' | 'unknown';
+  wait_band: '<5 min' | '5-10 min' | '10-20 min' | '20+ min' | 'unknown';
+  confidence: number;
+  observed_at: string;
+}
+
 export interface AppendVenueOperatorEventInput {
   eventId: string;
   venueKey: string;
@@ -168,6 +178,24 @@ export async function appendVenueOperatorEvent(
   }
 
   return { id: typeof data === 'string' ? data : null, error: null };
+}
+
+/**
+ * Returns only the coarse service status the database has already privacy- and
+ * support-gated for approved participants. Raw queue samples stay host-only.
+ */
+export async function getPublicVenueServiceStatus(
+  eventId: string,
+): Promise<{ data: PublicVenueServiceStatus[]; error: PostgrestError | null }> {
+  const { data, error } = await supabase.rpc('get_venue_service_status', {
+    p_event_id: eventId,
+  });
+
+  if (error) {
+    console.error('[venue-operations] participant service status failed:', error);
+    return { data: [], error };
+  }
+  return { data: (data ?? []) as PublicVenueServiceStatus[], error: null };
 }
 
 export async function listVenueOperationAudit(
