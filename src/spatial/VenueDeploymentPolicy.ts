@@ -1,3 +1,4 @@
+import type { VenueConfigurationImpactState } from './VenueConfigurationImpact';
 import type { VenueModelCredibilityState } from './VenueModelCredibility';
 import type { RecommendationReliability } from './VenueRecommendationReliability';
 import type { VenueRecommendationCalibrationState } from './VenueRecommendationCalibration';
@@ -12,6 +13,7 @@ export interface VenueDeploymentPolicyInput {
   serviceObjective: VenueServiceObjectiveState;
   recommendationReliability: RecommendationReliability[];
   recommendationCalibration?: VenueRecommendationCalibrationState;
+  configurationImpact?: VenueConfigurationImpactState;
   totalMeasuredInterventions: number;
   totalRevertedInterventions: number;
   minimumOperationalSamples?: number;
@@ -27,6 +29,7 @@ export interface VenueDeploymentPolicyState {
   measuredSupport: number;
   revertRate: number;
   calibrationBand: VenueRecommendationCalibrationState['band'] | 'not-supplied';
+  configurationImpactLevel: VenueConfigurationImpactState['level'] | 'not-supplied';
   reasons: string[];
 }
 
@@ -46,6 +49,12 @@ function clamp01(value: number): number {
  * "80% confidence" if measured outcomes show that label is systematically
  * overconfident. When calibration evidence is supplied, operational promotion
  * requires it to be mature and calibrated.
+ *
+ * Venue configuration changes are also treated as a deployment event. Material
+ * geometry, topology, accessibility, capacity, or operating-envelope changes can
+ * invalidate the baseline that earned recommendation authority. Breaking change
+ * impact forces shadow revalidation instead of silently inheriting trust from a
+ * physically different venue configuration.
  */
 export function evaluateVenueDeploymentPolicy(
   input: VenueDeploymentPolicyInput,
@@ -59,40 +68,47 @@ export function evaluateVenueDeploymentPolicy(
   const mixedCommands = input.recommendationReliability.filter((item) => item.status === 'mixed');
   const weakCommands = input.recommendationReliability.filter((item) => item.status === 'weak');
   const calibrationBand = input.recommendationCalibration?.band ?? 'not-supplied';
+  const configurationImpactLevel = input.configurationImpact?.level ?? 'not-supplied';
+  const configurationRequiresShadow = input.configurationImpact?.requiresShadowRevalidation === true;
+  const configurationRequiresBaseline = input.configurationImpact?.requiresNewBaseline === true;
   const calibrationBlocksLimited = calibrationBand === 'miscalibrated';
   const calibrationAllowsOperational = calibrationBand === 'calibrated';
   const calibrationAllowsLimited = calibrationBand === 'calibrated' || calibrationBand === 'watch' || calibrationBand === 'not-supplied';
   const reasons: string[] = [];
 
   let stage: VenueDeploymentStage = 'shadow';
-  if (
-    input.credibility.band === 'validated'
-    && input.quorum.state === 'healthy'
-    && input.serviceObjective.objectiveScore >= 0.82
-    && measuredSupport >= minimumOperationalSamples
-    && reliableCommands.length >= 2
-    && revertRate <= 0.15
-    && calibrationAllowsOperational
-  ) {
-    stage = 'operational';
-  } else if (
-    (input.credibility.band === 'validated' || input.credibility.band === 'decision-support')
-    && input.quorum.state !== 'lost'
-    && input.serviceObjective.objectiveScore >= 0.7
-    && measuredSupport >= 6
-    && reliableCommands.length >= 1
-    && revertRate <= 0.3
-    && calibrationAllowsLimited
-    && !calibrationBlocksLimited
-  ) {
-    stage = 'limited';
-  } else if (
-    input.credibility.band !== 'insufficient'
-    && input.quorum.state !== 'lost'
-    && input.serviceObjective.objectiveScore >= 0.5
-    && !calibrationBlocksLimited
-  ) {
-    stage = 'advisory';
+  if (!configurationRequiresShadow) {
+    if (
+      input.credibility.band === 'validated'
+      && input.quorum.state === 'healthy'
+      && input.serviceObjective.objectiveScore >= 0.82
+      && measuredSupport >= minimumOperationalSamples
+      && reliableCommands.length >= 2
+      && revertRate <= 0.15
+      && calibrationAllowsOperational
+      && !configurationRequiresBaseline
+    ) {
+      stage = 'operational';
+    } else if (
+      (input.credibility.band === 'validated' || input.credibility.band === 'decision-support')
+      && input.quorum.state !== 'lost'
+      && input.serviceObjective.objectiveScore >= 0.7
+      && measuredSupport >= 6
+      && reliableCommands.length >= 1
+      && revertRate <= 0.3
+      && calibrationAllowsLimited
+      && !calibrationBlocksLimited
+      && !configurationRequiresBaseline
+    ) {
+      stage = 'limited';
+    } else if (
+      input.credibility.band !== 'insufficient'
+      && input.quorum.state !== 'lost'
+      && input.serviceObjective.objectiveScore >= 0.5
+      && !calibrationBlocksLimited
+    ) {
+      stage = 'advisory';
+    }
   }
 
   if (input.credibility.band === 'insufficient') reasons.push('model credibility is insufficient for operator-facing recommendations');
@@ -105,9 +121,12 @@ export function evaluateVenueDeploymentPolicy(
   if (calibrationBand === 'immature') reasons.push('recommendation confidence calibration is still immature; operational promotion remains unavailable');
   if (calibrationBand === 'watch') reasons.push('recommendation confidence calibration requires continued observation before operational promotion');
   if (calibrationBand === 'not-supplied' && stage === 'limited') reasons.push('limited deployment is allowed for backward compatibility, but operational promotion requires explicit measured confidence calibration');
-  if (stage === 'operational' && reasons.length === 0) reasons.push('model credibility, sensing quorum, service objectives, measured support, command reliability, and confidence calibration satisfy the normal deployment policy');
+  if (configurationRequiresShadow) reasons.push('venue configuration blast radius requires shadow revalidation before recommendation authority can return');
+  else if (configurationRequiresBaseline) reasons.push('venue configuration changed materially enough that a new operational baseline is required before action-ready promotion');
+  if (configurationImpactLevel === 'breaking') reasons.push('breaking venue configuration change invalidates prior command leases and measurement comparability');
+  if (stage === 'operational' && reasons.length === 0) reasons.push('model credibility, sensing quorum, service objectives, measured support, command reliability, confidence calibration, and venue configuration continuity satisfy the normal deployment policy');
   if (stage === 'limited' && reasons.length === 0) reasons.push('only measured reliable command classes may enter the action-ready operator surface');
-  if (stage === 'advisory' && reasons.length === 0) reasons.push('recommendations may be shown for review, but measured support is not mature enough for action-ready status');
+  if (stage === 'advisory' && reasons.length === 0) reasons.push('recommendations may be shown for review, but measured support or venue continuity is not mature enough for action-ready status');
   if (stage === 'shadow' && reasons.length === 0) reasons.push('recommendations remain shadow-only until evidence supports operator exposure');
 
   const overconfidentCommandIds = new Set(
@@ -139,6 +158,7 @@ export function evaluateVenueDeploymentPolicy(
     measuredSupport,
     revertRate: clamp01(revertRate),
     calibrationBand,
+    configurationImpactLevel,
     reasons,
   };
 }
