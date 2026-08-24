@@ -15,6 +15,19 @@ export type OperatorWritableVenueAuditEventType =
   | 'intervention-applied'
   | 'intervention-reverted';
 
+export type VenueOperatorCommandKind = 'flow' | 'capacity' | 'programming' | 'sponsor' | 'safety' | 'follow-up';
+export type VenueOperatorRole = 'viewer' | 'organizer' | 'venue-ops' | 'security' | 'admin';
+
+export interface VenueEventOperatorRow {
+  event_id: string;
+  user_id: string;
+  role: VenueOperatorRole;
+  active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface VenueOperationAuditRow {
   id: string;
   event_id: string;
@@ -83,7 +96,8 @@ export interface AppendVenueOperatorEventInput {
   eventId: string;
   venueKey: string;
   eventType: OperatorWritableVenueAuditEventType;
-  commandId?: string | null;
+  commandId: string;
+  commandKind: VenueOperatorCommandKind;
   interventionId?: string | null;
   targetZoneIds: string[];
   layoutVersion: string;
@@ -138,14 +152,64 @@ export function buildVenueOperatorIdempotencyKey(input: {
 }
 
 /**
- * Appends an operator-owned event through the scoped database RPC. There is no
- * direct client insert path into the append-only venue audit table.
+ * Returns the server-authoritative event-scoped venue role. Event hosts resolve
+ * to admin in the database helper even when no explicit roster row exists.
+ */
+export async function getVenueOperatorRole(
+  eventId: string,
+  userId: string,
+): Promise<{ role: VenueOperatorRole | null; error: PostgrestError | null }> {
+  const { data, error } = await supabase.rpc('venue_operator_role', {
+    p_event_id: eventId,
+    p_user_id: userId,
+  });
+  return { role: (data as VenueOperatorRole | null) ?? null, error };
+}
+
+/** Host-only roster mutation; the database verifies event ownership. */
+export async function setVenueEventOperator(input: {
+  eventId: string;
+  userId: string;
+  role: VenueOperatorRole;
+  active?: boolean;
+}): Promise<{ data: VenueEventOperatorRow | null; error: PostgrestError | null }> {
+  const { data, error } = await supabase.rpc('set_venue_event_operator', {
+    p_event_id: input.eventId,
+    p_user_id: input.userId,
+    p_role: input.role,
+    p_active: input.active ?? true,
+  });
+  return { data: (data as VenueEventOperatorRow | null) ?? null, error };
+}
+
+/**
+ * Records one qualified approval. Safety-class intervention application remains
+ * blocked server-side until two distinct recent qualified approvals exist.
+ */
+export async function approveVenueCommand(input: {
+  eventId: string;
+  commandId: string;
+  commandKind: VenueOperatorCommandKind;
+}): Promise<{ id: string | null; error: PostgrestError | null }> {
+  const { data, error } = await supabase.rpc('approve_venue_command', {
+    p_event_id: input.eventId,
+    p_command_id: input.commandId,
+    p_command_kind: input.commandKind,
+  });
+  return { id: typeof data === 'string' ? data : null, error };
+}
+
+/**
+ * Appends an operator-owned event through the server-enforced event-role RPC.
+ * There is no direct client insert path into the append-only venue audit table.
+ * Command class is explicit because server authorization differs for normal
+ * flow/capacity, programming/sponsor, and safety operations.
  */
 export async function appendVenueOperatorEvent(
   input: AppendVenueOperatorEventInput,
 ): Promise<{ id: string | null; error: PostgrestError | { message: string } | null }> {
-  if (!input.eventId || !input.venueKey || !input.layoutVersion || !input.geometryHash) {
-    return { id: null, error: { message: 'Event, venue, layout version, and geometry hash are required.' } };
+  if (!input.eventId || !input.venueKey || !input.layoutVersion || !input.geometryHash || !input.commandId) {
+    return { id: null, error: { message: 'Event, venue, command, layout version, and geometry hash are required.' } };
   }
   if (input.idempotencyKey.trim().length < 8) {
     return { id: null, error: { message: 'A retry-stable idempotency key is required.' } };
@@ -154,11 +218,12 @@ export async function appendVenueOperatorEvent(
     return { id: null, error: { message: 'Evidence score must be between 0 and 1.' } };
   }
 
-  const { data, error } = await supabase.rpc('append_venue_operator_event', {
+  const { data, error } = await supabase.rpc('append_venue_operator_action', {
     p_event_id: input.eventId,
     p_venue_key: input.venueKey,
     p_event_type: input.eventType,
-    p_command_id: input.commandId ?? null,
+    p_command_id: input.commandId,
+    p_command_kind: input.commandKind,
     p_intervention_id: input.interventionId ?? null,
     p_target_zone_ids: [...new Set(input.targetZoneIds)].slice(0, 64),
     p_layout_version: input.layoutVersion,
