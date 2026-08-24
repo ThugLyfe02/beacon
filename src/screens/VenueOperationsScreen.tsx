@@ -13,6 +13,8 @@ import { palette, radii, spacing } from '../theme';
 
 type VenueOperationsParams = { VenueOperations: { eventId: string } };
 
+type PillTone = 'success' | 'premium' | 'danger' | 'neutral';
+
 function formatPercent(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return `${Math.round(value * 100)}%`;
@@ -50,9 +52,9 @@ function latestServicePointInputs(samples: VenueServicePointSampleRow[]) {
   });
 }
 
-function admissionTone(row: VenueOperationAuditRow): 'success' | 'warning' | 'danger' | 'neutral' {
+function admissionTone(row: VenueOperationAuditRow): PillTone {
   if (row.admission_decision === 'allow') return 'success';
-  if (row.admission_decision === 'review') return 'warning';
+  if (row.admission_decision === 'review') return 'premium';
   if (row.admission_decision === 'block') return 'danger';
   return 'neutral';
 }
@@ -140,7 +142,7 @@ export default function VenueOperationsScreen() {
 
       {errors.length > 0 ? (
         <Surface padded style={styles.warningCard}>
-          <NeonText variant="label" tone="warning">PARTIAL DATA</NeonText>
+          <NeonText variant="label" tone="premium">PARTIAL DATA</NeonText>
           {errors.map((error) => (
             <NeonText key={`${error.surface}:${error.message}`} variant="bodyMuted" style={styles.compactLine}>
               {error.surface}: {error.message}
@@ -160,7 +162,7 @@ export default function VenueOperationsScreen() {
         </Surface>
         <Surface padded style={styles.metricCard}>
           <NeonText variant="label" tone="muted">SERVICE POINTS</NeonText>
-          <NeonText variant="h1" tone={serviceSummary.congestedPointIds.length ? 'warning' : 'success'} style={styles.metricValue}>
+          <NeonText variant="h1" tone={serviceSummary.congestedPointIds.length ? 'premium' : 'success'} style={styles.metricValue}>
             {serviceSummary.points.length}
           </NeonText>
         </Surface>
@@ -250,7 +252,7 @@ export default function VenueOperationsScreen() {
                 <NeonText variant="h2">{point.id}</NeonText>
                 <NeonText variant="label" tone="muted">{point.kind.toUpperCase()} · {point.zoneId}</NeonText>
               </View>
-              <Pill label={point.state.toUpperCase()} tone={point.state === 'congested' ? 'danger' : point.state === 'building' ? 'warning' : 'success'} />
+              <Pill label={point.state.toUpperCase()} tone={point.state === 'congested' ? 'danger' : point.state === 'building' ? 'premium' : 'success'} />
             </View>
             <View style={styles.detailGrid}>
               <NeonText variant="label" tone="muted">IN {point.arrivalRatePerMinute.toFixed(1)}/MIN</NeonText>
@@ -287,7 +289,7 @@ const styles = StyleSheet.create({
   inlineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
   detailGrid: { marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   rightMetric: { alignItems: 'flex-end', gap: 4 },
-  warningCard: { marginHorizontal: spacing.xl, marginTop: spacing.sm, borderColor: palette.warning },
+  warningCard: { marginHorizontal: spacing.xl, marginTop: spacing.sm, borderColor: palette.premium },
   compactLine: { marginTop: 4 },
   privacyCard: { marginHorizontal: spacing.xl, marginTop: spacing.xl, borderRadius: radii.lg },
 });
