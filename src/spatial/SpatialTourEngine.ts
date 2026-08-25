@@ -23,7 +23,8 @@ const KIND_PRIORITY: Record<SpatialLandmarkKind, number> = {
   'field-center': 0,
   cluster: 1,
   forecast: 2,
-  mutual: 3,
+  'declared-fit': 3,
+  mutual: 4,
 };
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -34,6 +35,8 @@ function dwellTimeForLandmark(landmark: SpatialLandmark): number {
   switch (landmark.kind) {
     case 'mutual':
       return 6_200;
+    case 'declared-fit':
+      return 5_800;
     case 'forecast':
       return 5_400;
     case 'cluster':
@@ -97,7 +100,9 @@ function diversifyLandmarks(
  * The step budget controls tour length, not world visibility. Every attendee and
  * landmark remains in the live world. The tour simply creates a concise sequence
  * that helps a user understand what changed without forcing a recommendation or
- * automatically selecting a person.
+ * automatically selecting a person. Explicit declared-fit landmarks can enter
+ * the tour because the participant already opted into that pairwise relevance
+ * surface; they do not grant the tour authority to hide or auto-contact anyone.
  */
 export function buildSpatialTourPlan(
   landmarks: SpatialLandmark[],
