@@ -8,7 +8,7 @@ export interface SpatialFocusTarget {
   score: number;
   rank: number;
   tier: SpatialAttentionTier;
-  reason: 'mutual' | 'premium-nearby' | 'closest' | 'momentum';
+  reason: 'mutual' | 'declared-fit' | 'premium-nearby' | 'closest' | 'momentum';
 }
 
 export interface SpatialExperienceState {
@@ -23,15 +23,18 @@ export interface SpatialExperienceState {
 function scoreTarget(target: ProximitySignal & { bucket?: number }): Omit<SpatialFocusTarget, 'rank' | 'tier'> {
   const distanceScore = Math.max(0, 42 - target.distanceFeet);
   const mutualBoost = target.mutual ? 38 : 0;
+  const declaredFitStrength = Math.max(0, Math.min(1, target.declaredFitStrength ?? 0));
+  const declaredFitBoost = declaredFitStrength * 30 + (target.declaredFitTwoWay ? 10 : 0);
   const premiumBoost = target.targetPremium ? 14 : 0;
   const bucketBoost = (target.bucket ?? 0) * 5;
   const freshnessBoost = target.timestamp != null
     ? Math.max(0, 6 - Math.floor((Date.now() - target.timestamp) / 10_000))
     : 0;
-  const score = distanceScore + mutualBoost + premiumBoost + bucketBoost + freshnessBoost;
+  const score = distanceScore + mutualBoost + declaredFitBoost + premiumBoost + bucketBoost + freshnessBoost;
 
   let reason: SpatialFocusTarget['reason'] = 'closest';
   if (target.mutual) reason = 'mutual';
+  else if (declaredFitStrength > 0) reason = 'declared-fit';
   else if (target.targetPremium && target.distanceFeet <= 20) reason = 'premium-nearby';
   else if ((target.bucket ?? 0) >= 2) reason = 'momentum';
 
@@ -74,6 +77,16 @@ function copyForState(
     };
   }
 
+  if (primary.reason === 'declared-fit') {
+    return {
+      headline: primary.target.declaredFitTwoWay
+        ? 'A two-way declared fit is nearby'
+        : 'Someone nearby matches what you explicitly came for',
+      detail: 'The emphasis comes from event-scoped selections both participants chose to share—not inferred browsing or movement behavior.',
+      accent: '#22d3ee',
+    };
+  }
+
   if (mood === 'surge') {
     return {
       headline: 'This window is moving quickly',
@@ -84,7 +97,7 @@ function copyForState(
 
   if (primary.reason === 'premium-nearby') {
     return {
-      headline: 'A high-value path is close',
+      headline: 'A highlighted path is close',
       detail: 'The strongest route is emphasized while the full live field remains visible around it.',
       accent: '#f59e0b',
     };
@@ -101,11 +114,13 @@ function copyForState(
  * Converts the existing PresenceState into a scalable visual hierarchy.
  * Every visible attendee remains represented. Detail is allocated by salience,
  * while lower-priority paths become ambient markers instead of disappearing.
+ * Declared fit is pairwise and explicit; it never becomes a public popularity
+ * score and never suppresses people who do not share an intent intersection.
  */
 export function buildSpatialExperience(presence: PresenceState): SpatialExperienceState {
   const focusTargets = presence.visibleTargets
     .map(scoreTarget)
-    .sort((left, right) => right.score - left.score)
+    .sort((left, right) => right.score - left.score || left.target.targetId.localeCompare(right.target.targetId))
     .map((focus, rank) => ({
       ...focus,
       rank,
