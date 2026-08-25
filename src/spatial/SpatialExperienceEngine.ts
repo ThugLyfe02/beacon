@@ -1,4 +1,4 @@
-import type { ProximitySignal, PresenceState } from '../presence/PresenceEngine';
+import type { ProximitySignal, PresenceState } from './PresenceEngine';
 
 export type SpatialMood = 'quiet' | 'forming' | 'active' | 'surge';
 export type SpatialAttentionTier = 'hero' | 'active' | 'ambient';
@@ -123,17 +123,48 @@ export function buildSpatialExperience(presence: PresenceState): SpatialExperien
   };
 }
 
+function stableSeed(id: string): number {
+  return id
+    .split('')
+    .reduce((accumulator, character) => accumulator + character.codePointAt(0)!, 0);
+}
+
+/**
+ * Converts a live proximity signal into the field coordinate system.
+ *
+ * When a true observer-to-target bearing exists, the spatial field now honors
+ * it directly: north is -Z, east is +X, south is +Z, west is -X. This matches
+ * the sector coordinates used by aggregate world intelligence and removes the
+ * old failure mode where a person's screen direction was determined by their
+ * user id rather than the physical room.
+ *
+ * A deterministic id-derived direction remains only as a compatibility fallback
+ * for legacy or temporarily incomplete signals that do not carry bearing data.
+ * The fallback is intentionally stable and is never presented as a measured
+ * compass direction.
+ */
 export function positionForSpatialTarget(
   target: ProximitySignal,
 ): [number, number, number] {
-  const seed = target.targetId
-    .split('')
-    .reduce((accumulator, character) => accumulator + character.codePointAt(0)!, 0);
-  const angle = (seed % 360) * (Math.PI / 180);
   const radius = Math.max(1, target.distanceFeet / 4);
+  const seed = stableSeed(target.targetId);
+  const lift = ((seed % 7) - 3) * 0.04;
+  const bearing = target.bearingFromObserverDeg;
+
+  if (bearing != null && Number.isFinite(bearing)) {
+    const normalized = ((bearing % 360) + 360) % 360;
+    const radians = normalized * (Math.PI / 180);
+    return [
+      Math.sin(radians) * radius,
+      lift,
+      -Math.cos(radians) * radius,
+    ];
+  }
+
+  const fallbackAngle = (seed % 360) * (Math.PI / 180);
   return [
-    Math.cos(angle) * radius,
-    Math.sin(angle * 0.7) * 1.5,
-    Math.sin(angle) * radius,
+    Math.cos(fallbackAngle) * radius,
+    lift,
+    Math.sin(fallbackAngle) * radius,
   ];
 }
