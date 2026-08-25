@@ -8,6 +8,7 @@ import {
   type VenueServicePointSampleRow,
 } from '../services/venue-operations.service';
 import { assessVenueServicePoints } from '../spatial/VenueServicePoint';
+import { VenueMemoryCard } from '../components/VenueMemoryCard';
 import { GridBackground, Loader, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -268,6 +269,14 @@ export default function VenueOperationsScreen() {
           </Surface>
         </View>
       ) : null}
+
+      <View style={styles.section}>
+        <VenueMemoryCard
+          eventId={eventId}
+          currentContext={context}
+          currentMeasurements={measurements}
+        />
+      </View>
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
