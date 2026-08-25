@@ -11,6 +11,7 @@ import {
 } from 'three';
 import type { SpatialFocusTarget } from './SpatialExperienceEngine';
 import { positionForSpatialTarget } from './SpatialExperienceEngine';
+import { buildSpatialLayout } from './SpatialLayoutEngine';
 
 interface SpatialSignalLayerProps {
   focusTargets: SpatialFocusTarget[];
@@ -20,20 +21,18 @@ interface SpatialSignalLayerProps {
 
 function colorForFocus(focus: SpatialFocusTarget, accent: string): string {
   if (focus.reason === 'mutual') return '#fbbf24';
+  if (focus.reason === 'declared-fit') return focus.target.declaredFitTwoWay ? '#a5f3fc' : '#22d3ee';
   if (focus.reason === 'premium-nearby') return '#f59e0b';
   return accent;
 }
 
-function AmbientMarker({ focus, accent, index }: Readonly<{
+function AmbientMarker({ focus, accent, index, position }: Readonly<{
   focus: SpatialFocusTarget;
   accent: string;
   index: number;
+  position: [number, number, number];
 }>) {
   const markerRef = useRef<Mesh | null>(null);
-  const position = useMemo(
-    () => positionForSpatialTarget(focus.target),
-    [focus.target.targetId, focus.target.distanceFeet],
-  );
   const color = colorForFocus(focus, accent);
 
   useFrame((state) => {
@@ -44,33 +43,48 @@ function AmbientMarker({ focus, accent, index }: Readonly<{
   });
 
   return (
-    <mesh
-      ref={markerRef}
-      position={[position[0], -2.89, position[2]]}
-      rotation={[-Math.PI / 2, 0, 0]}
-    >
-      <ringGeometry args={[0.16, 0.22, 32]} />
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={0.14}
-        depthWrite={false}
-        blending={AdditiveBlending}
-      />
-    </mesh>
+    <group>
+      <mesh
+        ref={markerRef}
+        position={[position[0], -2.89, position[2]]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <ringGeometry args={[0.16, 0.22, 32]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.14}
+          depthWrite={false}
+          blending={AdditiveBlending}
+        />
+      </mesh>
+      {focus.reason === 'declared-fit' && focus.target.declaredFitTwoWay ? (
+        <mesh position={[position[0], -2.885, position[2]]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
+          <ringGeometry args={[0.27, 0.30, 36, 1, 0, Math.PI * 1.35]} />
+          <meshBasicMaterial
+            color="#cffafe"
+            transparent
+            opacity={0.28}
+            depthWrite={false}
+            blending={AdditiveBlending}
+          />
+        </mesh>
+      ) : null}
+    </group>
   );
 }
 
-function RouteBeam({ focus, accent, index, hero }: Readonly<{
+function RouteBeam({ focus, accent, index, hero, position }: Readonly<{
   focus: SpatialFocusTarget;
   accent: string;
   index: number;
   hero: boolean;
+  position: [number, number, number];
 }>) {
   const meshRef = useRef<Mesh | null>(null);
   const targetPosition = useMemo(
-    () => new Vector3(...positionForSpatialTarget(focus.target)),
-    [focus.target.targetId, focus.target.distanceFeet],
+    () => new Vector3(...position),
+    [position],
   );
   const start = useMemo(() => new Vector3(0, -2.86, 0), []);
   const midpoint = useMemo(
@@ -92,6 +106,10 @@ function RouteBeam({ focus, accent, index, hero }: Readonly<{
     material.opacity = (hero ? 0.18 : 0.08) + salience * wave;
   });
 
+  const fitOpacity = focus.reason === 'declared-fit'
+    ? 0.38 + Math.min(0.34, (focus.target.declaredFitStrength ?? 0) * 0.34)
+    : null;
+
   return (
     <group>
       <mesh ref={meshRef} position={midpoint} quaternion={rotation}>
@@ -112,11 +130,23 @@ function RouteBeam({ focus, accent, index, hero }: Readonly<{
         <meshBasicMaterial
           color={routeColor}
           transparent
-          opacity={focus.reason === 'mutual' ? 0.72 : hero ? 0.46 : 0.24}
+          opacity={focus.reason === 'mutual' ? 0.72 : fitOpacity ?? (hero ? 0.46 : 0.24)}
           depthWrite={false}
           blending={AdditiveBlending}
         />
       </mesh>
+      {focus.reason === 'declared-fit' && focus.target.declaredFitTwoWay ? (
+        <mesh position={[targetPosition.x, -2.895, targetPosition.z]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
+          <ringGeometry args={hero ? [0.61, 0.66, 56, 1, 0, Math.PI * 1.45] : [0.39, 0.43, 44, 1, 0, Math.PI * 1.45]} />
+          <meshBasicMaterial
+            color="#cffafe"
+            transparent
+            opacity={0.34}
+            depthWrite={false}
+            blending={AdditiveBlending}
+          />
+        </mesh>
+      ) : null}
     </group>
   );
 }
@@ -125,6 +155,11 @@ function RouteBeam({ focus, accent, index, hero }: Readonly<{
  * Represents every visible attendee without giving every path the same visual
  * weight. The Director allocates a detail budget for full route geometry; all
  * remaining people stay visible as ambient live markers instead of disappearing.
+ *
+ * Route geometry uses the same deterministic collision-layout policy as avatars
+ * so crowded bearings do not leave a route pointing at the raw pre-resolution
+ * coordinate. Declared fit uses a private cyan treatment derived only from the
+ * caller's pairwise explicit-intent intersection; it is not a popularity score.
  */
 export default function SpatialSignalLayer({
   focusTargets,
@@ -132,6 +167,14 @@ export default function SpatialSignalLayer({
   detailBudget,
 }: Readonly<SpatialSignalLayerProps>) {
   const groupRef = useRef<Group | null>(null);
+  const collisionLayout = useMemo(
+    () => buildSpatialLayout(focusTargets.map((focus) => focus.target)),
+    [focusTargets],
+  );
+  const positionByTarget = useMemo(
+    () => new Map(collisionLayout.map((node) => [node.target.targetId, node.position] as const)),
+    [collisionLayout],
+  );
 
   useFrame((_, delta) => {
     if (groupRef.current) groupRef.current.rotation.y += delta * 0.008;
@@ -141,6 +184,7 @@ export default function SpatialSignalLayer({
     <group ref={groupRef}>
       {focusTargets.map((focus, index) => {
         const receivesRoute = index < detailBudget;
+        const position = positionByTarget.get(focus.target.targetId) ?? positionForSpatialTarget(focus.target);
         if (!receivesRoute) {
           return (
             <AmbientMarker
@@ -148,6 +192,7 @@ export default function SpatialSignalLayer({
               focus={focus}
               accent={accent}
               index={index}
+              position={position}
             />
           );
         }
@@ -159,6 +204,7 @@ export default function SpatialSignalLayer({
             accent={accent}
             index={index}
             hero={focus.tier === 'hero' || index < 2}
+            position={position}
           />
         );
       })}
