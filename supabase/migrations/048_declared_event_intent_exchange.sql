@@ -4,7 +4,8 @@
 -- clicks, dwell time, or proximity. Participants explicitly state what domains
 -- they are looking for help with and what domains they can help with. Other
 -- participants never receive the full declaration; they receive only pairwise
--- intersections that are relevant to them.
+-- intersections that are relevant to them and already present in their current
+-- live field.
 
 create table if not exists public.participant_event_intents (
   event_id uuid not null references public.events(id) on delete cascade,
@@ -15,7 +16,15 @@ create table if not exists public.participant_event_intents (
   updated_at timestamptz not null default now(),
   primary key (event_id, user_id),
   check (cardinality(seeking) <= 6),
-  check (cardinality(offering) <= 6)
+  check (cardinality(offering) <= 6),
+  check (seeking <@ array[
+    'capital','hiring','partnerships','customers','technical','product',
+    'design','media','mentorship','community','research','operations'
+  ]::text[]),
+  check (offering <@ array[
+    'capital','hiring','partnerships','customers','technical','product',
+    'design','media','mentorship','community','research','operations'
+  ]::text[])
 );
 
 alter table public.participant_event_intents enable row level security;
@@ -179,7 +188,12 @@ $$;
 
 -- Returns only the portion of another participant's declaration that intersects
 -- with the caller's own declaration. Full peer declarations are never released.
-create or replace function public.get_event_declared_fit(p_event_id uuid)
+-- The caller also supplies only ids that are already in its live proximity field,
+-- preventing this RPC from becoming an event-wide intent enumerator.
+create or replace function public.get_event_declared_fit(
+  p_event_id uuid,
+  p_target_user_ids uuid[]
+)
 returns table (
   target_user_id uuid,
   they_can_help_with text[],
@@ -192,6 +206,8 @@ stable
 security definer
 set search_path = public
 as $$
+declare
+  v_target_user_ids uuid[];
 begin
   if auth.uid() is null then
     return;
@@ -208,6 +224,20 @@ begin
       and ep.user_id = auth.uid()
       and ep.status = 'approved'
   ) then
+    return;
+  end if;
+
+  select coalesce(array_agg(target_id order by target_id), '{}')
+    into v_target_user_ids
+  from (
+    select distinct target_id
+    from unnest(coalesce(p_target_user_ids, '{}')) target_id
+    where target_id <> auth.uid()
+    order by target_id
+    limit 128
+  ) bounded;
+
+  if cardinality(v_target_user_ids) = 0 then
     return;
   end if;
 
@@ -230,7 +260,7 @@ begin
      and ep.status = 'approved'
     join public.users u on u.id = i.user_id
     where i.event_id = p_event_id
-      and i.user_id <> auth.uid()
+      and i.user_id = any(v_target_user_ids)
       and i.enabled = true
       and u.is_discoverable = true
       and not exists (
@@ -256,31 +286,36 @@ begin
       ) as i_can_help_with
     from peers p
     cross join mine m
+  ), scored as (
+    select
+      x.user_id,
+      x.they_can_help_with,
+      x.i_can_help_with,
+      least(
+        1::numeric,
+        cardinality(x.they_can_help_with)::numeric * 0.28
+          + cardinality(x.i_can_help_with)::numeric * 0.18
+          + case
+              when cardinality(x.they_can_help_with) > 0
+               and cardinality(x.i_can_help_with) > 0
+              then 0.22
+              else 0
+            end
+      ) as fit_strength,
+      cardinality(x.they_can_help_with) > 0
+        and cardinality(x.i_can_help_with) > 0 as two_way
+    from intersections x
+    where cardinality(x.they_can_help_with) > 0
+       or cardinality(x.i_can_help_with) > 0
   )
   select
-    x.user_id,
-    x.they_can_help_with,
-    x.i_can_help_with,
-    least(
-      1::numeric,
-      cardinality(x.they_can_help_with)::numeric * 0.28
-        + cardinality(x.i_can_help_with)::numeric * 0.18
-        + case
-            when cardinality(x.they_can_help_with) > 0
-             and cardinality(x.i_can_help_with) > 0
-            then 0.22
-            else 0
-          end
-    ) as fit_strength,
-    cardinality(x.they_can_help_with) > 0
-      and cardinality(x.i_can_help_with) > 0 as two_way
-  from intersections x
-  where cardinality(x.they_can_help_with) > 0
-     or cardinality(x.i_can_help_with) > 0
-  order by
-    (cardinality(x.they_can_help_with) > 0 and cardinality(x.i_can_help_with) > 0) desc,
-    fit_strength desc,
-    x.user_id;
+    s.user_id,
+    s.they_can_help_with,
+    s.i_can_help_with,
+    s.fit_strength,
+    s.two_way
+  from scored s
+  order by s.two_way desc, s.fit_strength desc, s.user_id;
 end;
 $$;
 
@@ -351,19 +386,19 @@ $$;
 revoke all on function public.normalize_event_intent_keys(text[]) from public;
 revoke all on function public.set_my_event_intent(uuid,text[],text[],boolean) from public;
 revoke all on function public.get_my_event_intent(uuid) from public;
-revoke all on function public.get_event_declared_fit(uuid) from public;
+revoke all on function public.get_event_declared_fit(uuid,uuid[]) from public;
 revoke all on function public.get_event_intent_mix(uuid) from public;
 
 grant execute on function public.set_my_event_intent(uuid,text[],text[],boolean) to authenticated;
 grant execute on function public.get_my_event_intent(uuid) to authenticated;
-grant execute on function public.get_event_declared_fit(uuid) to authenticated;
+grant execute on function public.get_event_declared_fit(uuid,uuid[]) to authenticated;
 grant execute on function public.get_event_intent_mix(uuid) to authenticated;
 
 comment on table public.participant_event_intents is
   'Explicit event-scoped seeking/offering declarations. Peer access is intersection-only through get_event_declared_fit; Beacon does not infer these intents from behavior.';
 
-comment on function public.get_event_declared_fit(uuid) is
-  'Returns only pairwise declared-intent intersections relevant to the caller; does not reveal full peer declarations, popularity, or inferred private intent.';
+comment on function public.get_event_declared_fit(uuid,uuid[]) is
+  'Returns only caller-relevant pairwise intersections for caller-supplied live-field targets; does not reveal full peer declarations, popularity, or inferred private intent.';
 
 comment on function public.get_event_intent_mix(uuid) is
   'Host-only aggregate declared-intent mix with minimum cohort suppression for event programming and supply/demand planning; never returns participant identities.';
