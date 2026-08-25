@@ -165,7 +165,7 @@ export async function getEventDeclaredFit(
     p_target_user_ids: targetIds,
   });
   return {
-    data: (data ?? []).flatMap((row) => {
+    data: ((data ?? []) as unknown[]).flatMap((row: unknown) => {
       const normalized = normalizeDeclaredFit(row);
       return normalized ? [normalized] : [];
     }),
@@ -180,7 +180,7 @@ export async function getEventIntentMix(
     p_event_id: eventId,
   });
 
-  const rows = (data ?? []).flatMap((raw) => {
+  const rows = ((data ?? []) as unknown[]).flatMap((raw: unknown) => {
     if (!raw || typeof raw !== 'object') return [];
     const row = raw as Record<string, unknown>;
     if (!allowedKey(row.intent_key)) return [];
@@ -260,7 +260,7 @@ export async function getDeclaredFitMutualDomains(
     p_event_id: eventId,
   });
 
-  const rows = (data ?? []).flatMap((raw) => {
+  const rows = ((data ?? []) as unknown[]).flatMap((raw: unknown) => {
     if (!raw || typeof raw !== 'object') return [];
     const row = raw as Record<string, unknown>;
     if (!allowedKey(row.intent_key)) return [];
