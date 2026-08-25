@@ -13,6 +13,7 @@ import SpatialFocusLayer from "./SpatialFocusLayer";
 import OpportunityField from "./OpportunityField";
 import SpatialSignalLayer from "./SpatialSignalLayer";
 import SpatialSignalIntegrityLayer from "./SpatialSignalIntegrityLayer";
+import SpatialCompassFrame from "./SpatialCompassFrame";
 import SpatialMilestoneLayer from "./SpatialMilestoneLayer";
 import SpatialDistrictLayer from "./SpatialDistrictLayer";
 import SpatialDirectorLayer from "./SpatialDirectorLayer";
@@ -150,6 +151,11 @@ export default function SpatialFieldScreen() {
     officeHoursActive: false,
   });
 
+  const liveSelectedTarget = useMemo<Target | null>(() => {
+    if (!selectedTarget) return null;
+    return (presence.visibleTargets.find((target) => target.targetId === selectedTarget.targetId) as Target | undefined) ?? null;
+  }, [presence.visibleTargets, selectedTarget]);
+
   const continuity = useStableSpatialLayout(presence.visibleTargets);
   const spatialLayout = continuity.layout;
   const signalIntegrity = useMemo(
@@ -157,16 +163,16 @@ export default function SpatialFieldScreen() {
     [presence.visibleTargets, runtime.health],
   );
   const selectedSignalIntegrity = useMemo(
-    () => selectedTarget
-      ? signalIntegrity.nodes.find((node) => node.targetId === selectedTarget.targetId) ?? null
+    () => liveSelectedTarget
+      ? signalIntegrity.nodes.find((node) => node.targetId === liveSelectedTarget.targetId) ?? null
       : null,
-    [selectedTarget, signalIntegrity.nodes],
+    [liveSelectedTarget, signalIntegrity.nodes],
   );
   const selectedLayoutPosition = useMemo(
-    () => selectedTarget
-      ? spatialLayout.find((node) => node.target.targetId === selectedTarget.targetId)?.position ?? null
+    () => liveSelectedTarget
+      ? spatialLayout.find((node) => node.target.targetId === liveSelectedTarget.targetId)?.position ?? null
       : null,
-    [selectedTarget, spatialLayout],
+    [liveSelectedTarget, spatialLayout],
   );
 
   useEffect(() => {
@@ -380,7 +386,7 @@ export default function SpatialFieldScreen() {
       unseenLandmarkCount: tour.unseenCount,
       hasForecast: Boolean(worldIntelligence.forecast),
       hasAlmostDiscovered: almostDiscovered.length > 0,
-      hasSelectedTarget: Boolean(selectedTarget),
+      hasSelectedTarget: Boolean(liveSelectedTarget),
       hasOutcomeHandoff: outcomeBridge.state !== "live",
     }),
     [
@@ -393,7 +399,7 @@ export default function SpatialFieldScreen() {
       tour.unseenCount,
       worldIntelligence.forecast,
       almostDiscovered.length,
-      selectedTarget,
+      liveSelectedTarget,
       outcomeBridge.state,
     ],
   );
@@ -401,7 +407,7 @@ export default function SpatialFieldScreen() {
   const cinematicNavigation = useMemo(
     () => buildSpatialNavigation({
       requestedMode: cameraMode,
-      selectedTarget,
+      selectedTarget: liveSelectedTarget,
       selectedTargetPosition: selectedLayoutPosition,
       activeLandmark: landmarkState.active,
       visibleCount: presence.visibleTargets.length,
@@ -412,7 +418,7 @@ export default function SpatialFieldScreen() {
     }),
     [
       cameraMode,
-      selectedTarget,
+      liveSelectedTarget,
       selectedLayoutPosition,
       landmarkState.active,
       presence.visibleTargets.length,
@@ -488,8 +494,8 @@ export default function SpatialFieldScreen() {
     if (!primary) return;
     if (primary.destination === "Matches") navigation.navigate("Matches");
     else if (primary.destination === "VaultRecap") navigation.navigate("VaultRecap", { eventId });
-    else if (primary.destination === "OfficeHoursRequest" && selectedTarget) {
-      navigation.navigate("OfficeHoursRequest", { eventId, recipientId: selectedTarget.targetId });
+    else if (primary.destination === "OfficeHoursRequest" && liveSelectedTarget) {
+      navigation.navigate("OfficeHoursRequest", { eventId, recipientId: liveSelectedTarget.targetId });
     } else {
       setCameraMode(primary.kind === "introduction" ? "convergence" : "overview");
     }
@@ -506,7 +512,7 @@ export default function SpatialFieldScreen() {
         navigation.navigate("VaultRecap", { eventId });
         break;
       case "request-time":
-        if (selectedTarget) navigation.navigate("OfficeHoursRequest", { eventId, recipientId: selectedTarget.targetId });
+        if (liveSelectedTarget) navigation.navigate("OfficeHoursRequest", { eventId, recipientId: liveSelectedTarget.targetId });
         else setCameraMode("convergence");
         break;
       case "open-commitment":
@@ -567,10 +573,11 @@ export default function SpatialFieldScreen() {
         <pointLight position={[10, 10, 10]} intensity={(0.55 + orchestration.routeEnergy * 0.45) * quality.environmentDetailMultiplier} />
         <SpatialCameraRig navigation={cinematicNavigation} />
         <FieldFloor />
+        <SpatialCompassFrame />
         <SpatialSignalIntegrityLayer
           layout={spatialLayout}
           integrity={signalIntegrity}
-          selectedTargetId={selectedTarget?.targetId ?? null}
+          selectedTargetId={liveSelectedTarget?.targetId ?? null}
         />
         <SpatialDirectorLayer director={director} />
         <SpatialWorldIntelligenceLayer intelligence={worldIntelligence} />
@@ -579,7 +586,7 @@ export default function SpatialFieldScreen() {
         <OpportunityField tensionScore={presence.tensionScore} density={presence.density} mutualMatches={mutualMatches} urgencyLevel={presence.urgencyLevel} />
         <SpatialSignalLayer focusTargets={spatialExperience.focusTargets} accent={director.accent} detailBudget={trustedDetailBudget} />
         <SpatialFocusLayer
-          target={cameraMode === "focus" ? selectedTarget : null}
+          target={cameraMode === "focus" ? liveSelectedTarget : null}
           position={selectedLayoutPosition}
           accent={director.accent}
           intensity={cinematicNavigation.cinematicIntensity * focusIntegrityMultiplier}
@@ -624,8 +631,8 @@ export default function SpatialFieldScreen() {
       </View>
 
       <AvatarActionSheet
-        target={selectedTarget}
-        visible={selectedTarget !== null}
+        target={liveSelectedTarget}
+        visible={liveSelectedTarget !== null}
         onClose={handleCloseTarget}
         onConnect={handleConnect}
         onViewProfile={handleViewProfile}
