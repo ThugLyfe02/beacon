@@ -1,4 +1,5 @@
 import type { OrganizerCommand } from './SpatialOrganizerCommandEngine';
+import type { VenueLearningContext } from './VenueLearningContext';
 import type { VenueTwinSnapshot } from './SpatialVenueTwinEngine';
 
 export type InterventionStatus = 'proposed' | 'accepted' | 'applied' | 'observing' | 'reverted' | 'measured';
@@ -14,6 +15,8 @@ export interface InterventionRecord {
   revertedAt?: number;
   status: InterventionStatus;
   targetZoneIds: string[];
+  learningContextKey?: string;
+  learningContextVersion?: string;
   baseline: {
     saturatedZoneCount: number;
     activeZoneCount: number;
@@ -57,6 +60,24 @@ export function createInterventionRecord(
     },
     rationale: command.detail,
     rollbackCondition: 'Revert if target-zone pressure worsens materially or measurement confidence falls below the declared threshold.',
+  };
+}
+
+/**
+ * Binds an intervention to the aggregate operating context under which its
+ * outcome will later be interpreted. Context is explicit rather than inferred
+ * after the fact, preventing repeat-event learning from mixing incomparable
+ * venue configurations simply because they share a command id.
+ */
+export function bindInterventionLearningContext(
+  record: InterventionRecord,
+  context: VenueLearningContext,
+): InterventionRecord {
+  if (record.status === 'measured' || record.status === 'reverted') return record;
+  return {
+    ...record,
+    learningContextKey: context.key,
+    learningContextVersion: context.version,
   };
 }
 
