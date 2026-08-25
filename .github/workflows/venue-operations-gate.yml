@@ -38,3 +38,4 @@ jobs:
           node scripts/validate-venue-operations.mjs
           node scripts/validate-venue-memory.mjs
           node scripts/validate-venue-sensor-ingress.mjs
+          node scripts/validate-spatial-direction.mjs
