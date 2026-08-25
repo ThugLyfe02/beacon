@@ -29,6 +29,9 @@ const files = [
   'src/spatial/SpatialPositionedAvatar.tsx',
   'src/spatial/SpatialAvatarLayer.tsx',
   'src/spatial/SpatialDirectionGuide.ts',
+  'src/spatial/SpatialSignalIntegrity.ts',
+  'src/spatial/SpatialSignalIntegrityLayer.tsx',
+  'src/spatial/SpatialFieldScreen.tsx',
   'src/spatial/AvatarActionSheet.tsx',
   'src/spatial/ARFieldScreen.tsx',
   'src/hooks/useHeading.ts',
@@ -48,6 +51,11 @@ requireText('src/hooks/useHeading.ts', 'vector space', 'device heading smoothing
 requireText('src/hooks/useHeading.ts', 'local-only', 'device heading must remain local and not become persisted movement telemetry');
 requireText('src/spatial/SpatialDirectionGuide.ts', 'MAX_DIRECTION_AGE_MS = 45_000', 'participant turn guidance must expire faster than the general live presence window');
 requireText('src/spatial/SpatialDirectionGuide.ts', 'does not infer attention, intent, or future trajectory', 'direction guidance must remain observational rather than predictive');
+requireText('src/spatial/SpatialSignalIntegrity.ts', 'they never change whether an otherwise-visible person exists', 'confidence visualization must not become a hidden attendee filter');
+requireText('src/spatial/SpatialSignalIntegrity.ts', 'keeps no trajectory history', 'spatial confidence must remain latest-signal-only rather than building movement dossiers');
+requireText('src/spatial/SpatialSignalIntegrityLayer.tsx', 'Every visible attendee keeps their avatar', 'visual confidence must change the world language, not field membership');
+requireText('src/spatial/SpatialFieldScreen.tsx', '<SpatialSignalIntegrityLayer', 'the live field must render signal confidence around the same resolved spatial layout');
+requireText('src/spatial/SpatialFieldScreen.tsx', 'focusIntegrityMultiplier', 'cinematic focus authority must soften as selected-target evidence weakens');
 requireText('src/spatial/AvatarActionSheet.tsx', 'Open Camera Guide', 'focused attendees need an explicit user-initiated handoff from spatial field to camera guidance');
 requireText('src/spatial/AvatarActionSheet.tsx', 'does not predict where this person will move', 'camera handoff must state the non-predictive boundary');
 requireText('src/spatial/ARFieldScreen.tsx', 'targetId?: string', 'camera guidance must support an explicitly selected attendee rather than random target acquisition');
@@ -58,6 +66,8 @@ requireText('src/spatial/ARFieldScreen.tsx', 'Beacon does not auto-track movemen
 for (const path of [
   'src/spatial/SpatialPositionedAvatar.tsx',
   'src/spatial/SpatialDirectionGuide.ts',
+  'src/spatial/SpatialSignalIntegrity.ts',
+  'src/spatial/SpatialSignalIntegrityLayer.tsx',
   'src/hooks/useHeading.ts',
 ]) {
   forbidText(path, 'Math.random(', 'direction/orientation behavior must remain deterministic');
