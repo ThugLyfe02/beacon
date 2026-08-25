@@ -1,4 +1,4 @@
-import type { ProximitySignal, PresenceState } from './PresenceEngine';
+import type { ProximitySignal, PresenceState } from '../presence/PresenceEngine';
 
 export type SpatialMood = 'quiet' | 'forming' | 'active' | 'surge';
 export type SpatialAttentionTier = 'hero' | 'active' | 'ambient';
@@ -132,16 +132,15 @@ function stableSeed(id: string): number {
 /**
  * Converts a live proximity signal into the field coordinate system.
  *
- * When a true observer-to-target bearing exists, the spatial field now honors
- * it directly: north is -Z, east is +X, south is +Z, west is -X. This matches
- * the sector coordinates used by aggregate world intelligence and removes the
- * old failure mode where a person's screen direction was determined by their
- * user id rather than the physical room.
+ * When a true observer-to-target bearing exists, the spatial field honors it
+ * directly: north is -Z, east is +X, south is +Z, west is -X. This matches the
+ * sector coordinates used by aggregate world intelligence and removes the old
+ * failure mode where a person's screen direction was determined by their user
+ * id rather than the physical room.
  *
  * A deterministic id-derived direction remains only as a compatibility fallback
  * for legacy or temporarily incomplete signals that do not carry bearing data.
- * The fallback is intentionally stable and is never presented as a measured
- * compass direction.
+ * The fallback is stable and is never presented as a measured compass direction.
  */
 export function positionForSpatialTarget(
   target: ProximitySignal,
