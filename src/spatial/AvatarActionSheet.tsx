@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   directionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   directionEyebrow: { color: '#7DD3FC', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   directionConfidence: { color: '#64748B', fontSize: 9, fontWeight: '700' },
-  directionPrimary: { marginTop: 7, color: '#F8FAFC', fontSize: 18, fontWeight: '850' },
+  directionPrimary: { marginTop: 7, color: '#F8FAFC', fontSize: 18, fontWeight: '800' },
   directionPrimaryMuted: { marginTop: 7, color: '#CBD5E1', fontSize: 15, fontWeight: '800' },
   directionMeta: { marginTop: 4, color: '#94A3B8', fontSize: 10, lineHeight: 15 },
   directionBoundary: { marginTop: 12, color: '#64748B', fontSize: 9, lineHeight: 14 },
