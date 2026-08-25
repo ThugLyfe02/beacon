@@ -6,34 +6,10 @@
 import { supabase } from '../lib/supabase';
 import type {
   EventRow,
-  EventInsert,
   EventUpdate,
   EventWithHost,
   LocationType,
 } from '../types/database';
-
-const JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const JOIN_CODE_LENGTH = 6;
-const JOIN_CODE_ATTEMPTS = 5;
-
-function randomIndex(maxExclusive: number): number {
-  const cryptoObject = globalThis.crypto;
-  if (cryptoObject?.getRandomValues) {
-    const value = new Uint32Array(1);
-    cryptoObject.getRandomValues(value);
-    return value[0] % maxExclusive;
-  }
-  return Math.floor(Math.random() * maxExclusive);
-}
-
-/** Generate a human-readable join code while avoiding ambiguous characters. */
-function generateJoinCode(): string {
-  let code = '';
-  for (let index = 0; index < JOIN_CODE_LENGTH; index += 1) {
-    code += JOIN_CODE_ALPHABET.charAt(randomIndex(JOIN_CODE_ALPHABET.length));
-  }
-  return code;
-}
 
 function assertValidEventInput(eventData: {
   name: string;
@@ -51,7 +27,11 @@ function assertValidEventInput(eventData: {
   }
 }
 
-/** Create a new event and preserve host participation as one compensated operation. */
+/**
+ * Creates the event and approved host membership in one database transaction.
+ * The server is the authority for auth.uid() and join-code generation; `hostId`
+ * remains only as a compatibility assertion for existing callers.
+ */
 export async function createEvent(
   hostId: string,
   eventData: {
@@ -71,53 +51,28 @@ export async function createEvent(
   if (!hostId) throw new Error('Host identity is required');
   assertValidEventInput(eventData);
 
-  const insert: EventInsert = {
-    host_id: hostId,
-    name: eventData.name.trim(),
-    description: eventData.description?.trim() || null,
-    location_type: eventData.location_type,
-    latitude: eventData.latitude ?? null,
-    longitude: eventData.longitude ?? null,
-    address: eventData.address?.trim() || null,
-    requires_approval: eventData.requires_approval ?? true,
-    access_code: eventData.access_code?.trim() || null,
-    show_participant_count: eventData.show_participant_count ?? false,
-    starts_at: eventData.starts_at ?? null,
-    ends_at: eventData.ends_at ?? null,
-  };
+  const { data, error } = await supabase.rpc('create_hosted_event', {
+    p_name: eventData.name.trim(),
+    p_description: eventData.description?.trim() || null,
+    p_location_type: eventData.location_type,
+    p_latitude: eventData.latitude ?? null,
+    p_longitude: eventData.longitude ?? null,
+    p_address: eventData.address?.trim() || null,
+    p_requires_approval: eventData.requires_approval ?? true,
+    p_access_code: eventData.access_code?.trim() || null,
+    p_show_participant_count: eventData.show_participant_count ?? false,
+    p_starts_at: eventData.starts_at ?? null,
+    p_ends_at: eventData.ends_at ?? null,
+  });
 
-  let lastError: { code?: string; message?: string } | null = null;
-
-  for (let attempt = 0; attempt < JOIN_CODE_ATTEMPTS; attempt += 1) {
-    const { data, error } = await supabase
-      .from('events')
-      .insert({ ...insert, join_code: generateJoinCode() })
-      .select()
-      .single();
-
-    if (error) {
-      lastError = error;
-      if (error.code === '23505') continue;
-      console.error('[event.service] Error creating event:', error);
-      throw new Error(error.message || 'Failed to create event');
-    }
-
-    const event = data as EventRow;
-    const { error: participantError } = await supabase
-      .from('event_participants')
-      .insert({ event_id: event.id, user_id: hostId, status: 'approved' });
-
-    if (!participantError) return event;
-
-    // Compensate only the just-created, not-yet-operational event. Normal event
-    // closure uses end_event so venue evidence is never destroyed by the UI.
-    await supabase.from('events').delete().eq('id', event.id).eq('host_id', hostId);
-    console.error('[event.service] Host participation creation failed:', participantError);
-    throw new Error('Event creation could not be completed safely');
+  if (error || !data) {
+    console.error('[event.service] Atomic event creation failed:', error);
+    throw new Error(error?.message || 'Failed to create event');
   }
 
-  console.error('[event.service] Join-code allocation exhausted:', lastError);
-  throw new Error('Could not allocate a unique event join code');
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('Event creation did not return an event');
+  return row as EventRow;
 }
 
 /** Update an existing event. Database policy remains the final host authorization. */
@@ -154,8 +109,8 @@ export async function updateEventLocation(
 }
 
 /**
- * Destructive deletion is retained only for compensated setup failures and
- * explicit administrative tooling. Product event closure must use end_event.
+ * Destructive deletion is intentionally not used for normal event closure.
+ * Keep this narrow helper only for explicit administrative cleanup workflows.
  */
 export async function deleteEvent(eventId: string, hostId: string): Promise<void> {
   const { error } = await supabase.from('events').delete().eq('id', eventId).eq('host_id', hostId);
