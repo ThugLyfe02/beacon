@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { blockUser, reportUser } from '../services/abuse.service';
 import { useAuth } from '../hooks/useAuth';
@@ -48,6 +49,8 @@ export default function AvatarActionSheet({
   onOfficeHours,
   onOpenCamera,
 }: Readonly<Props>) {
+  const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
+  const route = useRoute();
   const { user } = useAuth();
   const myId = user?.id ?? '';
   const heading = useHeading(visible && target != null);
@@ -86,6 +89,16 @@ export default function AvatarActionSheet({
   if (!target) return null;
 
   const direction = buildSpatialDirectionGuide(target, heading);
+  const canOpenCameraGuide = route.name !== 'ARField' && direction.available && target.bearingFromObserverDeg != null;
+
+  const handleOpenCamera = () => {
+    onClose();
+    if (onOpenCamera) {
+      onOpenCamera(target.targetId);
+      return;
+    }
+    navigation.navigate('ARField', { eventId: target.eventId, targetId: target.targetId });
+  };
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -190,14 +203,8 @@ export default function AvatarActionSheet({
 
               {connectError && <Text style={styles.error}>{connectError}</Text>}
 
-              {onOpenCamera && direction.available && target.bearingFromObserverDeg != null ? (
-                <Pressable
-                  style={[styles.btn, styles.btnCamera]}
-                  onPress={() => {
-                    onClose();
-                    onOpenCamera(target.targetId);
-                  }}
-                >
+              {canOpenCameraGuide ? (
+                <Pressable style={[styles.btn, styles.btnCamera]} onPress={handleOpenCamera}>
                   <Text style={styles.btnTextLight}>Open Camera Guide</Text>
                 </Pressable>
               ) : null}
