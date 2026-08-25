@@ -10,9 +10,9 @@ import {
 import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
 import {
   getHostedEvent,
-  deleteEvent,
   updateEventLocation,
 } from '../services/event.service';
+import { endActiveEvent } from '../services/event-lifecycle.service';
 import {
   getPendingJoinRequests,
   approveJoinRequest,
@@ -53,7 +53,6 @@ export default function HostManagementScreen({
       const { showAlert = false } = opts;
       setIsLoading(true);
 
-      // Step 1: hosted event lookup
       let hostedEvent: EventRow | null = null;
       try {
         hostedEvent = await getHostedEvent(userId);
@@ -70,11 +69,12 @@ export default function HostManagementScreen({
 
       if (!hostedEvent) {
         setLoadError(null);
+        setRequests([]);
+        setIsBroadcasting(false);
         setIsLoading(false);
         return;
       }
 
-      // Step 2: pending requests
       try {
         const pending = await getPendingJoinRequests(hostedEvent.id);
         setRequests(pending);
@@ -93,19 +93,16 @@ export default function HostManagementScreen({
     [userId]
   );
 
-  // Initial mount — show alert if first load fails so the user sees the cause.
   useEffect(() => {
     loadEventData({ showAlert: true });
   }, [loadEventData]);
 
-  // Refresh whenever the Host tab regains focus. Silent — don't spam alerts.
   useFocusEffect(
     useCallback(() => {
       loadEventData({ showAlert: false });
     }, [loadEventData])
   );
 
-  // Auto-poll every 10s while the screen is mounted. Silent on errors.
   useEffect(() => {
     const id = setInterval(() => loadEventData({ showAlert: false }), 10000);
     return () => clearInterval(id);
@@ -165,22 +162,28 @@ export default function HostManagementScreen({
 
   const handleEndEvent = () => {
     Alert.alert(
-      'End beacon?',
-      'This deletes the event and removes everyone.',
+      'End event?',
+      'This closes live participation, location broadcasting, and outstanding venue-command authority while preserving event and operational history for recap and learning.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'End event',
           style: 'destructive',
           onPress: async () => {
+            if (!event) return;
+            setIsBroadcasting(false);
             try {
-              if (event) {
-                await deleteEvent(event.id, userId);
-                onEventEnded();
+              const result = await endActiveEvent(event.id);
+              if (result.error || !result.endedAt) {
+                throw new Error(result.error?.message ?? 'Event close was not confirmed by the server.');
               }
+              setEvent(null);
+              setRequests([]);
+              onEventEnded();
             } catch (error) {
               console.error('Failed to end event:', error);
-              Alert.alert('Action failed', 'Could not end event.');
+              const message = error instanceof Error ? error.message : 'Could not close the event.';
+              Alert.alert('Action failed', message);
             }
           },
         },
