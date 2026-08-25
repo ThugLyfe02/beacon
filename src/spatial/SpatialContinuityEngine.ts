@@ -43,8 +43,7 @@ function interpolate(
  * large. Old signals are never damped because smoothing stale evidence would make
  * an old coordinate look more live than the source warrants.
  *
- * This state is intended to live only in the mounted spatial screen. It is not
- * persisted, transmitted, or accumulated into an attendee movement dossier.
+ * This state is intended to live only in the mounted spatial screen. It is not persisted, transmitted, or accumulated into an attendee movement dossier.
  */
 export function stabilizeSpatialLayout(
   current: SpatialLayoutNode[],
