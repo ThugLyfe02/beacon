@@ -40,6 +40,7 @@ interface FeedState {
 
 const HEALTHY_POLL_INTERVAL_MS = 5_000;
 const DECLARED_FIT_REFRESH_MS = 30_000;
+const DECLARED_FIT_TARGET_CHANGE_FLOOR_MS = 5_000;
 
 function initialFeedState(): FeedState {
   return {
@@ -72,6 +73,10 @@ function mergeDeclaredFit(signals: ProximitySignal[], fits: DeclaredFitRow[]): P
   });
 }
 
+function targetSetKey(signals: ProximitySignal[]): string {
+  return [...new Set(signals.map((signal) => signal.targetId).filter(Boolean))].sort().join('|');
+}
+
 /**
  * Lifecycle-aware foreground presence feed.
  *
@@ -83,7 +88,9 @@ function mergeDeclaredFit(signals: ProximitySignal[], fits: DeclaredFitRow[]): P
  * - expires stale proximity data rather than presenting it as live;
  * - uses bounded exponential backoff with jitter after failures;
  * - merges pairwise declared-intent intersections without making that lower-
- *   cadence metadata a dependency of core proximity availability.
+ *   cadence metadata a dependency of core proximity availability;
+ * - asks for declared fit only for ids already returned by live proximity, so
+ *   optional relevance enrichment cannot become an event-wide intent directory.
  */
 export function usePresenceFeed(eventId: string, observerId: string): PresenceFeed {
   const [feed, setFeed] = useState<FeedState>(initialFeedState);
@@ -96,6 +103,7 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
   const failureCountRef = useRef(0);
   const declaredFitRef = useRef<DeclaredFitRow[]>([]);
   const declaredFitFetchedAtRef = useRef(0);
+  const declaredFitTargetKeyRef = useRef('');
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -108,6 +116,7 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
   useEffect(() => {
     declaredFitRef.current = [];
     declaredFitFetchedAtRef.current = 0;
+    declaredFitTargetKeyRef.current = '';
   }, [eventId, observerId]);
 
   useEffect(() => {
@@ -144,13 +153,29 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
       return granted;
     }
 
-    async function refreshDeclaredFitIfNeeded(now: number): Promise<void> {
-      if (now - declaredFitFetchedAtRef.current < DECLARED_FIT_REFRESH_MS) return;
-      const result = await getEventDeclaredFit(eventId);
+    async function refreshDeclaredFitIfNeeded(now: number, signals: ProximitySignal[]): Promise<void> {
+      const targetKey = targetSetKey(signals);
+      if (!targetKey) {
+        declaredFitRef.current = [];
+        declaredFitTargetKeyRef.current = '';
+        declaredFitFetchedAtRef.current = now;
+        return;
+      }
+
+      const ageMs = now - declaredFitFetchedAtRef.current;
+      const sameTargets = targetKey === declaredFitTargetKeyRef.current;
+      if (sameTargets && ageMs < DECLARED_FIT_REFRESH_MS) return;
+      if (!sameTargets && ageMs < DECLARED_FIT_TARGET_CHANGE_FLOOR_MS) return;
+
+      const result = await getEventDeclaredFit(
+        eventId,
+        signals.map((signal) => signal.targetId),
+      );
       if (cancelledRef.current) return;
       if (!result.error) {
         declaredFitRef.current = result.data;
         declaredFitFetchedAtRef.current = now;
+        declaredFitTargetKeyRef.current = targetKey;
       }
       // Declared-fit enrichment is optional. A metadata RPC failure must never
       // make the live proximity field itself unavailable.
@@ -188,7 +213,7 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
           countSentConnectionRequests(eventId, observerId),
           listMatches(eventId, observerId),
         ]);
-        await refreshDeclaredFitIfNeeded(attemptedAt);
+        await refreshDeclaredFitIfNeeded(attemptedAt, signals);
 
         if (cancelledRef.current) return;
         const completedAt = Date.now();
