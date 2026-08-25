@@ -46,6 +46,10 @@ export interface VenueOperationAuditRow {
   reason_code: string | null;
   note: string | null;
   idempotency_key: string;
+  integrity_version: number | null;
+  chain_sequence: number | null;
+  previous_record_hash: string | null;
+  record_hash: string | null;
   created_at: string;
 }
 
@@ -57,6 +61,7 @@ export interface VenueInterventionMeasurementRow {
   venue_key: string;
   layout_version: string;
   geometry_hash: string;
+  learning_context_key: string | null;
   before_saturated_zones: number;
   after_saturated_zones: number;
   before_mean_occupancy: number;
@@ -92,6 +97,55 @@ export interface PublicVenueServiceStatus {
   observed_at: string;
 }
 
+export interface VenueEventCloseoutRow {
+  event_id: string;
+  venue_key: string;
+  release_id: string | null;
+  layout_version: string | null;
+  geometry_hash: string | null;
+  policy_version: string | null;
+  model_version: string | null;
+  audit_event_count: number;
+  operator_decision_count: number;
+  applied_intervention_count: number;
+  reverted_intervention_count: number;
+  measured_intervention_count: number;
+  positive_intervention_count: number;
+  mean_measured_effect: number | null;
+  positive_rate: number | null;
+  mean_measurement_confidence: number | null;
+  service_point_count: number;
+  evidence_coverage: number;
+  closed_at: string;
+  created_at: string;
+}
+
+export interface VenueLearningContextRow {
+  event_id: string;
+  venue_key: string;
+  context_key: string;
+  context_version: string;
+  layout_version: string;
+  geometry_hash: string;
+  total_capacity: number;
+  topology_redundancy: number;
+  accessible_coverage: number;
+  attendance_band: 'small' | 'medium' | 'large' | 'very-large';
+  duration_band: 'short' | 'standard' | 'long';
+  zone_kinds: string[];
+  service_point_kinds: string[];
+  program_fingerprint: string | null;
+  created_at: string;
+}
+
+export interface VenueAuditIntegrityResult {
+  valid: boolean;
+  chained_records: number;
+  legacy_records: number;
+  first_broken_sequence: number | null;
+  chain_head_hash: string | null;
+}
+
 export interface AppendVenueOperatorEventInput {
   eventId: string;
   venueKey: string;
@@ -115,7 +169,13 @@ export interface VenueOperationsSnapshot {
   audit: VenueOperationAuditRow[];
   measurements: VenueInterventionMeasurementRow[];
   servicePoints: VenueServicePointSampleRow[];
-  errors: Array<{ surface: 'audit' | 'measurements' | 'service-points'; message: string }>;
+  closeout: VenueEventCloseoutRow | null;
+  learningContext: VenueLearningContextRow | null;
+  auditIntegrity: VenueAuditIntegrityResult | null;
+  errors: Array<{
+    surface: 'audit' | 'measurements' | 'service-points' | 'closeout' | 'learning-context' | 'audit-integrity';
+    message: string;
+  }>;
 }
 
 function clampLimit(limit: number, max = 200): number {
@@ -131,8 +191,6 @@ function safeToken(value: string, fallback: string): string {
 /**
  * Creates a retry-stable key for one explicit operator action. Callers should
  * create the key once when the action begins and reuse it for network retries.
- * `actionStartedAt` is therefore an input rather than `Date.now()` inside the
- * service, which avoids turning transport retries into duplicate audit records.
  */
 export function buildVenueOperatorIdempotencyKey(input: {
   eventId: string;
@@ -151,10 +209,6 @@ export function buildVenueOperatorIdempotencyKey(input: {
   ].join(':').slice(0, 200);
 }
 
-/**
- * Returns the server-authoritative event-scoped venue role. Event hosts resolve
- * to admin in the database helper even when no explicit roster row exists.
- */
 export async function getVenueOperatorRole(
   eventId: string,
   userId: string,
@@ -166,7 +220,6 @@ export async function getVenueOperatorRole(
   return { role: (data as VenueOperatorRole | null) ?? null, error };
 }
 
-/** Host-only roster mutation; the database verifies event ownership. */
 export async function setVenueEventOperator(input: {
   eventId: string;
   userId: string;
@@ -182,10 +235,6 @@ export async function setVenueEventOperator(input: {
   return { data: (data as VenueEventOperatorRow | null) ?? null, error };
 }
 
-/**
- * Records one qualified approval. Safety-class intervention application remains
- * blocked server-side until two distinct recent qualified approvals exist.
- */
 export async function approveVenueCommand(input: {
   eventId: string;
   commandId: string;
@@ -202,8 +251,6 @@ export async function approveVenueCommand(input: {
 /**
  * Appends an operator-owned event through the server-enforced event-role RPC.
  * There is no direct client insert path into the append-only venue audit table.
- * Command class is explicit because server authorization differs for normal
- * flow/capacity, programming/sponsor, and safety operations.
  */
 export async function appendVenueOperatorEvent(
   input: AppendVenueOperatorEventInput,
@@ -269,7 +316,7 @@ export async function listVenueOperationAudit(
 ): Promise<{ data: VenueOperationAuditRow[]; error: PostgrestError | null }> {
   const { data, error } = await supabase
     .from('venue_operation_audit_events')
-    .select('id,event_id,venue_key,event_type,command_id,intervention_id,operator_id,target_zone_ids,layout_version,geometry_hash,policy_version,model_version,admission_decision,evidence_score,reason_code,note,idempotency_key,created_at')
+    .select('id,event_id,venue_key,event_type,command_id,intervention_id,operator_id,target_zone_ids,layout_version,geometry_hash,policy_version,model_version,admission_decision,evidence_score,reason_code,note,idempotency_key,integrity_version,chain_sequence,previous_record_hash,record_hash,created_at')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
     .limit(clampLimit(limit));
@@ -283,7 +330,7 @@ export async function listVenueInterventionMeasurements(
 ): Promise<{ data: VenueInterventionMeasurementRow[]; error: PostgrestError | null }> {
   const { data, error } = await supabase
     .from('venue_intervention_measurements')
-    .select('id,event_id,intervention_id,command_id,venue_key,layout_version,geometry_hash,before_saturated_zones,after_saturated_zones,before_mean_occupancy,after_mean_occupancy,effect_score,confidence,measured_at')
+    .select('id,event_id,intervention_id,command_id,venue_key,layout_version,geometry_hash,learning_context_key,before_saturated_zones,after_saturated_zones,before_mean_occupancy,after_mean_occupancy,effect_score,confidence,measured_at')
     .eq('event_id', eventId)
     .order('measured_at', { ascending: false })
     .limit(clampLimit(limit));
@@ -305,27 +352,65 @@ export async function listVenueServicePointSamples(
   return { data: (data ?? []) as VenueServicePointSampleRow[], error };
 }
 
+export async function getVenueEventCloseout(
+  eventId: string,
+): Promise<{ data: VenueEventCloseoutRow | null; error: PostgrestError | null }> {
+  const { data, error } = await supabase
+    .from('venue_event_closeouts')
+    .select('event_id,venue_key,release_id,layout_version,geometry_hash,policy_version,model_version,audit_event_count,operator_decision_count,applied_intervention_count,reverted_intervention_count,measured_intervention_count,positive_intervention_count,mean_measured_effect,positive_rate,mean_measurement_confidence,service_point_count,evidence_coverage,closed_at,created_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  return { data: (data as VenueEventCloseoutRow | null) ?? null, error };
+}
+
+export async function getVenueLearningContext(
+  eventId: string,
+): Promise<{ data: VenueLearningContextRow | null; error: PostgrestError | null }> {
+  const { data, error } = await supabase
+    .rpc('get_venue_learning_context', { p_event_id: eventId })
+    .maybeSingle();
+  return { data: (data as VenueLearningContextRow | null) ?? null, error };
+}
+
+export async function verifyVenueOperationAuditIntegrity(
+  eventId: string,
+): Promise<{ data: VenueAuditIntegrityResult | null; error: PostgrestError | null }> {
+  const { data, error } = await supabase
+    .rpc('verify_venue_operation_audit_chain', { p_event_id: eventId })
+    .maybeSingle();
+  return { data: (data as VenueAuditIntegrityResult | null) ?? null, error };
+}
+
 /**
  * Reads organizer-visible venue evidence in one bounded operation. Each surface
- * fails independently so a missing service-point stream cannot hide the audit
- * log or measured interventions.
+ * fails independently so unavailable closeout/context/integrity evidence cannot
+ * hide the live audit, measurements, or service-point state.
  */
 export async function getVenueOperationsSnapshot(eventId: string): Promise<VenueOperationsSnapshot> {
-  const [audit, measurements, servicePoints] = await Promise.all([
+  const [audit, measurements, servicePoints, closeout, learningContext, auditIntegrity] = await Promise.all([
     listVenueOperationAudit(eventId),
     listVenueInterventionMeasurements(eventId),
     listVenueServicePointSamples(eventId),
+    getVenueEventCloseout(eventId),
+    getVenueLearningContext(eventId),
+    verifyVenueOperationAuditIntegrity(eventId),
   ]);
 
   const errors: VenueOperationsSnapshot['errors'] = [];
   if (audit.error) errors.push({ surface: 'audit', message: audit.error.message });
   if (measurements.error) errors.push({ surface: 'measurements', message: measurements.error.message });
   if (servicePoints.error) errors.push({ surface: 'service-points', message: servicePoints.error.message });
+  if (closeout.error) errors.push({ surface: 'closeout', message: closeout.error.message });
+  if (learningContext.error) errors.push({ surface: 'learning-context', message: learningContext.error.message });
+  if (auditIntegrity.error) errors.push({ surface: 'audit-integrity', message: auditIntegrity.error.message });
 
   return {
     audit: audit.data,
     measurements: measurements.data,
     servicePoints: servicePoints.data,
+    closeout: closeout.data,
+    learningContext: learningContext.data,
+    auditIntegrity: auditIntegrity.data,
     errors,
   };
 }
