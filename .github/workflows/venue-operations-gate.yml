@@ -40,3 +40,4 @@ jobs:
           node scripts/validate-venue-sensor-ingress.mjs
           node scripts/validate-spatial-direction.mjs
           node scripts/validate-participant-venue-guide.mjs
+          node scripts/validate-event-intent-exchange.mjs
