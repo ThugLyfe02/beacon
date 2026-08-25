@@ -63,6 +63,7 @@ export interface EventRow {
   show_participant_count: boolean;
   starts_at: Timestamp | null;
   ends_at: Timestamp | null;
+  ended_at: Timestamp | null;
   created_at: Timestamp;
 }
 
@@ -150,8 +151,10 @@ export type UserUpdate = Partial<
   >
 >;
 
-export type EventInsert = Omit<EventRow, 'id' | 'created_at' | 'join_code'>;
-export type EventUpdate = Partial<Omit<EventRow, 'id' | 'host_id' | 'created_at' | 'join_code'>>;
+// ended_at is server-owned lifecycle state. Ordinary create/update payloads do
+// not get to manufacture or reopen event lifecycle state.
+export type EventInsert = Omit<EventRow, 'id' | 'created_at' | 'join_code' | 'ended_at'>;
+export type EventUpdate = Partial<Omit<EventRow, 'id' | 'host_id' | 'created_at' | 'join_code' | 'ended_at'>>;
 
 export type EventParticipantInsert = Pick<
   EventParticipantRow,
@@ -278,6 +281,21 @@ export interface Database {
           p_user_id: UUID;
           p_access_code: string;
         };
+        Returns: boolean;
+      };
+      approve_self_with_event_code: {
+        Args: {
+          p_event_id: UUID;
+          p_access_code: string;
+        };
+        Returns: boolean;
+      };
+      end_event: {
+        Args: { p_event_id: UUID };
+        Returns: Timestamp;
+      };
+      is_event_operational: {
+        Args: { p_event_id: UUID };
         Returns: boolean;
       };
       set_premium_dev: {
