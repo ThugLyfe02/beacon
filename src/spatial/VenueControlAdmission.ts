@@ -4,6 +4,7 @@ import type { VenueFallbackState } from './VenueFallbackMode';
 import type { VenueLayoutCompatibility } from './VenueLayoutVersioning';
 import type { VenueLoadSheddingState } from './VenueLoadShedding';
 import type { VenueModelCredibilityState } from './VenueModelCredibility';
+import type { VenueOperationsReleaseAssessment } from './VenueOperationsRelease';
 import type { VenueReadinessState } from './VenueReadiness';
 import type { VenueSensorHealthState } from './VenueSensorHealth';
 import type { VenueServiceObjectiveState } from './VenueServiceObjective';
@@ -21,6 +22,7 @@ export interface VenueControlContext {
   serviceObjective?: VenueServiceObjectiveState;
   sensorHealth?: VenueSensorHealthState;
   deployment?: VenueDeploymentPolicyState;
+  release?: VenueOperationsReleaseAssessment;
 }
 
 export interface VenueControlAdmissionResult {
@@ -49,7 +51,7 @@ function clamp01(value: number): number {
  * intentionally separated from permission to act. An analytically plausible
  * command can still be blocked by stale telemetry, incompatible geometry,
  * insufficient sensing support, weak model credibility, defensive fallback,
- * deployment maturity, or service degradation.
+ * deployment maturity, a mismatched pinned release, or service degradation.
  *
  * The context argument is optional to preserve compatibility with earlier
  * callers, but production organizer surfaces should provide the full context.
@@ -69,6 +71,16 @@ export function admitVenueControl(
 
   if (command.confidence < 0.45) blockingReasons.push('Command confidence is below the minimum admission floor.');
   else if (command.confidence < 0.7) reviewReasons.push('Command confidence requires explicit operator review.');
+
+  if (context.release && !context.release.canAdmitCommands) {
+    blockingReasons.push(...context.release.blockers);
+    if (context.release.requiresNewBaseline) {
+      blockingReasons.push('Pinned runtime release changed in a way that requires a fresh venue baseline.');
+    }
+    if (context.release.requiresReadmission) {
+      blockingReasons.push('Pinned runtime release changed in a way that requires command re-admission.');
+    }
+  }
 
   if (context.quorum?.state === 'lost') blockingReasons.push('Independent sensing quorum is lost.');
   else if (context.quorum?.state === 'degraded') reviewReasons.push('Independent sensing quorum is degraded.');
@@ -148,7 +160,7 @@ export function admitVenueControl(
     ? [...new Set(blockingReasons)]
     : decision === 'review'
       ? [...new Set(reviewReasons.length > 0 ? reviewReasons : ['Evidence is usable, but operator review is required before action.'])]
-      : ['Telemetry, layout compatibility, command evidence, and available operational guardrails satisfy control admission.'];
+      : ['Telemetry, layout compatibility, pinned runtime release, command evidence, and available operational guardrails satisfy control admission.'];
 
   return {
     decision,
