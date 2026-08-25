@@ -21,7 +21,10 @@ export default function SpatialNavigationHUD({ navigation, onModeChange }: Reado
     <View pointerEvents="box-none" style={styles.wrap}>
       <View style={styles.card}>
         <View style={styles.headerRow}>
-          <Text style={styles.eyebrow}>WORLD CAMERA</Text>
+          <View>
+            <Text style={styles.eyebrow}>WORLD CAMERA</Text>
+            <Text style={styles.orientation}>TRUE NORTH FRAME · N ↑</Text>
+          </View>
           <Text style={styles.intensity}>{Math.round(navigation.cinematicIntensity * 100)}%</Text>
         </View>
         <Text style={styles.title}>{navigation.title}</Text>
@@ -65,8 +68,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(129, 140, 248, 0.28)',
     backgroundColor: 'rgba(5, 8, 18, 0.88)',
   },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   eyebrow: { color: '#818cf8', fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
+  orientation: { marginTop: 2, color: '#64748B', fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
   intensity: { color: '#64748b', fontSize: 10, fontWeight: '700' },
   title: { marginTop: 7, color: '#f8fafc', fontSize: 16, fontWeight: '800' },
   detail: { marginTop: 4, color: '#a8b2c1', fontSize: 11, lineHeight: 16 },
