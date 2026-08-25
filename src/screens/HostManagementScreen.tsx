@@ -205,16 +205,42 @@ export default function HostManagementScreen({
 
   if (!event) {
     return (
-      <View style={styles.centered}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.idleContent}>
         <GridBackground />
         <Surface elevated padded glow style={styles.emptyCard}>
-          <Pill label="No active event" tone="neutral" dot />
-          <NeonText variant="h1" style={{ marginTop: spacing.md }}>Dark room.</NeonText>
+          <Pill label="No live event" tone="neutral" dot />
+          <NeonText variant="h1" style={{ marginTop: spacing.md }}>The live room is closed. The value is not.</NeonText>
           <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
-            Create an event to start broadcasting.
+            Your host workspace stays available after closeout so measured venue evidence can inform the next event instead of disappearing with the session.
           </NeonText>
         </Surface>
-      </View>
+
+        <Pressable
+          onPress={() => navigation.navigate('VenuePortfolio')}
+          style={styles.idleToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Event portfolio</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Compare your own venue history, measured intervention quality, evidence coverage, and repeat-event trend.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('CreateEvent')}
+          style={styles.idleToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Create the next event</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Start a new live event without discarding what the previous venue operations taught Beacon.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+      </ScrollView>
     );
   }
 
@@ -278,6 +304,19 @@ export default function HostManagementScreen({
             <NeonText variant="h2">Venue operations</NeonText>
             <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
               Measured interventions, service pressure, and host-scoped operational evidence.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('VenuePortfolio')}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Event portfolio</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              See what your own previous events measured and whether repeat venue operations are improving.
             </NeonText>
           </View>
           <NeonText variant="h2" tone="accent">→</NeonText>
@@ -392,6 +431,13 @@ const styles = StyleSheet.create({
     backgroundColor: palette.void,
     paddingHorizontal: spacing.xl,
   },
+  idleContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxxl,
+  },
   section: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.md },
   sectionHeader: {
     flexDirection: 'row',
@@ -441,6 +487,16 @@ const styles = StyleSheet.create({
   emptyCard: { width: '100%', borderRadius: radii.xl, gap: spacing.xs },
   hostToolBtn: {
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.hairlineStrong,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  idleToolBtn: {
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: palette.hairlineStrong,
     backgroundColor: palette.surface,
