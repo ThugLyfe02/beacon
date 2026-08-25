@@ -109,7 +109,8 @@ export async function createEvent(
 
     if (!participantError) return event;
 
-    // Compensate rather than leaving a hostless event if participation creation fails.
+    // Compensate only the just-created, not-yet-operational event. Normal event
+    // closure uses end_event so venue evidence is never destroyed by the UI.
     await supabase.from('events').delete().eq('id', event.id).eq('host_id', hostId);
     console.error('[event.service] Host participation creation failed:', participantError);
     throw new Error('Event creation could not be completed safely');
@@ -130,6 +131,7 @@ export async function updateEvent(
     .update(updates)
     .eq('id', eventId)
     .eq('host_id', hostId)
+    .is('ended_at', null)
     .select()
     .single();
 
@@ -151,7 +153,10 @@ export async function updateEventLocation(
   return updateEvent(eventId, hostId, { latitude, longitude });
 }
 
-/** Delete an event owned by the authenticated host. */
+/**
+ * Destructive deletion is retained only for compensated setup failures and
+ * explicit administrative tooling. Product event closure must use end_event.
+ */
 export async function deleteEvent(eventId: string, hostId: string): Promise<void> {
   const { error } = await supabase.from('events').delete().eq('id', eventId).eq('host_id', hostId);
   if (error) {
@@ -170,7 +175,10 @@ export async function getEventById(eventId: string): Promise<EventRow | null> {
   return data ? (data as EventRow) : null;
 }
 
-/** Resolve a pre-membership join code through the dedicated SECURITY DEFINER RPC. */
+/**
+ * Resolve a pre-membership join code through the dedicated SECURITY DEFINER RPC.
+ * The server returns no access-code secret and excludes closed events.
+ */
 export async function getEventByCode(joinCode: string): Promise<EventRow | null> {
   const normalized = joinCode.trim().toUpperCase();
   if (!normalized) return null;
@@ -184,13 +192,15 @@ export async function getEventByCode(joinCode: string): Promise<EventRow | null>
     return null;
   }
 
-  return data ? (data as EventRow) : null;
+  return data ? ({ ...(data as EventRow), ended_at: null } as EventRow) : null;
 }
 
 function eventPriority(event: EventRow): number {
+  if (event.ended_at) return 0;
   const now = Date.now();
   const startsAt = event.starts_at ? Date.parse(event.starts_at) : Number.NaN;
   const endsAt = event.ends_at ? Date.parse(event.ends_at) : Number.NaN;
+  if (Number.isFinite(endsAt) && endsAt < now) return 0;
   if (Number.isFinite(startsAt) && Number.isFinite(endsAt) && startsAt <= now && endsAt >= now) return 3;
   if (Number.isFinite(startsAt) && startsAt > now) return 2;
   return 1;
@@ -222,12 +232,13 @@ export async function getUserEvents(userId: string): Promise<EventRow[]> {
   });
 }
 
-/** Get the most recently created event currently hosted by this user. */
+/** Get the most recently created event that has not been explicitly closed. */
 export async function getHostedEvent(hostId: string): Promise<EventRow | null> {
   const { data, error } = await supabase
     .from('events')
     .select('*')
     .eq('host_id', hostId)
+    .is('ended_at', null)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
