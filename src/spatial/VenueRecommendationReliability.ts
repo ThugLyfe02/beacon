@@ -3,6 +3,7 @@ import { interventionEffectScore } from './VenueInterventionLedger';
 
 export interface RecommendationReliability {
   commandId: string;
+  learningContextKey: string | null;
   measuredCount: number;
   positiveCount: number;
   revertedCount: number;
@@ -11,13 +12,30 @@ export interface RecommendationReliability {
   status: 'insufficient-data' | 'weak' | 'mixed' | 'reliable';
 }
 
+export interface RecommendationReliabilityOptions {
+  learningContextKey?: string;
+}
+
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-export function buildRecommendationReliability(records: InterventionRecord[]): RecommendationReliability[] {
+/**
+ * Reliability can be evaluated globally for diagnostics or scoped to one venue
+ * learning context for deployment authority. Supplying a context excludes other
+ * contexts instead of allowing evidence from a different floorplan/event regime
+ * to inflate a command's local reliability.
+ */
+export function buildRecommendationReliability(
+  records: InterventionRecord[],
+  options: RecommendationReliabilityOptions = {},
+): RecommendationReliability[] {
+  const requestedContext = options.learningContextKey ?? null;
+  const eligible = requestedContext === null
+    ? records
+    : records.filter((record) => record.learningContextKey === requestedContext);
   const grouped = new Map<string, InterventionRecord[]>();
-  for (const record of records) grouped.set(record.commandId, [...(grouped.get(record.commandId) ?? []), record]);
+  for (const record of eligible) grouped.set(record.commandId, [...(grouped.get(record.commandId) ?? []), record]);
 
   const output: RecommendationReliability[] = [];
   for (const [commandId, group] of grouped) {
@@ -38,7 +56,16 @@ export function buildRecommendationReliability(records: InterventionRecord[]): R
       else status = 'weak';
     }
 
-    output.push({ commandId, measuredCount: scores.length, positiveCount, revertedCount, meanEffect, reliability, status });
+    output.push({
+      commandId,
+      learningContextKey: requestedContext,
+      measuredCount: scores.length,
+      positiveCount,
+      revertedCount,
+      meanEffect,
+      reliability,
+      status,
+    });
   }
 
   return output.sort((a, b) => b.reliability - a.reliability || b.measuredCount - a.measuredCount || a.commandId.localeCompare(b.commandId));
