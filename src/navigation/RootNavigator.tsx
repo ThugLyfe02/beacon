@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useRegisterPushToken } from '../hooks/useRegisterPushToken';
 import { hasCompletedProfile } from '../services/user.service';
 import { getUserEvents, getHostedEvent } from '../services/event.service';
+import { hasHostedEventHistory } from '../services/venue-portfolio.service';
 import { NavigatorContext } from './NavigatorContext';
 
 import { OtpScreen } from '../screens/OtpScreen';
@@ -34,6 +35,7 @@ import OfficeHoursCallScreen from '../screens/OfficeHoursCallScreen';
 import EscortPanelScreen from '../screens/EscortPanelScreen';
 import VenueOperationsScreen from '../screens/VenueOperationsScreen';
 import VenueOperatorsScreen from '../screens/VenueOperatorsScreen';
+import VenuePortfolioScreen from '../screens/VenuePortfolioScreen';
 import ARFieldScreen from '../spatial/ARFieldScreen';
 
 const Stack = createNativeStackNavigator();
@@ -126,10 +128,13 @@ export function RootNavigator() {
         setProfileComplete(completed);
         if (completed) {
           try {
-            const hostedEvent = await getHostedEvent(user.id);
-            if (!cancelled) setIsHost(hostedEvent !== null);
+            const [hostedEvent, hasHistory] = await Promise.all([
+              getHostedEvent(user.id),
+              hasHostedEventHistory(),
+            ]);
+            if (!cancelled) setIsHost(hostedEvent !== null || hasHistory);
           } catch (eventError) {
-            console.error('[RootNavigator] Error checking host status:', eventError);
+            console.error('[RootNavigator] Error checking host workspace status:', eventError);
             if (!cancelled) setIsHost(false);
           }
         }
@@ -188,7 +193,9 @@ export function RootNavigator() {
   }
 
   const handleEventEnded = async () => {
-    setIsHost(false);
+    // Closing a live event preserves host history, so the host workspace should
+    // remain available for closeout, portfolio review, and repeat-event learning.
+    setIsHost(true);
     try {
       await getUserEvents(user.id);
     } catch (error) {
@@ -330,6 +337,19 @@ export function RootNavigator() {
           options={{
             headerShown: true,
             title: 'Venue Operators',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="VenuePortfolio"
+          component={VenuePortfolioScreen}
+          options={{
+            headerShown: true,
+            title: 'Event Portfolio',
             headerStyle: { backgroundColor: palette.space },
             headerTitleStyle: { color: palette.text, fontWeight: '700' },
             headerTintColor: palette.accent,
