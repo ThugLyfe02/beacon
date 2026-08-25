@@ -29,6 +29,16 @@ export interface ProximitySignal {
   targetAvatarUrl3d?: string | null;
   /** True compass bearing (0=N, 90=E) from observer toward target. */
   bearingFromObserverDeg?: number;
+  /**
+   * Pairwise explicit intent evidence. These fields are populated only from the
+   * server-released intersection between the observer's own declaration and the
+   * target's declaration. They are not inferred from clicks, movement, dwell,
+   * profile views, or private behavior.
+   */
+  declaredFitStrength?: number;
+  declaredFitTwoWay?: boolean;
+  declaredFitTheyCanHelp?: string[];
+  declaredFitICanHelp?: string[];
 }
 
 export interface PresenceState {
