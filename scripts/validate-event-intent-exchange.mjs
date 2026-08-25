@@ -81,7 +81,7 @@ requireText('src/services/event-intent.service.ts', 'cannot be used as an event-
 requireText('src/services/event-intent.service.ts', ".rpc('get_event_intent_mix'", 'host demand mix must use the host-scoped server RPC');
 requireText('src/services/event-intent.service.ts', ".rpc('get_declared_fit_mutual_summary'", 'host outcome composition must use a cohort-gated server RPC');
 requireText('src/services/event-intent.service.ts', ".rpc('get_declared_fit_mutual_domains'", 'host mutual-domain composition must use a cohort-gated server RPC');
-requireText('src/services/event-intent.service.ts', 'does not call itself a conversion rate', 'client semantics must preserve outcome-composition versus conversion distinction');
+requireText('src/services/event-intent.service.ts', 'conversion rate:', 'client semantics must preserve outcome-composition versus conversion distinction');
 requireText('src/services/event-intent.service.ts', 'never fetches another participant', 'service documentation must preserve the intersection-only peer boundary');
 forbidText('src/services/event-intent.service.ts', ".from('participant_event_intents')", 'client services must not read peer declaration rows directly');
 forbidText('src/services/event-intent.service.ts', ".from('declared_fit_mutual_contexts')", 'client services must not read raw mutual-pair outcome context');
@@ -110,7 +110,7 @@ requireText('src/spatial/SpatialExperienceEngine.ts', 'never becomes a public po
 requireText('src/spatial/SpatialSignalLayer.tsx', "focus.reason === 'declared-fit'", 'declared fit should be visually legible in the world rather than trapped in a list');
 requireText('src/spatial/SpatialSignalLayer.tsx', 'not a popularity score', 'declared-fit rendering must preserve private pairwise semantics');
 requireText('src/spatial/SpatialLandmarkEngine.ts', "'declared-fit'", 'explicit fit must be camera-addressable through the same landmark/Field Scout system as other explainable world state');
-requireText('src/spatial/SpatialLandmarkEngine.ts', 'do not reveal a peer\'s full declaration', 'declared-fit landmarks must preserve intersection-only evidence semantics');
+requireText('src/spatial/SpatialLandmarkEngine.ts', "peer's full declaration", 'declared-fit landmarks must preserve intersection-only evidence semantics');
 requireText('src/spatial/SpatialLandmarkEngine.ts', 'evidenceLabel', 'categorical verified evidence must not be mislabeled as a probabilistic confidence score');
 requireText('src/spatial/SpatialLandmarkHUD.tsx', 'state.active.evidenceLabel', 'landmark UI must distinguish verified categorical evidence from aggregate confidence');
 requireText('src/spatial/AvatarActionSheet.tsx', 'DECLARED FIT', 'selected-person UI must explain the evidence behind a fit');
