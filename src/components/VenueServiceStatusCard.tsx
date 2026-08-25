@@ -51,8 +51,9 @@ function freshnessLabel(observedAt: string | null): string {
 /**
  * Participant utility surface for live venue service conditions. The server
  * suppresses stale, weak-support, and low-confidence samples before they reach
- * this component. The UI then ranks only coarse status/wait/trend evidence; raw
- * queue counts and raw service history never enter this participant surface.
+ * this component. The UI then ranks only coarse status, coarse wait bands, and
+ * coarse trend evidence; raw queue counts and raw service history never enter
+ * this participant surface.
  */
 export default function VenueServiceStatusCard({ eventId }: Readonly<Props>) {
   const [services, setServices] = useState<LiveVenueServiceGuidance[]>([]);
@@ -152,7 +153,7 @@ export default function VenueServiceStatusCard({ eventId }: Readonly<Props>) {
       </View>
 
       <Text style={styles.footnote}>
-        This guide uses recent aggregate service evidence. “Easing” and “building” describe the latest coarse queue direction; they are not predictions. Raw queue counts and service history remain host-private.
+        This guide uses recent aggregate service evidence and coarse wait bands. “Easing” and “building” describe the latest coarse queue direction; they are not predictions. Raw queue counts and service history remain host-private.
       </Text>
     </View>
   );
