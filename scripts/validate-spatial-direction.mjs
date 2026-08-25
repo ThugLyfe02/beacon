@@ -31,6 +31,8 @@ const files = [
   'src/spatial/SpatialDirectionGuide.ts',
   'src/spatial/SpatialSignalIntegrity.ts',
   'src/spatial/SpatialSignalIntegrityLayer.tsx',
+  'src/spatial/SpatialContinuityEngine.ts',
+  'src/spatial/useStableSpatialLayout.ts',
   'src/spatial/SpatialFieldScreen.tsx',
   'src/spatial/AvatarActionSheet.tsx',
   'src/spatial/ARFieldScreen.tsx',
@@ -54,6 +56,11 @@ requireText('src/spatial/SpatialDirectionGuide.ts', 'does not infer attention, i
 requireText('src/spatial/SpatialSignalIntegrity.ts', 'they never change whether an otherwise-visible person exists', 'confidence visualization must not become a hidden attendee filter');
 requireText('src/spatial/SpatialSignalIntegrity.ts', 'keeps no trajectory history', 'spatial confidence must remain latest-signal-only rather than building movement dossiers');
 requireText('src/spatial/SpatialSignalIntegrityLayer.tsx', 'Every visible attendee keeps their avatar', 'visual confidence must change the world language, not field membership');
+requireText('src/spatial/SpatialContinuityEngine.ts', 'never estimates velocity', 'spatial stabilization must smooth measured jitter without predicting attendee movement');
+requireText('src/spatial/SpatialContinuityEngine.ts', 'not persisted, transmitted, or accumulated', 'continuity state must remain session-local and non-dossier');
+requireText('src/spatial/SpatialContinuityEngine.ts', 'MAX_AGE_FOR_DAMPING_MS = 45_000', 'stale spatial evidence must not be cosmetically smoothed into looking live');
+requireText('src/spatial/useStableSpatialLayout.ts', 'render retries idempotent', 'continuity damping must not compound merely because React retries a render');
+requireText('src/spatial/SpatialFieldScreen.tsx', 'useStableSpatialLayout', 'the live field must consume the bounded session-local continuity layer');
 requireText('src/spatial/SpatialFieldScreen.tsx', '<SpatialSignalIntegrityLayer', 'the live field must render signal confidence around the same resolved spatial layout');
 requireText('src/spatial/SpatialFieldScreen.tsx', 'focusIntegrityMultiplier', 'cinematic focus authority must soften as selected-target evidence weakens');
 requireText('src/spatial/AvatarActionSheet.tsx', 'Open Camera Guide', 'focused attendees need an explicit user-initiated handoff from spatial field to camera guidance');
@@ -68,6 +75,8 @@ for (const path of [
   'src/spatial/SpatialDirectionGuide.ts',
   'src/spatial/SpatialSignalIntegrity.ts',
   'src/spatial/SpatialSignalIntegrityLayer.tsx',
+  'src/spatial/SpatialContinuityEngine.ts',
+  'src/spatial/useStableSpatialLayout.ts',
   'src/hooks/useHeading.ts',
 ]) {
   forbidText(path, 'Math.random(', 'direction/orientation behavior must remain deterministic');
