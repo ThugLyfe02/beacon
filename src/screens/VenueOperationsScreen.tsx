@@ -12,8 +12,7 @@ import { GridBackground, Loader, NeonText, Pill, Surface } from '../components/u
 import { palette, radii, spacing } from '../theme';
 
 type VenueOperationsParams = { VenueOperations: { eventId: string } };
-
-type PillTone = 'success' | 'premium' | 'danger' | 'neutral';
+type PillTone = 'success' | 'warning' | 'danger' | 'neutral';
 
 function formatPercent(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return '—';
@@ -24,6 +23,12 @@ function formatTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Unknown time';
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown time';
+  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function latestServicePointInputs(samples: VenueServicePointSampleRow[]) {
@@ -54,7 +59,7 @@ function latestServicePointInputs(samples: VenueServicePointSampleRow[]) {
 
 function admissionTone(row: VenueOperationAuditRow): PillTone {
   if (row.admission_decision === 'allow') return 'success';
-  if (row.admission_decision === 'review') return 'premium';
+  if (row.admission_decision === 'review') return 'warning';
   if (row.admission_decision === 'block') return 'danger';
   return 'neutral';
 }
@@ -115,6 +120,9 @@ export default function VenueOperationsScreen() {
   const measurements = snapshot?.measurements ?? [];
   const errors = snapshot?.errors ?? [];
   const latestAudit = audit[0] ?? null;
+  const closeout = snapshot?.closeout ?? null;
+  const context = snapshot?.learningContext ?? null;
+  const integrity = snapshot?.auditIntegrity ?? null;
 
   return (
     <ScrollView
@@ -131,18 +139,18 @@ export default function VenueOperationsScreen() {
       <GridBackground intensity={0.34} />
 
       <View style={styles.hero}>
-        <Pill label="Venue operations" tone="accent" dot />
+        <Pill label={closeout ? 'Event closed · evidence preserved' : 'Venue operations'} tone={closeout ? 'neutral' : 'accent'} dot />
         <NeonText variant="display" glow style={{ marginTop: spacing.sm }}>
           Operations evidence
         </NeonText>
         <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
-          Host-visible operational history, measured interventions, and aggregate service pressure. No attendee movement history is shown here.
+          Host-visible decisions, measured interventions, and aggregate service pressure. No attendee movement history is shown here.
         </NeonText>
       </View>
 
       {errors.length > 0 ? (
         <Surface padded style={styles.warningCard}>
-          <NeonText variant="label" tone="premium">PARTIAL DATA</NeonText>
+          <NeonText variant="label" tone="warning">PARTIAL DATA</NeonText>
           {errors.map((error) => (
             <NeonText key={`${error.surface}:${error.message}`} variant="bodyMuted" style={styles.compactLine}>
               {error.surface}: {error.message}
@@ -162,11 +170,104 @@ export default function VenueOperationsScreen() {
         </Surface>
         <Surface padded style={styles.metricCard}>
           <NeonText variant="label" tone="muted">SERVICE POINTS</NeonText>
-          <NeonText variant="h1" tone={serviceSummary.congestedPointIds.length ? 'premium' : 'success'} style={styles.metricValue}>
+          <NeonText variant="h1" tone={serviceSummary.congestedPointIds.length ? 'warning' : 'success'} style={styles.metricValue}>
             {serviceSummary.points.length}
           </NeonText>
         </Surface>
       </View>
+
+      <View style={styles.section}>
+        <NeonText variant="label" tone="accent">EVIDENCE INTEGRITY</NeonText>
+        <Surface padded style={styles.summaryCard}>
+          <View style={styles.inlineRow}>
+            <Pill
+              label={integrity == null ? 'UNAVAILABLE' : integrity.valid ? 'CHAIN VERIFIED' : 'CHAIN BROKEN'}
+              tone={integrity == null ? 'neutral' : integrity.valid ? 'success' : 'danger'}
+            />
+            {integrity ? (
+              <NeonText variant="label" tone="muted">
+                {integrity.chained_records} chained · {integrity.legacy_records} legacy
+              </NeonText>
+            ) : null}
+          </View>
+          <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
+            {integrity == null
+              ? 'Integrity verification could not be loaded. Operational evidence remains visible, but Beacon will not imply a verified chain.'
+              : integrity.valid
+                ? 'Post-chain audit records recompute cleanly in server sequence. Legacy records created before chain activation remain separately counted.'
+                : `The audit chain failed at sequence ${integrity.first_broken_sequence ?? 'unknown'}. Treat the affected operational history as requiring investigation.`}
+          </NeonText>
+          {integrity?.chain_head_hash ? (
+            <NeonText variant="mono" tone="dim" style={styles.hashText} numberOfLines={1}>
+              HEAD {integrity.chain_head_hash}
+            </NeonText>
+          ) : null}
+        </Surface>
+      </View>
+
+      {closeout ? (
+        <View style={styles.section}>
+          <NeonText variant="label" tone="accent">EVENT CLOSEOUT</NeonText>
+          <Surface elevated padded style={styles.closeoutCard}>
+            <View style={styles.inlineRow}>
+              <View style={{ flex: 1 }}>
+                <NeonText variant="h2">Operational record frozen</NeonText>
+                <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>
+                  Closed {formatDateTime(closeout.closed_at)}. Live command authority is no longer active; this is preserved evidence for recap and learning.
+                </NeonText>
+              </View>
+              <Pill label={`${Math.round(closeout.evidence_coverage * 100)}% evidence`} tone={closeout.evidence_coverage >= 0.8 ? 'success' : 'warning'} />
+            </View>
+            <View style={styles.closeoutMetrics}>
+              <View style={styles.closeoutMetric}>
+                <NeonText variant="label" tone="muted">MEASURED</NeonText>
+                <NeonText variant="h2">{closeout.measured_intervention_count}</NeonText>
+              </View>
+              <View style={styles.closeoutMetric}>
+                <NeonText variant="label" tone="muted">POSITIVE</NeonText>
+                <NeonText variant="h2" tone="success">{closeout.positive_intervention_count}</NeonText>
+              </View>
+              <View style={styles.closeoutMetric}>
+                <NeonText variant="label" tone="muted">MEAN EFFECT</NeonText>
+                <NeonText variant="h2">
+                  {closeout.mean_measured_effect == null ? '—' : `${closeout.mean_measured_effect >= 0 ? '+' : ''}${closeout.mean_measured_effect.toFixed(2)}`}
+                </NeonText>
+              </View>
+            </View>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.md }}>
+              These are bounded before/after observations, not causal proof. Beacon preserves the distinction so post-event reporting cannot silently turn correlation into a causal claim.
+            </NeonText>
+            <View style={styles.detailGrid}>
+              <NeonText variant="label" tone="muted">DECISIONS {closeout.operator_decision_count}</NeonText>
+              <NeonText variant="label" tone="muted">APPLIED {closeout.applied_intervention_count}</NeonText>
+              <NeonText variant="label" tone="muted">REVERTED {closeout.reverted_intervention_count}</NeonText>
+              <NeonText variant="label" tone="muted">SERVICE POINTS {closeout.service_point_count}</NeonText>
+            </View>
+          </Surface>
+        </View>
+      ) : null}
+
+      {context ? (
+        <View style={styles.section}>
+          <NeonText variant="label" tone="accent">LEARNING CONTEXT</NeonText>
+          <Surface padded style={styles.summaryCard}>
+            <NeonText variant="h2">Evidence stays local to comparable conditions</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 5 }}>
+              Repeat-event outcomes are bound to this aggregate venue/event context instead of being blended across materially different layouts, scales, or service configurations.
+            </NeonText>
+            <View style={styles.detailGrid}>
+              <NeonText variant="label" tone="muted">ATTENDANCE {context.attendance_band.toUpperCase()}</NeonText>
+              <NeonText variant="label" tone="muted">DURATION {context.duration_band.toUpperCase()}</NeonText>
+              <NeonText variant="label" tone="muted">CAPACITY {context.total_capacity}</NeonText>
+              <NeonText variant="label" tone="muted">ACCESS {formatPercent(context.accessible_coverage)}</NeonText>
+              <NeonText variant="label" tone="muted">REDUNDANCY {formatPercent(context.topology_redundancy)}</NeonText>
+            </View>
+            <NeonText variant="mono" tone="dim" style={styles.hashText} numberOfLines={1}>
+              {context.context_key}
+            </NeonText>
+          </Surface>
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -195,6 +296,9 @@ export default function VenueOperationsScreen() {
               <NeonText variant="label" tone="muted">EVIDENCE {formatPercent(latestAudit.evidence_score)}</NeonText>
               <NeonText variant="label" tone="muted">LAYOUT {latestAudit.layout_version}</NeonText>
               <NeonText variant="label" tone="muted">MODEL {latestAudit.model_version}</NeonText>
+              {latestAudit.chain_sequence != null ? (
+                <NeonText variant="label" tone="muted">CHAIN #{latestAudit.chain_sequence}</NeonText>
+              ) : null}
             </View>
           </Surface>
         ) : (
@@ -238,6 +342,11 @@ export default function VenueOperationsScreen() {
             <NeonText variant="label" tone="muted" style={{ marginTop: 6 }}>
               {formatPercent(row.confidence)} confidence · {formatTime(row.measured_at)}
             </NeonText>
+            {row.learning_context_key ? (
+              <NeonText variant="mono" tone="dim" style={styles.contextLine} numberOfLines={1}>
+                CONTEXT {row.learning_context_key}
+              </NeonText>
+            ) : null}
           </Surface>
         ))}
       </View>
@@ -252,7 +361,7 @@ export default function VenueOperationsScreen() {
                 <NeonText variant="h2">{point.id}</NeonText>
                 <NeonText variant="label" tone="muted">{point.kind.toUpperCase()} · {point.zoneId}</NeonText>
               </View>
-              <Pill label={point.state.toUpperCase()} tone={point.state === 'congested' ? 'danger' : point.state === 'building' ? 'premium' : 'success'} />
+              <Pill label={point.state.toUpperCase()} tone={point.state === 'congested' ? 'danger' : point.state === 'building' ? 'warning' : 'success'} />
             </View>
             <View style={styles.detailGrid}>
               <NeonText variant="label" tone="muted">IN {point.arrivalRatePerMinute.toFixed(1)}/MIN</NeonText>
@@ -285,11 +394,16 @@ const styles = StyleSheet.create({
   metricValue: { marginTop: spacing.sm },
   primaryCard: { borderRadius: radii.lg, borderColor: palette.accentDim },
   summaryCard: { borderRadius: radii.lg },
+  closeoutCard: { borderRadius: radii.lg, borderColor: palette.hairlineStrong },
+  closeoutMetrics: { flexDirection: 'row', marginTop: spacing.md, gap: spacing.sm },
+  closeoutMetric: { flex: 1, padding: spacing.sm, borderRadius: radii.md, backgroundColor: palette.surface },
   listCard: { marginTop: spacing.xs, borderRadius: radii.md },
   inlineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
   detailGrid: { marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   rightMetric: { alignItems: 'flex-end', gap: 4 },
-  warningCard: { marginHorizontal: spacing.xl, marginTop: spacing.sm, borderColor: palette.premium },
+  warningCard: { marginHorizontal: spacing.xl, marginTop: spacing.sm, borderColor: palette.warning },
   compactLine: { marginTop: 4 },
+  hashText: { marginTop: spacing.sm, fontSize: 10 },
+  contextLine: { marginTop: spacing.xs, fontSize: 9 },
   privacyCard: { marginHorizontal: spacing.xl, marginTop: spacing.xl, borderRadius: radii.lg },
 });
