@@ -58,6 +58,22 @@ export interface EventIntentMixRow {
   balance: 'need-heavy' | 'offer-heavy' | 'balanced';
 }
 
+export interface DeclaredFitMutualSummary {
+  supported: boolean;
+  total_mutual_matches: number | null;
+  declared_fit_mutual_matches: number | null;
+  two_way_declared_fit_mutual_matches: number | null;
+  declared_fit_share: number | null;
+  two_way_share: number | null;
+}
+
+export interface DeclaredFitMutualDomain {
+  intent_key: EventIntentKey;
+  mutual_match_count: number;
+  two_way_match_count: number;
+  two_way_share: number;
+}
+
 function allowedKey(value: unknown): value is EventIntentKey {
   return typeof value === 'string' && (EVENT_INTENT_KEYS as readonly string[]).includes(value);
 }
@@ -65,6 +81,10 @@ function allowedKey(value: unknown): value is EventIntentKey {
 function sanitizeKeys(values: unknown): EventIntentKey[] {
   if (!Array.isArray(values)) return [];
   return [...new Set(values.filter(allowedKey))].sort();
+}
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
 function normalizeIntent(row: unknown): MyEventIntent | null {
@@ -86,7 +106,7 @@ function normalizeDeclaredFit(row: unknown): DeclaredFitRow | null {
   if (!row || typeof row !== 'object') return null;
   const value = row as Record<string, unknown>;
   if (typeof value.target_user_id !== 'string') return null;
-  if (typeof value.fit_strength !== 'number' || !Number.isFinite(value.fit_strength)) return null;
+  if (!finiteNumber(value.fit_strength)) return null;
   return {
     target_user_id: value.target_user_id,
     they_can_help_with: sanitizeKeys(value.they_can_help_with),
@@ -165,9 +185,9 @@ export async function getEventIntentMix(
     const row = raw as Record<string, unknown>;
     if (!allowedKey(row.intent_key)) return [];
     if (
-      typeof row.seeking_count !== 'number'
-      || typeof row.offering_count !== 'number'
-      || typeof row.contributor_count !== 'number'
+      !finiteNumber(row.seeking_count)
+      || !finiteNumber(row.offering_count)
+      || !finiteNumber(row.contributor_count)
     ) return [];
     const balance = row.balance;
     if (balance !== 'need-heavy' && balance !== 'offer-heavy' && balance !== 'balanced') return [];
@@ -178,6 +198,83 @@ export async function getEventIntentMix(
       contributor_count: Math.max(0, Math.floor(row.contributor_count)),
       balance,
     } satisfies EventIntentMixRow];
+  });
+
+  return { data: rows, error };
+}
+
+/**
+ * Host-only composition of real mutual matches. This intentionally does not call
+ * itself a conversion rate: Beacon does not persist every pairwise fit exposure.
+ * The server withholds counts until at least five mutual outcomes exist.
+ */
+export async function getDeclaredFitMutualSummary(
+  eventId: string,
+): Promise<{ data: DeclaredFitMutualSummary | null; error: PostgrestError | null }> {
+  const { data, error } = await supabase
+    .rpc('get_declared_fit_mutual_summary', { p_event_id: eventId })
+    .maybeSingle();
+
+  if (!data || typeof data !== 'object') return { data: null, error };
+  const row = data as Record<string, unknown>;
+  const supported = row.supported === true;
+  if (!supported) {
+    return {
+      data: {
+        supported: false,
+        total_mutual_matches: null,
+        declared_fit_mutual_matches: null,
+        two_way_declared_fit_mutual_matches: null,
+        declared_fit_share: null,
+        two_way_share: null,
+      },
+      error,
+    };
+  }
+
+  if (
+    !finiteNumber(row.total_mutual_matches)
+    || !finiteNumber(row.declared_fit_mutual_matches)
+    || !finiteNumber(row.two_way_declared_fit_mutual_matches)
+    || !finiteNumber(row.declared_fit_share)
+    || !finiteNumber(row.two_way_share)
+  ) return { data: null, error };
+
+  return {
+    data: {
+      supported: true,
+      total_mutual_matches: Math.max(0, Math.floor(row.total_mutual_matches)),
+      declared_fit_mutual_matches: Math.max(0, Math.floor(row.declared_fit_mutual_matches)),
+      two_way_declared_fit_mutual_matches: Math.max(0, Math.floor(row.two_way_declared_fit_mutual_matches)),
+      declared_fit_share: Math.max(0, Math.min(1, row.declared_fit_share)),
+      two_way_share: Math.max(0, Math.min(1, row.two_way_share)),
+    },
+    error,
+  };
+}
+
+export async function getDeclaredFitMutualDomains(
+  eventId: string,
+): Promise<{ data: DeclaredFitMutualDomain[]; error: PostgrestError | null }> {
+  const { data, error } = await supabase.rpc('get_declared_fit_mutual_domains', {
+    p_event_id: eventId,
+  });
+
+  const rows = (data ?? []).flatMap((raw) => {
+    if (!raw || typeof raw !== 'object') return [];
+    const row = raw as Record<string, unknown>;
+    if (!allowedKey(row.intent_key)) return [];
+    if (
+      !finiteNumber(row.mutual_match_count)
+      || !finiteNumber(row.two_way_match_count)
+      || !finiteNumber(row.two_way_share)
+    ) return [];
+    return [{
+      intent_key: row.intent_key,
+      mutual_match_count: Math.max(0, Math.floor(row.mutual_match_count)),
+      two_way_match_count: Math.max(0, Math.floor(row.two_way_match_count)),
+      two_way_share: Math.max(0, Math.min(1, row.two_way_share)),
+    } satisfies DeclaredFitMutualDomain];
   });
 
   return { data: rows, error };
