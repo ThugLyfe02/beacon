@@ -1,4 +1,5 @@
 import type { OrganizerCommand } from './SpatialOrganizerCommandEngine';
+import type { VenueCommandCircuitBreakerResult } from './VenueCommandCircuitBreaker';
 import type { VenueDeploymentPolicyState } from './VenueDeploymentPolicy';
 import type { VenueFallbackState } from './VenueFallbackMode';
 import type { VenueLayoutCompatibility } from './VenueLayoutVersioning';
@@ -7,6 +8,7 @@ import type { VenueModelCredibilityState } from './VenueModelCredibility';
 import type { VenueOperationsReleaseAssessment } from './VenueOperationsRelease';
 import type { VenueReadinessState } from './VenueReadiness';
 import type { VenueSensorHealthState } from './VenueSensorHealth';
+import type { VenueServiceErrorBudgetState } from './VenueServiceErrorBudget';
 import type { VenueServiceObjectiveState } from './VenueServiceObjective';
 import type { VenueSourceQuorumState } from './VenueSourceQuorum';
 import type { VenueTelemetryIntegrity } from './VenueTelemetryIntegrity';
@@ -20,9 +22,11 @@ export interface VenueControlContext {
   fallback?: VenueFallbackState;
   loadShedding?: VenueLoadSheddingState;
   serviceObjective?: VenueServiceObjectiveState;
+  serviceErrorBudget?: VenueServiceErrorBudgetState;
   sensorHealth?: VenueSensorHealthState;
   deployment?: VenueDeploymentPolicyState;
   release?: VenueOperationsReleaseAssessment;
+  circuitBreaker?: VenueCommandCircuitBreakerResult;
 }
 
 export interface VenueControlAdmissionResult {
@@ -38,6 +42,7 @@ export interface VenueControlAdmissionResult {
     credibility: number | null;
     readiness: number | null;
     serviceObjective: number | null;
+    serviceBudget: number | null;
     sensorAuthority: number | null;
   };
 }
@@ -51,7 +56,8 @@ function clamp01(value: number): number {
  * intentionally separated from permission to act. An analytically plausible
  * command can still be blocked by stale telemetry, incompatible geometry,
  * insufficient sensing support, weak model credibility, defensive fallback,
- * deployment maturity, a mismatched pinned release, or service degradation.
+ * deployment maturity, a mismatched pinned release, current command failures,
+ * exhausted service error budget, or service degradation.
  *
  * The context argument is optional to preserve compatibility with earlier
  * callers, but production organizer surfaces should provide the full context.
@@ -80,6 +86,18 @@ export function admitVenueControl(
     if (context.release.requiresReadmission) {
       blockingReasons.push('Pinned runtime release changed in a way that requires command re-admission.');
     }
+  }
+
+  if (context.circuitBreaker?.authority === 'blocked') {
+    blockingReasons.push(...context.circuitBreaker.reasons);
+  } else if (context.circuitBreaker?.authority === 'review-only') {
+    reviewReasons.push(...context.circuitBreaker.reasons);
+  }
+
+  if (context.serviceErrorBudget?.state === 'exhausted') {
+    blockingReasons.push(...context.serviceErrorBudget.reasons);
+  } else if (context.serviceErrorBudget?.state === 'watch') {
+    reviewReasons.push(...context.serviceErrorBudget.reasons);
   }
 
   if (context.quorum?.state === 'lost') blockingReasons.push('Independent sensing quorum is lost.');
@@ -136,11 +154,12 @@ export function admitVenueControl(
   const credibilityScore = context.credibility?.score ?? null;
   const readinessScore = context.readiness?.score ?? null;
   const serviceScore = context.serviceObjective?.objectiveScore ?? null;
+  const serviceBudgetScore = context.serviceErrorBudget?.remainingBudgetFraction ?? null;
   const sensorAuthority = context.sensorHealth === undefined
     ? null
     : clamp01(context.sensorHealth.effectiveSourceWeight / 2);
 
-  const optionalScores = [quorumScore, credibilityScore, readinessScore, serviceScore, sensorAuthority]
+  const optionalScores = [quorumScore, credibilityScore, readinessScore, serviceScore, serviceBudgetScore, sensorAuthority]
     .filter((value): value is number => value !== null);
   const optionalMean = optionalScores.length === 0
     ? 1
@@ -160,7 +179,7 @@ export function admitVenueControl(
     ? [...new Set(blockingReasons)]
     : decision === 'review'
       ? [...new Set(reviewReasons.length > 0 ? reviewReasons : ['Evidence is usable, but operator review is required before action.'])]
-      : ['Telemetry, layout compatibility, pinned runtime release, command evidence, and available operational guardrails satisfy control admission.'];
+      : ['Telemetry, layout compatibility, pinned runtime release, recent command health, service budget, and available operational guardrails satisfy control admission.'];
 
   return {
     decision,
@@ -175,6 +194,7 @@ export function admitVenueControl(
       credibility: credibilityScore === null ? null : clamp01(credibilityScore),
       readiness: readinessScore === null ? null : clamp01(readinessScore),
       serviceObjective: serviceScore === null ? null : clamp01(serviceScore),
+      serviceBudget: serviceBudgetScore === null ? null : clamp01(serviceBudgetScore),
       sensorAuthority,
     },
   };
