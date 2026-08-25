@@ -3,7 +3,11 @@ import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useRoute, type RouteProp } from '@react-navigation/native';
 import {
   EVENT_INTENT_LABELS,
+  getDeclaredFitMutualDomains,
+  getDeclaredFitMutualSummary,
   getEventIntentMix,
+  type DeclaredFitMutualDomain,
+  type DeclaredFitMutualSummary,
   type EventIntentMixRow,
 } from '../services/event-intent.service';
 import { GridBackground, Loader, NeonText, Pill, Surface } from '../components/ui';
@@ -25,10 +29,17 @@ function balanceLabel(balance: EventIntentMixRow['balance']): string {
   return 'BALANCED';
 }
 
+function percent(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${Math.round(value * 100)}%`;
+}
+
 export default function EventIntentMixScreen() {
   const route = useRoute<RouteProp<Params, 'EventIntentMix'>>();
   const { eventId } = route.params;
   const [rows, setRows] = useState<EventIntentMixRow[]>([]);
+  const [mutualSummary, setMutualSummary] = useState<DeclaredFitMutualSummary | null>(null);
+  const [mutualDomains, setMutualDomains] = useState<DeclaredFitMutualDomain[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +49,15 @@ export default function EventIntentMixScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const result = await getEventIntentMix(eventId);
-      if (result.error) throw new Error(result.error.message);
-      setRows(result.data);
+      const [mixResult, outcomeResult, domainResult] = await Promise.all([
+        getEventIntentMix(eventId),
+        getDeclaredFitMutualSummary(eventId),
+        getDeclaredFitMutualDomains(eventId),
+      ]);
+      if (mixResult.error) throw new Error(mixResult.error.message);
+      setRows(mixResult.data);
+      setMutualSummary(outcomeResult.error ? null : outcomeResult.data);
+      setMutualDomains(domainResult.error ? [] : domainResult.data);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load declared event demand.');
     } finally {
@@ -64,7 +81,7 @@ export default function EventIntentMixScreen() {
     return { needHeavy, offerHeavy, contributors };
   }, [rows]);
 
-  if (loading && rows.length === 0) {
+  if (loading && rows.length === 0 && !mutualSummary) {
     return (
       <View style={styles.centered}>
         <GridBackground />
@@ -106,6 +123,59 @@ export default function EventIntentMixScreen() {
           <NeonText variant="bodyMuted" style={styles.smallTop}>{error}</NeonText>
         </Surface>
       ) : null}
+
+      <Surface elevated padded style={styles.outcomeCard}>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <NeonText variant="label" tone="premium">MUTUAL ALIGNMENT</NeonText>
+            <NeonText variant="h2" style={styles.smallTop}>Do declared fits show up in real mutual connections?</NeonText>
+          </View>
+          <Pill label={mutualSummary?.supported ? 'SUPPORTED' : 'COHORT BUILDING'} tone={mutualSummary?.supported ? 'success' : 'neutral'} />
+        </View>
+
+        {mutualSummary?.supported ? (
+          <>
+            <View style={styles.outcomeMetrics}>
+              <View style={styles.outcomeMetric}>
+                <NeonText variant="label" tone="muted">MUTUALS</NeonText>
+                <NeonText variant="h1">{mutualSummary.total_mutual_matches ?? '—'}</NeonText>
+              </View>
+              <View style={styles.outcomeMetric}>
+                <NeonText variant="label" tone="muted">WITH DECLARED FIT</NeonText>
+                <NeonText variant="h1" tone="accent">{percent(mutualSummary.declared_fit_share)}</NeonText>
+              </View>
+              <View style={styles.outcomeMetric}>
+                <NeonText variant="label" tone="muted">TWO-WAY FIT</NeonText>
+                <NeonText variant="h1" tone="premium">{percent(mutualSummary.two_way_share)}</NeonText>
+              </View>
+            </View>
+            <NeonText variant="bodyMuted" style={styles.smallTop}>
+              This is outcome composition, not a conversion rate. Beacon records declared-fit context when a real mutual is created, but does not persist every person-to-person fit exposure just to manufacture a funnel denominator.
+            </NeonText>
+
+            {mutualDomains.length > 0 ? (
+              <View style={styles.outcomeDomains}>
+                <NeonText variant="label" tone="muted">SUPPORTED MUTUAL DOMAINS</NeonText>
+                {mutualDomains.slice(0, 6).map((domain) => (
+                  <View key={domain.intent_key} style={styles.outcomeDomainRow}>
+                    <View style={{ flex: 1 }}>
+                      <NeonText variant="h2">{EVENT_INTENT_LABELS[domain.intent_key]}</NeonText>
+                      <NeonText variant="bodyMuted" style={styles.smallTop}>
+                        {domain.mutual_match_count} mutual matches carried this explicit overlap.
+                      </NeonText>
+                    </View>
+                    <Pill label={`${percent(domain.two_way_share)} TWO-WAY`} tone="neutral" />
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <NeonText variant="bodyMuted" style={styles.smallTop}>
+            Counts remain withheld until at least five mutual matches exist. Domain-level outcome rows require at least five mutual matches in that domain as well, so the host cannot reverse-engineer a small number of participant pairs.
+          </NeonText>
+        )}
+      </Surface>
 
       {rows.length === 0 ? (
         <Surface elevated padded style={styles.emptyCard}>
@@ -188,7 +258,7 @@ export default function EventIntentMixScreen() {
       <Surface padded style={styles.boundaryCard}>
         <NeonText variant="label" tone="warning">AGGREGATE BOUNDARY</NeonText>
         <NeonText variant="bodyMuted" style={styles.smallTop}>
-          This is not a participant list, popularity score, lead score, or cross-customer benchmark. Small cohorts are suppressed, and the host cannot use this surface to discover who selected a particular intent.
+          This is not a participant list, popularity score, lead score, or cross-customer benchmark. Small cohorts are suppressed, and the host cannot use this surface to discover who selected an intent or which pair produced a mutual.
         </NeonText>
       </Surface>
     </ScrollView>
@@ -203,6 +273,11 @@ const styles = StyleSheet.create({
   heroCopy: { marginTop: spacing.sm, lineHeight: 20 },
   errorCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, borderRadius: radii.lg, borderColor: palette.danger },
   emptyCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, borderRadius: radii.lg },
+  outcomeCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, borderRadius: radii.lg, borderColor: palette.premiumSoft },
+  outcomeMetrics: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  outcomeMetric: { flex: 1, padding: spacing.sm, borderRadius: radii.md, backgroundColor: palette.surface },
+  outcomeDomains: { marginTop: spacing.lg, gap: spacing.sm },
+  outcomeDomainRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.hairline },
   summaryRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.md },
   summaryCard: { flex: 1, minHeight: 96, borderRadius: radii.lg },
   metricValue: { marginTop: spacing.sm },
