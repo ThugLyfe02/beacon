@@ -59,7 +59,8 @@ function clamp01(value: number): number {
  * Builds the durable aggregate summary that survives the live event. A closeout
  * does not decide whether the event was "good" or assign a social score. It
  * records how much operational evidence exists, how many interventions were
- * actually measured, and what those measured outcomes showed.
+ * actually measured, and what those measured outcomes showed. A before/after
+ * closeout is observational evidence, not causal proof.
  */
 export function buildVenueEventCloseout(input: VenueEventCloseoutInput): VenueEventCloseout {
   const operatorDecisionCount = input.auditEvents.filter((item) => item.eventType === 'operator-decision').length;
