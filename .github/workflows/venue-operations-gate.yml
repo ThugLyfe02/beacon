@@ -41,3 +41,4 @@ jobs:
           node scripts/validate-spatial-direction.mjs
           node scripts/validate-participant-venue-guide.mjs
           node scripts/validate-event-intent-exchange.mjs
+          node scripts/validate-event-intent-programming.mjs
