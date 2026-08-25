@@ -12,6 +12,7 @@ import SpatialAvatarLayer from "./SpatialAvatarLayer";
 import SpatialFocusLayer from "./SpatialFocusLayer";
 import OpportunityField from "./OpportunityField";
 import SpatialSignalLayer from "./SpatialSignalLayer";
+import SpatialSignalIntegrityLayer from "./SpatialSignalIntegrityLayer";
 import SpatialMilestoneLayer from "./SpatialMilestoneLayer";
 import SpatialDistrictLayer from "./SpatialDistrictLayer";
 import SpatialDirectorLayer from "./SpatialDirectorLayer";
@@ -34,6 +35,7 @@ import SpatialNetworkEffectHUD from "./SpatialNetworkEffectHUD";
 import SpatialCounterfactualHUD from "./SpatialCounterfactualHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
 import { buildSpatialLayout } from "./SpatialLayoutEngine";
+import { buildSpatialSignalIntegrity } from "./SpatialSignalIntegrity";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { buildSpatialContractBoard } from "./SpatialContractEngine";
 import { buildSpatialDirector } from "./SpatialDirectorEngine";
@@ -149,6 +151,16 @@ export default function SpatialFieldScreen() {
   });
 
   const spatialLayout = useMemo(() => buildSpatialLayout(presence.visibleTargets), [presence.visibleTargets]);
+  const signalIntegrity = useMemo(
+    () => buildSpatialSignalIntegrity(presence.visibleTargets, runtime.health),
+    [presence.visibleTargets, runtime.health],
+  );
+  const selectedSignalIntegrity = useMemo(
+    () => selectedTarget
+      ? signalIntegrity.nodes.find((node) => node.targetId === selectedTarget.targetId) ?? null
+      : null,
+    [selectedTarget, signalIntegrity.nodes],
+  );
   const selectedLayoutPosition = useMemo(
     () => selectedTarget
       ? spatialLayout.find((node) => node.target.targetId === selectedTarget.targetId)?.position ?? null
@@ -539,6 +551,9 @@ export default function SpatialFieldScreen() {
       * quality.routeDetailMultiplier,
     ),
   );
+  const focusIntegrityMultiplier = selectedSignalIntegrity
+    ? 0.55 + selectedSignalIntegrity.confidence * 0.45
+    : 1;
 
   return (
     <View style={styles.container}>
@@ -551,13 +566,23 @@ export default function SpatialFieldScreen() {
         <pointLight position={[10, 10, 10]} intensity={(0.55 + orchestration.routeEnergy * 0.45) * quality.environmentDetailMultiplier} />
         <SpatialCameraRig navigation={cinematicNavigation} />
         <FieldFloor />
+        <SpatialSignalIntegrityLayer
+          layout={spatialLayout}
+          integrity={signalIntegrity}
+          selectedTargetId={selectedTarget?.targetId ?? null}
+        />
         <SpatialDirectorLayer director={director} />
         <SpatialWorldIntelligenceLayer intelligence={worldIntelligence} />
         <SpatialInteractionLayer pulses={interactionPulses} almostDiscovered={almostDiscovered} targets={presence.visibleTargets} accent={director.accent} />
         <SpatialDistrictLayer progression={progression} accent={director.accent} premium={isPremium} />
         <OpportunityField tensionScore={presence.tensionScore} density={presence.density} mutualMatches={mutualMatches} urgencyLevel={presence.urgencyLevel} />
         <SpatialSignalLayer focusTargets={spatialExperience.focusTargets} accent={director.accent} detailBudget={trustedDetailBudget} />
-        <SpatialFocusLayer target={cameraMode === "focus" ? selectedTarget : null} position={selectedLayoutPosition} accent={director.accent} intensity={cinematicNavigation.cinematicIntensity} />
+        <SpatialFocusLayer
+          target={cameraMode === "focus" ? selectedTarget : null}
+          position={selectedLayoutPosition}
+          accent={director.accent}
+          intensity={cinematicNavigation.cinematicIntensity * focusIntegrityMultiplier}
+        />
         <SpatialMilestoneLayer progression={progression} accent={director.accent} />
         <Suspense fallback={null}>
           <SpatialAvatarLayer targets={presence.visibleTargets} layout={spatialLayout} onTap={handleTargetTap} />
@@ -590,7 +615,7 @@ export default function SpatialFieldScreen() {
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · reciprocity: {reciprocity.primary?.state ?? "none"} · loops: {networkEffects.opportunities.length} · delta: {Math.round(counterfactuals.opportunityDelta * 100)} · quality: {quality.tier}
+              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · signal: {Math.round(signalIntegrity.meanConfidence * 100)}% · reciprocity: {reciprocity.primary?.state ?? "none"} · loops: {networkEffects.opportunities.length} · delta: {Math.round(counterfactuals.opportunityDelta * 100)} · quality: {quality.tier}
             </Text>
           </View>
         )}
