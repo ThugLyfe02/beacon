@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { getEventProximitySignals } from '../services/proximity.service';
 import { pushMyLocation } from '../services/premium.service';
 import { countSentConnectionRequests, listMatches } from '../services/match.service';
+import { getEventDeclaredFit, type DeclaredFitRow } from '../services/event-intent.service';
 import { requestLocationPermission } from '../services/location.service';
 import type { ProximitySignal } from '../presence/PresenceEngine';
 import {
@@ -38,6 +39,7 @@ interface FeedState {
 }
 
 const HEALTHY_POLL_INTERVAL_MS = 5_000;
+const DECLARED_FIT_REFRESH_MS = 30_000;
 
 function initialFeedState(): FeedState {
   return {
@@ -54,6 +56,22 @@ function initialFeedState(): FeedState {
   };
 }
 
+function mergeDeclaredFit(signals: ProximitySignal[], fits: DeclaredFitRow[]): ProximitySignal[] {
+  if (fits.length === 0) return signals;
+  const byTarget = new Map(fits.map((fit) => [fit.target_user_id, fit] as const));
+  return signals.map((signal) => {
+    const fit = byTarget.get(signal.targetId);
+    if (!fit) return signal;
+    return {
+      ...signal,
+      declaredFitStrength: fit.fit_strength,
+      declaredFitTwoWay: fit.two_way,
+      declaredFitTheyCanHelp: fit.they_can_help_with,
+      declaredFitICanHelp: fit.i_can_help_with,
+    };
+  });
+}
+
 /**
  * Lifecycle-aware foreground presence feed.
  *
@@ -63,7 +81,9 @@ function initialFeedState(): FeedState {
  * - refreshes immediately when the app returns;
  * - preserves the last verified snapshot during short outages;
  * - expires stale proximity data rather than presenting it as live;
- * - uses bounded exponential backoff with jitter after failures.
+ * - uses bounded exponential backoff with jitter after failures;
+ * - merges pairwise declared-intent intersections without making that lower-
+ *   cadence metadata a dependency of core proximity availability.
  */
 export function usePresenceFeed(eventId: string, observerId: string): PresenceFeed {
   const [feed, setFeed] = useState<FeedState>(initialFeedState);
@@ -74,6 +94,8 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const permissionRef = useRef<boolean | null>(null);
   const failureCountRef = useRef(0);
+  const declaredFitRef = useRef<DeclaredFitRow[]>([]);
+  const declaredFitFetchedAtRef = useRef(0);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -82,6 +104,11 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
     });
     return () => subscription.remove();
   }, []);
+
+  useEffect(() => {
+    declaredFitRef.current = [];
+    declaredFitFetchedAtRef.current = 0;
+  }, [eventId, observerId]);
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -117,6 +144,18 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
       return granted;
     }
 
+    async function refreshDeclaredFitIfNeeded(now: number): Promise<void> {
+      if (now - declaredFitFetchedAtRef.current < DECLARED_FIT_REFRESH_MS) return;
+      const result = await getEventDeclaredFit(eventId);
+      if (cancelledRef.current) return;
+      if (!result.error) {
+        declaredFitRef.current = result.data;
+        declaredFitFetchedAtRef.current = now;
+      }
+      // Declared-fit enrichment is optional. A metadata RPC failure must never
+      // make the live proximity field itself unavailable.
+    }
+
     async function tick() {
       if (cancelledRef.current || inFlightRef.current || appState !== 'active') return;
       inFlightRef.current = true;
@@ -149,12 +188,13 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
           countSentConnectionRequests(eventId, observerId),
           listMatches(eventId, observerId),
         ]);
+        await refreshDeclaredFitIfNeeded(attemptedAt);
 
         if (cancelledRef.current) return;
         const completedAt = Date.now();
         failureCountRef.current = 0;
         setFeed({
-          rawSignals: signals,
+          rawSignals: mergeDeclaredFit(signals, declaredFitRef.current),
           signalsSent,
           mutualMatches: matches.data.length,
           lastError: null,
