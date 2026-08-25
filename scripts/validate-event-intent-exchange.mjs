@@ -43,10 +43,15 @@ for (const path of files) read(path);
 requireText(migration, 'participant_event_intents', 'event-scoped explicit seeking/offering state must have a durable server-owned contract');
 requireText(migration, 'cardinality(seeking) <= 6', 'participants need a bounded declared-intent surface rather than unbounded profiling');
 requireText(migration, 'cardinality(offering) <= 6', 'participants need a bounded declared-capability surface rather than unbounded profiling');
+requireText(migration, 'seeking <@ array[', 'the durable table must reject domains outside the reviewed declared-intent vocabulary');
+requireText(migration, 'offering <@ array[', 'the durable table must reject unreviewed declared-capability domains');
 requireText(migration, 'using (user_id = auth.uid())', 'direct declaration reads must remain caller-owned');
 requireText(migration, 'revoke insert, update, delete on public.participant_event_intents from authenticated', 'mobile clients must mutate declarations through the scoped RPC rather than direct rows');
 requireText(migration, 'public.is_event_operational(p_event_id)', 'declared fit must respect the live event lifecycle');
 requireText(migration, "ep.status = 'approved'", 'declared fit must be limited to approved event participants');
+requireText(migration, 'p_target_user_ids uuid[]', 'pairwise fit release must be bounded to caller-supplied live-field targets rather than event-wide enumeration');
+requireText(migration, 'limit 128', 'declared-fit target scope must remain server bounded');
+requireText(migration, 'i.user_id = any(v_target_user_ids)', 'peer fit evaluation must remain restricted to the bounded current target set');
 requireText(migration, 'u.is_discoverable = true', 'declared fit must preserve participant discoverability choice');
 requireText(migration, 'public.user_blocks', 'declared fit must preserve bilateral block boundaries');
 requireText(migration, 'they_can_help_with', 'peer release must be intersection-shaped rather than a complete intent profile');
@@ -58,6 +63,8 @@ requireText(migration, 'never returns participant identities', 'host demand repo
 requireText(migration, 'does not reveal full peer declarations, popularity, or inferred private intent', 'declared fit must not become a popularity or inferred-intent score');
 
 requireText('src/services/event-intent.service.ts', ".rpc('get_event_declared_fit'", 'pairwise fit must use the server intersection RPC');
+requireText('src/services/event-intent.service.ts', 'liveTargetUserIds', 'client fit requests must start from the already-visible live field');
+requireText('src/services/event-intent.service.ts', 'cannot be used as an event-wide fit directory', 'service documentation must preserve data minimization');
 requireText('src/services/event-intent.service.ts', ".rpc('get_event_intent_mix'", 'host demand mix must use the host-scoped server RPC');
 requireText('src/services/event-intent.service.ts', 'never fetches another participant', 'service documentation must preserve the intersection-only peer boundary');
 forbidText('src/services/event-intent.service.ts', ".from('participant_event_intents')", 'client services must not read peer declaration rows directly');
@@ -75,6 +82,8 @@ requireText('src/screens/EventLobbyScreen.tsx', 'declared fits nearby', 'live ev
 requireText('src/presence/PresenceEngine.ts', 'declaredFitStrength', 'pairwise fit must be carried explicitly rather than smuggled into an opaque score');
 requireText('src/presence/PresenceEngine.ts', 'not inferred from clicks, movement, dwell', 'presence schema must preserve the non-behavioral origin of declared fit');
 requireText('src/hooks/usePresenceFeed.ts', 'DECLARED_FIT_REFRESH_MS = 30_000', 'declared fit should use a lower-cost cadence than core physical proximity');
+requireText('src/hooks/usePresenceFeed.ts', 'targetSetKey(signals)', 'declared fit refresh must track the live physical target set');
+requireText('src/hooks/usePresenceFeed.ts', 'signals.map((signal) => signal.targetId)', 'client must request fit only for targets already observed by physical proximity');
 requireText('src/hooks/usePresenceFeed.ts', 'metadata RPC failure must never', 'optional fit enrichment must not become a reliability dependency for the physical field');
 requireText('src/hooks/usePresenceFeed.ts', 'mergeDeclaredFit', 'live physical signals must receive pairwise fit only after the independent server projection succeeds');
 
