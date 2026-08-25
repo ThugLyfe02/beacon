@@ -34,8 +34,8 @@ import SpatialReciprocityHUD from "./SpatialReciprocityHUD";
 import SpatialNetworkEffectHUD from "./SpatialNetworkEffectHUD";
 import SpatialCounterfactualHUD from "./SpatialCounterfactualHUD";
 import { buildSpatialExperience } from "./SpatialExperienceEngine";
-import { buildSpatialLayout } from "./SpatialLayoutEngine";
 import { buildSpatialSignalIntegrity } from "./SpatialSignalIntegrity";
+import { useStableSpatialLayout } from "./useStableSpatialLayout";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { buildSpatialContractBoard } from "./SpatialContractEngine";
 import { buildSpatialDirector } from "./SpatialDirectorEngine";
@@ -150,7 +150,8 @@ export default function SpatialFieldScreen() {
     officeHoursActive: false,
   });
 
-  const spatialLayout = useMemo(() => buildSpatialLayout(presence.visibleTargets), [presence.visibleTargets]);
+  const continuity = useStableSpatialLayout(presence.visibleTargets);
+  const spatialLayout = continuity.layout;
   const signalIntegrity = useMemo(
     () => buildSpatialSignalIntegrity(presence.visibleTargets, runtime.health),
     [presence.visibleTargets, runtime.health],
@@ -615,7 +616,7 @@ export default function SpatialFieldScreen() {
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · signal: {Math.round(signalIntegrity.meanConfidence * 100)}% · reciprocity: {reciprocity.primary?.state ?? "none"} · loops: {networkEffects.opportunities.length} · delta: {Math.round(counterfactuals.opportunityDelta * 100)} · quality: {quality.tier}
+              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · signal: {Math.round(signalIntegrity.meanConfidence * 100)}% · stabilized: {continuity.deadbandCount + continuity.dampedCount} · reciprocity: {reciprocity.primary?.state ?? "none"} · loops: {networkEffects.opportunities.length} · delta: {Math.round(counterfactuals.opportunityDelta * 100)} · quality: {quality.tier}
             </Text>
           </View>
         )}
