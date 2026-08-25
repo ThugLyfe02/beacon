@@ -127,15 +127,22 @@ export async function setMyEventIntent(input: {
 }
 
 /**
- * Returns only pairwise intersections. It never fetches another participant's
- * complete event-intent profile. The database also applies discoverability,
- * approved-participant, block, and event-lifecycle gates.
+ * Returns only pairwise intersections for target ids already visible in the
+ * caller's live physical field. It never fetches another participant's complete
+ * event-intent profile, and it cannot be used as an event-wide fit directory.
+ * The database also applies discoverability, approved-participant, block, and
+ * event-lifecycle gates.
  */
 export async function getEventDeclaredFit(
   eventId: string,
+  liveTargetUserIds: string[],
 ): Promise<{ data: DeclaredFitRow[]; error: PostgrestError | null }> {
+  const targetIds = [...new Set(liveTargetUserIds.filter(Boolean))].sort().slice(0, 128);
+  if (targetIds.length === 0) return { data: [], error: null };
+
   const { data, error } = await supabase.rpc('get_event_declared_fit', {
     p_event_id: eventId,
+    p_target_user_ids: targetIds,
   });
   return {
     data: (data ?? []).flatMap((row) => {
