@@ -46,7 +46,7 @@ requireText('src/services/venue-memory.service.ts', ".rpc('get_venue_repeat_even
 requireText('src/services/venue-memory.service.ts', ".rpc('get_venue_repeat_event_closeouts'", 'portfolio closeouts must come from the server-scoped host-private RPC');
 requireText('src/services/venue-portfolio.service.ts', ".rpc('get_host_venue_portfolio'", 'portfolio analytics must be derived by a server function bound to auth.uid()');
 requireText('src/services/venue-portfolio.service.ts', ".rpc('has_hosted_event_history'", 'host workspace persistence must use server-owned event history state');
-requireText('src/components/VenueMemoryCard.tsx', 'No cross-customer benchmark', 'host UI must make the portfolio privacy boundary explicit');
+requireText('src/components/VenueMemoryCard.tsx', 'global benchmark', 'host UI must make the portfolio privacy boundary explicit');
 requireText('src/components/VenueMemoryCard.tsx', 'It cannot make an intervention action-ready', 'UI must not imply that history authorizes a live intervention');
 requireText('src/screens/VenueOperationsScreen.tsx', '<VenueMemoryCard', 'repeat-event memory must be reachable in the host venue operations surface');
 requireText('src/screens/VenuePortfolioScreen.tsx', "navigation.navigate('VenueOperations'", 'portfolio must let a host inspect the latest preserved closeout');
