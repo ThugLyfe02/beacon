@@ -33,11 +33,14 @@ const files = [
   'src/spatial/SpatialSignalIntegrityLayer.tsx',
   'src/spatial/SpatialContinuityEngine.ts',
   'src/spatial/useStableSpatialLayout.ts',
+  'src/spatial/SpatialCompassFrame.tsx',
+  'src/spatial/SpatialNavigationHUD.tsx',
   'src/spatial/SpatialFieldScreen.tsx',
   'src/spatial/AvatarActionSheet.tsx',
   'src/spatial/ARFieldScreen.tsx',
   'src/hooks/useHeading.ts',
   'src/services/proximity.service.ts',
+  'docs/PARTICIPANT_SPATIAL_GUIDANCE.md',
 ];
 for (const path of files) read(path);
 
@@ -60,7 +63,12 @@ requireText('src/spatial/SpatialContinuityEngine.ts', 'never estimates velocity'
 requireText('src/spatial/SpatialContinuityEngine.ts', 'not persisted, transmitted, or accumulated', 'continuity state must remain session-local and non-dossier');
 requireText('src/spatial/SpatialContinuityEngine.ts', 'MAX_AGE_FOR_DAMPING_MS = 45_000', 'stale spatial evidence must not be cosmetically smoothed into looking live');
 requireText('src/spatial/useStableSpatialLayout.ts', 'render retries idempotent', 'continuity damping must not compound merely because React retries a render');
+requireText('src/spatial/SpatialCompassFrame.tsx', 'North is the', 'the field needs an explicit physical-frame orientation cue once positions use true bearing');
+requireText('src/spatial/SpatialCompassFrame.tsx', 'never changes attendee positions or visibility', 'orientation affordances must remain presentational only');
+requireText('src/spatial/SpatialNavigationHUD.tsx', 'TRUE NORTH FRAME', 'camera controls must tell the participant that the field uses a physical north frame');
+requireText('src/spatial/SpatialFieldScreen.tsx', 'liveSelectedTarget', 'focused target data must refresh from the current presence snapshot rather than freezing the tap-time bearing');
 requireText('src/spatial/SpatialFieldScreen.tsx', 'useStableSpatialLayout', 'the live field must consume the bounded session-local continuity layer');
+requireText('src/spatial/SpatialFieldScreen.tsx', '<SpatialCompassFrame', 'true-bearing placement must be accompanied by a visible physical orientation frame');
 requireText('src/spatial/SpatialFieldScreen.tsx', '<SpatialSignalIntegrityLayer', 'the live field must render signal confidence around the same resolved spatial layout');
 requireText('src/spatial/SpatialFieldScreen.tsx', 'focusIntegrityMultiplier', 'cinematic focus authority must soften as selected-target evidence weakens');
 requireText('src/spatial/AvatarActionSheet.tsx', 'Open Camera Guide', 'focused attendees need an explicit user-initiated handoff from spatial field to camera guidance');
@@ -69,6 +77,7 @@ requireText('src/spatial/ARFieldScreen.tsx', 'targetId?: string', 'camera guidan
 requireText('src/spatial/ARFieldScreen.tsx', 'VIEW_HALF_ANGLE_DEG = FOV_DEG / 2', 'AR visibility must use the camera half-angle rather than treating full FOV as a one-sided cone');
 requireText('src/spatial/ARFieldScreen.tsx', '<SpatialPositionedAvatar', 'camera overlay must render at the computed AR coordinate instead of AvatarRenderer id-derived placement');
 requireText('src/spatial/ARFieldScreen.tsx', 'Beacon does not auto-track movement', 'camera guide must keep the user in control instead of chasing people automatically');
+requireText('docs/PARTICIPANT_SPATIAL_GUIDANCE.md', 'This is a bearing guide, not a claim of centimeter-accurate indoor AR registration', 'documentation must not overclaim AR precision beyond the current sensing contract');
 
 for (const path of [
   'src/spatial/SpatialPositionedAvatar.tsx',
@@ -77,6 +86,7 @@ for (const path of [
   'src/spatial/SpatialSignalIntegrityLayer.tsx',
   'src/spatial/SpatialContinuityEngine.ts',
   'src/spatial/useStableSpatialLayout.ts',
+  'src/spatial/SpatialCompassFrame.tsx',
   'src/hooks/useHeading.ts',
 ]) {
   forbidText(path, 'Math.random(', 'direction/orientation behavior must remain deterministic');
