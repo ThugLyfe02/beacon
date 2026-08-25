@@ -40,6 +40,12 @@ function ageLabel(ageMs: number | null): string {
   return `updated ${Math.round(ageMs / 60_000)}m ago`;
 }
 
+function intentLabel(key: string): string {
+  return key
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 export default function AvatarActionSheet({
   target,
   visible,
@@ -90,6 +96,10 @@ export default function AvatarActionSheet({
 
   const direction = buildSpatialDirectionGuide(target, heading);
   const canOpenCameraGuide = route.name !== 'ARField' && direction.available && target.bearingFromObserverDeg != null;
+  const declaredFitStrength = Math.max(0, Math.min(1, target.declaredFitStrength ?? 0));
+  const theyCanHelp = target.declaredFitTheyCanHelp ?? [];
+  const iCanHelp = target.declaredFitICanHelp ?? [];
+  const hasDeclaredFit = declaredFitStrength > 0 && (theyCanHelp.length > 0 || iCanHelp.length > 0);
 
   const handleOpenCamera = () => {
     onClose();
@@ -178,6 +188,31 @@ export default function AvatarActionSheet({
               <Text style={styles.distance}>
                 {distanceLabel} · {Math.round(target.distanceFeet)} ft
               </Text>
+
+              {hasDeclaredFit ? (
+                <View style={styles.fitCard}>
+                  <View style={styles.directionHeader}>
+                    <Text style={styles.fitEyebrow}>DECLARED FIT</Text>
+                    <Text style={styles.fitStrength}>{Math.round(declaredFitStrength * 100)}% pairwise</Text>
+                  </View>
+                  <Text style={styles.fitTitle}>
+                    {target.declaredFitTwoWay ? 'Two-way fit from explicit event selections' : 'A declared reason to talk'}
+                  </Text>
+                  {theyCanHelp.length > 0 ? (
+                    <Text style={styles.fitLine}>
+                      They explicitly said they can help with: {theyCanHelp.map(intentLabel).join(', ')}.
+                    </Text>
+                  ) : null}
+                  {iCanHelp.length > 0 ? (
+                    <Text style={styles.fitLine}>
+                      You explicitly said you can help with: {iCanHelp.map(intentLabel).join(', ')}.
+                    </Text>
+                  ) : null}
+                  <Text style={styles.fitBoundary}>
+                    This is the intersection of choices both of you made for this event. Beacon does not reveal their full declaration or infer intent from browsing or movement.
+                  </Text>
+                </View>
+              ) : null}
 
               <View style={[styles.directionCard, !direction.available && styles.directionCardMuted]}>
                 <View style={styles.directionHeader}>
@@ -280,6 +315,19 @@ const styles = StyleSheet.create({
   role: { color: '#94A3B8', marginTop: 2, fontSize: 14 },
   oneLiner: { color: '#CBD5E1', marginTop: 8, fontSize: 14, lineHeight: 20 },
   distance: { color: '#F59E0B', marginTop: 12, fontSize: 12, letterSpacing: 1 },
+  fitCard: {
+    marginTop: 14,
+    padding: 13,
+    borderRadius: 14,
+    backgroundColor: 'rgba(8, 145, 178, 0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.3)',
+  },
+  fitEyebrow: { color: '#67E8F9', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  fitStrength: { color: '#67E8F9', fontSize: 9, fontWeight: '800' },
+  fitTitle: { marginTop: 7, color: '#ECFEFF', fontSize: 15, lineHeight: 20, fontWeight: '800' },
+  fitLine: { marginTop: 5, color: '#CFFAFE', fontSize: 11, lineHeight: 16 },
+  fitBoundary: { marginTop: 7, color: '#6B8A96', fontSize: 9, lineHeight: 14 },
   directionCard: {
     marginTop: 14,
     padding: 13,
