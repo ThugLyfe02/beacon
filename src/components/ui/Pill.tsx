@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
-import { palette, radii, spacing, typography } from '../../theme';
+import { palette, radii, spacing } from '../../theme';
 import { NeonText } from './NeonText';
 
-type Tone = 'accent' | 'premium' | 'neutral' | 'danger' | 'success';
+type Tone = 'accent' | 'premium' | 'neutral' | 'warning' | 'danger' | 'success';
 
 interface Props {
   label: string;
@@ -41,6 +41,7 @@ const toneStyles = StyleSheet.create({
   accent: { backgroundColor: palette.accentSoft, borderColor: palette.accent },
   premium: { backgroundColor: palette.premiumSoft, borderColor: palette.premium },
   neutral: { backgroundColor: palette.surface, borderColor: palette.hairlineStrong },
+  warning: { backgroundColor: palette.warningSoft, borderColor: palette.warning },
   danger: { backgroundColor: palette.dangerSoft, borderColor: palette.danger },
   success: { backgroundColor: palette.successSoft, borderColor: palette.success },
 });
@@ -49,6 +50,7 @@ const toneDot = StyleSheet.create({
   accent: { backgroundColor: palette.accent },
   premium: { backgroundColor: palette.premium },
   neutral: { backgroundColor: palette.textMuted },
+  warning: { backgroundColor: palette.warning },
   danger: { backgroundColor: palette.danger },
   success: { backgroundColor: palette.success },
 });
