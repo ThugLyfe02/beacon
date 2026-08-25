@@ -10,6 +10,10 @@ import {
   type DeclaredFitMutualSummary,
   type EventIntentMixRow,
 } from '../services/event-intent.service';
+import {
+  buildEventIntentProgramming,
+  type EventIntentProgrammingPosture,
+} from '../spatial/EventIntentProgramming';
 import { GridBackground, Loader, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -27,6 +31,20 @@ function balanceLabel(balance: EventIntentMixRow['balance']): string {
   if (balance === 'need-heavy') return 'MORE NEED THAN SUPPLY';
   if (balance === 'offer-heavy') return 'MORE SUPPLY THAN NEED';
   return 'BALANCED';
+}
+
+function postureTone(posture: EventIntentProgrammingPosture): Tone {
+  if (posture === 'add-structure') return 'warning';
+  if (posture === 'activate-supply') return 'premium';
+  if (posture === 'protect') return 'success';
+  return 'neutral';
+}
+
+function postureLabel(posture: EventIntentProgrammingPosture): string {
+  if (posture === 'add-structure') return 'ADD STRUCTURE';
+  if (posture === 'activate-supply') return 'ACTIVATE SUPPLY';
+  if (posture === 'protect') return 'PROTECT';
+  return 'OBSERVE';
 }
 
 function percent(value: number | null): string {
@@ -80,6 +98,11 @@ export default function EventIntentMixScreen() {
     const contributors = rows.reduce((max, row) => Math.max(max, row.contributor_count), 0);
     return { needHeavy, offerHeavy, contributors };
   }, [rows]);
+
+  const programming = useMemo(
+    () => buildEventIntentProgramming({ mix: rows, mutualDomains }),
+    [mutualDomains, rows],
+  );
 
   if (loading && rows.length === 0 && !mutualSummary) {
     return (
@@ -176,6 +199,35 @@ export default function EventIntentMixScreen() {
           </NeonText>
         )}
       </Surface>
+
+      {programming.length > 0 ? (
+        <View style={styles.section}>
+          <NeonText variant="label" tone="accent">PROGRAMMING QUEUE</NeonText>
+          <NeonText variant="bodyMuted">
+            Deterministic actions from the released need/supply mix and cohort-gated mutual composition. Nothing here identifies a participant or executes automatically.
+          </NeonText>
+          {programming.slice(0, 3).map((action) => (
+            <Surface key={action.id} elevated padded style={styles.programCard}>
+              <View style={styles.headerRow}>
+                <View style={{ flex: 1 }}>
+                  <NeonText variant="label" tone="muted">{EVENT_INTENT_LABELS[action.intentKey].toUpperCase()}</NeonText>
+                  <NeonText variant="h2" style={styles.smallTop}>{action.title}</NeonText>
+                </View>
+                <Pill label={postureLabel(action.posture)} tone={postureTone(action.posture)} />
+              </View>
+              <NeonText variant="bodyMuted" style={styles.smallTop}>{action.rationale}</NeonText>
+              <View style={styles.actionBlock}>
+                <NeonText variant="label" tone="accent">POSSIBLE HOST ACTION</NeonText>
+                <NeonText variant="bodyMuted" style={styles.smallTop}>{action.suggestedAction}</NeonText>
+              </View>
+              <NeonText variant="bodyMuted" style={styles.measurementCopy}>{action.measurement}</NeonText>
+              <NeonText variant="label" tone="muted" style={styles.priorityCopy}>
+                EVIDENCE WEIGHT {Math.round(action.priority * 100)} / 100
+              </NeonText>
+            </Surface>
+          ))}
+        </View>
+      ) : null}
 
       {rows.length === 0 ? (
         <Surface elevated padded style={styles.emptyCard}>
@@ -283,6 +335,10 @@ const styles = StyleSheet.create({
   metricValue: { marginTop: spacing.sm },
   readCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, borderRadius: radii.lg, borderColor: palette.premiumSoft },
   section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl, gap: spacing.sm },
+  programCard: { borderRadius: radii.lg, borderColor: palette.hairlineStrong },
+  actionBlock: { marginTop: spacing.md, padding: spacing.sm, borderRadius: radii.md, backgroundColor: palette.accentSoft },
+  measurementCopy: { marginTop: spacing.sm, fontSize: 11, lineHeight: 16 },
+  priorityCopy: { marginTop: spacing.sm },
   domainCard: { borderRadius: radii.lg },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
   smallTop: { marginTop: 4 },
