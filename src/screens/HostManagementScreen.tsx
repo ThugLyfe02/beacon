@@ -310,6 +310,19 @@ export default function HostManagementScreen({
         </Pressable>
 
         <Pressable
+          onPress={() => navigation.navigate('EventIntentMix', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Declared demand</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              See aggregate participant need and supply from explicit event selections, with small-cohort suppression and no individual intent list.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
           onPress={() => navigation.navigate('VenueSensors', { eventId: event.id })}
           style={styles.hostToolBtn}
         >
