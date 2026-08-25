@@ -310,6 +310,19 @@ export default function HostManagementScreen({
         </Pressable>
 
         <Pressable
+          onPress={() => navigation.navigate('VenueSensors', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Sensor sources</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Provision revocable BLE, Wi-Fi, camera, and edge aggregate inputs against the pinned venue release.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
           onPress={() => navigation.navigate('VenuePortfolio')}
           style={styles.hostToolBtn}
         >
