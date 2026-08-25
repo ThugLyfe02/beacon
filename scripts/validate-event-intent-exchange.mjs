@@ -38,6 +38,8 @@ const files = [
   'src/hooks/usePresenceFeed.ts',
   'src/spatial/SpatialExperienceEngine.ts',
   'src/spatial/SpatialSignalLayer.tsx',
+  'src/spatial/SpatialLandmarkEngine.ts',
+  'src/spatial/SpatialLandmarkHUD.tsx',
   'src/spatial/AvatarActionSheet.tsx',
 ];
 for (const path of files) read(path);
@@ -107,6 +109,10 @@ requireText('src/spatial/SpatialExperienceEngine.ts', "'declared-fit'", 'explici
 requireText('src/spatial/SpatialExperienceEngine.ts', 'never becomes a public popularity', 'spatial ranking must preserve the private pairwise boundary');
 requireText('src/spatial/SpatialSignalLayer.tsx', "focus.reason === 'declared-fit'", 'declared fit should be visually legible in the world rather than trapped in a list');
 requireText('src/spatial/SpatialSignalLayer.tsx', 'not a popularity score', 'declared-fit rendering must preserve private pairwise semantics');
+requireText('src/spatial/SpatialLandmarkEngine.ts', "'declared-fit'", 'explicit fit must be camera-addressable through the same landmark/Field Scout system as other explainable world state');
+requireText('src/spatial/SpatialLandmarkEngine.ts', 'do not reveal a peer\'s full declaration', 'declared-fit landmarks must preserve intersection-only evidence semantics');
+requireText('src/spatial/SpatialLandmarkEngine.ts', 'evidenceLabel', 'categorical verified evidence must not be mislabeled as a probabilistic confidence score');
+requireText('src/spatial/SpatialLandmarkHUD.tsx', 'state.active.evidenceLabel', 'landmark UI must distinguish verified categorical evidence from aggregate confidence');
 requireText('src/spatial/AvatarActionSheet.tsx', 'DECLARED FIT', 'selected-person UI must explain the evidence behind a fit');
 requireText('src/spatial/AvatarActionSheet.tsx', 'does not reveal their full declaration', 'selected-person UI must preserve the peer disclosure boundary');
 
@@ -114,6 +120,7 @@ for (const path of [
   'src/services/event-intent.service.ts',
   'src/spatial/SpatialExperienceEngine.ts',
   'src/spatial/SpatialSignalLayer.tsx',
+  'src/spatial/SpatialLandmarkEngine.ts',
 ]) {
   forbidText(path, 'Math.random(', 'declared-fit semantics must remain deterministic and reviewable');
 }
