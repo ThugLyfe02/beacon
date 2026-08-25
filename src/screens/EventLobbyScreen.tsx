@@ -1,6 +1,11 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useRoute, type RouteProp } from "@react-navigation/native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  useNavigation,
+  useRoute,
+  type NavigationProp,
+  type RouteProp,
+} from "@react-navigation/native";
 import { usePresenceEngine } from "../presence/usePresenceEngine";
 import { useOpportunityIntelligence } from "../presence/useOpportunityIntelligence";
 import { useRegretRecorder } from "../presence/useRegretRecorder";
@@ -22,6 +27,7 @@ interface EventTiming {
 
 export default function EventLobbyScreen() {
   const route = useRoute<RouteProp<EventLobbyParams, "EventLobby">>();
+  const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const { eventId } = route.params;
   const { user } = useAuth();
   const userId = user?.id ?? "";
@@ -57,6 +63,17 @@ export default function EventLobbyScreen() {
 
   const { rawSignals, signalsSent, mutualMatches, lastError, hasLocation } =
     usePresenceFeed(eventId, userId);
+
+  const declaredFitSummary = useMemo(() => {
+    const fits = rawSignals.filter((signal) => (signal.declaredFitStrength ?? 0) > 0);
+    return {
+      total: fits.length,
+      twoWay: fits.filter((signal) => signal.declaredFitTwoWay).length,
+      strongest: fits
+        .slice()
+        .sort((a, b) => (b.declaredFitStrength ?? 0) - (a.declaredFitStrength ?? 0))[0] ?? null,
+    };
+  }, [rawSignals]);
 
   // Existing office-hours services own this state. Keep false until that
   // event-scoped status is surfaced by the feed rather than fabricating it.
@@ -135,6 +152,34 @@ export default function EventLobbyScreen() {
         <OpportunityWindowBanner surge={intelligence.surge} />
       )}
 
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => navigation.navigate("EventIntent", { eventId })}
+        style={styles.intentCard}
+      >
+        <View style={styles.intentHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.intentEyebrow}>YOUR EVENT FOCUS</Text>
+            <Text style={styles.intentTitle}>
+              {declaredFitSummary.total > 0
+                ? `${declaredFitSummary.total} declared fit${declaredFitSummary.total === 1 ? " is" : "s are"} live nearby`
+                : "Tell Beacon what would make this room useful to you"}
+            </Text>
+          </View>
+          <Text style={styles.intentArrow}>→</Text>
+        </View>
+        <Text style={styles.intentDetail}>
+          {declaredFitSummary.total > 0
+            ? `${declaredFitSummary.twoWay} two-way fit${declaredFitSummary.twoWay === 1 ? "" : "s"}. These come only from explicit event-scoped selections shared by both sides.`
+            : "Choose what you are looking for help with and what you are open to helping with. Beacon uses only pairwise intersections—not inferred browsing or movement behavior."}
+        </Text>
+        {declaredFitSummary.strongest ? (
+          <Text style={styles.intentMeta}>
+            STRONGEST LIVE FIT · {Math.round((declaredFitSummary.strongest.declaredFitStrength ?? 0) * 100)}% PAIRWISE EVIDENCE
+          </Text>
+        ) : null}
+      </Pressable>
+
       <VenueServiceStatusCard eventId={eventId} />
 
       <View style={styles.fieldCard}>
@@ -149,8 +194,8 @@ export default function EventLobbyScreen() {
             <Text style={styles.metricLabel}>nearby signals</Text>
           </View>
           <View style={styles.metricCell}>
-            <Text style={styles.metricValue}>{presence.premiumDensity}</Text>
-            <Text style={styles.metricLabel}>premium nearby</Text>
+            <Text style={styles.metricValue}>{declaredFitSummary.total}</Text>
+            <Text style={styles.metricLabel}>declared fits nearby</Text>
           </View>
           <View style={styles.metricCell}>
             <Text style={styles.metricValue}>{presence.timeRemainingMinutes}</Text>
@@ -228,6 +273,20 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     fontSize: 12,
   },
+  intentCard: {
+    marginTop: 16,
+    borderRadius: 22,
+    padding: 17,
+    backgroundColor: "rgba(8, 27, 34, 0.94)",
+    borderWidth: 1,
+    borderColor: "rgba(34, 211, 238, 0.28)",
+  },
+  intentHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  intentEyebrow: { color: "#67E8F9", fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
+  intentTitle: { marginTop: 5, color: "#ECFEFF", fontSize: 17, lineHeight: 22, fontWeight: "800" },
+  intentArrow: { color: "#67E8F9", fontSize: 24, lineHeight: 26 },
+  intentDetail: { marginTop: 8, color: "#A5B4C4", fontSize: 12, lineHeight: 18 },
+  intentMeta: { marginTop: 10, color: "#67E8F9", fontSize: 9, fontWeight: "800", letterSpacing: 0.7 },
   fieldCard: {
     marginTop: 16,
     borderRadius: 22,
