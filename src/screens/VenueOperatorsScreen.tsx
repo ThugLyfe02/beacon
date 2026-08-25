@@ -12,6 +12,8 @@ import { palette, radii, spacing } from '../theme';
 
 type VenueOperatorsParams = { VenueOperators: { eventId: string } };
 type AssignableRole = 'organizer' | 'venue-ops' | 'security';
+type PillTone = 'accent' | 'premium' | 'danger' | 'neutral';
+type TextTone = 'accent' | 'premium' | 'danger' | 'muted';
 
 type Participant = Awaited<ReturnType<typeof getApprovedParticipants>>[number];
 
@@ -30,11 +32,16 @@ const ROLE_COPY: Record<AssignableRole, { title: string; detail: string }> = {
   },
 };
 
-function roleTone(role: VenueOperatorRole | null): 'accent' | 'premium' | 'danger' | 'neutral' {
+function rolePillTone(role: VenueOperatorRole | null): PillTone {
   if (role === 'organizer') return 'accent';
   if (role === 'venue-ops') return 'premium';
   if (role === 'security') return 'danger';
   return 'neutral';
+}
+
+function roleTextTone(role: VenueOperatorRole | null): TextTone {
+  const tone = rolePillTone(role);
+  return tone === 'neutral' ? 'muted' : tone;
 }
 
 export default function VenueOperatorsScreen() {
@@ -152,7 +159,7 @@ export default function VenueOperatorsScreen() {
       <View style={styles.roleGuide}>
         {(Object.keys(ROLE_COPY) as AssignableRole[]).map((role) => (
           <Surface key={role} padded style={styles.roleCard}>
-            <NeonText variant="label" tone={roleTone(role)}>{ROLE_COPY[role].title.toUpperCase()}</NeonText>
+            <NeonText variant="label" tone={roleTextTone(role)}>{ROLE_COPY[role].title.toUpperCase()}</NeonText>
             <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{ROLE_COPY[role].detail}</NeonText>
           </Surface>
         ))}
@@ -196,7 +203,7 @@ export default function VenueOperatorsScreen() {
                 </View>
                 <Pill
                   label={activeRole ? activeRole.toUpperCase() : 'NO ACCESS'}
-                  tone={roleTone(activeRole)}
+                  tone={rolePillTone(activeRole)}
                 />
               </View>
 
