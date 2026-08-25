@@ -36,6 +36,7 @@ import EscortPanelScreen from '../screens/EscortPanelScreen';
 import VenueOperationsScreen from '../screens/VenueOperationsScreen';
 import VenueOperatorsScreen from '../screens/VenueOperatorsScreen';
 import VenuePortfolioScreen from '../screens/VenuePortfolioScreen';
+import VenueSensorsScreen from '../screens/VenueSensorsScreen';
 import ARFieldScreen from '../spatial/ARFieldScreen';
 
 const Stack = createNativeStackNavigator();
@@ -337,6 +338,19 @@ export function RootNavigator() {
           options={{
             headerShown: true,
             title: 'Venue Operators',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="VenueSensors"
+          component={VenueSensorsScreen}
+          options={{
+            headerShown: true,
+            title: 'Sensor Sources',
             headerStyle: { backgroundColor: palette.space },
             headerTitleStyle: { color: palette.text, fontWeight: '700' },
             headerTintColor: palette.accent,
