@@ -61,7 +61,7 @@ requireText('supabase/migrations/042_repeat_event_venue_memory.sql', 'he.ended_a
 requireText('supabase/migrations/042_repeat_event_venue_memory.sql', 'm.learning_context_key = hc.context_key', 'measured outcomes must remain bound to their recorded learning context');
 requireText('supabase/migrations/042_repeat_event_venue_memory.sql', 'No cross-customer benchmark is exposed', 'server contract must state that competitor/cross-customer benchmarking is not released');
 requireText('supabase/migrations/043_host_venue_portfolio.sql', 'where e.host_id = auth.uid()', 'host portfolio must be server-scoped to the authenticated owner');
-requireText('supabase/migrations/043_host_venue_portfolio.sql', 'This is not a', 'portfolio migration must preserve the non-cross-customer boundary');
+requireText('supabase/migrations/043_host_venue_portfolio.sql', 'cross-customer benchmark', 'portfolio migration must preserve the non-cross-customer boundary');
 requireText('supabase/migrations/043_host_venue_portfolio.sql', 'trend_delta', 'portfolio must expose repeat-event directional change rather than only lifetime totals');
 
 for (const path of files.filter((path) => path.endsWith('.ts') || path.endsWith('.tsx'))) {
