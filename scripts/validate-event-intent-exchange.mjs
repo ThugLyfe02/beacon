@@ -24,8 +24,10 @@ function forbidText(path, text, explanation) {
 }
 
 const migration = 'supabase/migrations/048_declared_event_intent_exchange.sql';
+const outcomeMigration = 'supabase/migrations/049_declared_fit_mutual_outcomes.sql';
 const files = [
   migration,
+  outcomeMigration,
   'src/services/event-intent.service.ts',
   'src/screens/EventIntentScreen.tsx',
   'src/screens/EventIntentMixScreen.tsx',
@@ -62,16 +64,30 @@ requireText(migration, 'where c.contributor_count >= 5', 'host demand categories
 requireText(migration, 'never returns participant identities', 'host demand reporting must preserve the aggregate-only boundary');
 requireText(migration, 'does not reveal full peer declarations, popularity, or inferred private intent', 'declared fit must not become a popularity or inferred-intent score');
 
+requireText(outcomeMigration, 'declared_fit_mutual_contexts', 'real mutual outcomes need server-private declared-fit context for aggregate learning');
+requireText(outcomeMigration, 'after insert on public.matches', 'declared-fit outcome context must be captured from the real mutual creation boundary');
+requireText(outcomeMigration, 'revoke all on public.declared_fit_mutual_contexts from authenticated, anon', 'organizers and participants must never read raw mutual-pair context rows');
+requireText(outcomeMigration, "fit_class in ('none','one-way','two-way')", 'mutual outcome context must use bounded explainable fit classes');
+requireText(outcomeMigration, 'if coalesce(v_total, 0) < 5', 'mutual outcome summary must suppress small cohorts');
+requireText(outcomeMigration, 'where g.mutual_match_count >= 5', 'domain-level mutual outcome composition must suppress small cohorts');
+requireText(outcomeMigration, 'not a pairwise exposure conversion rate', 'mutual composition must not be mislabeled as conversion without an exposure denominator');
+requireText(outcomeMigration, 'no participant identities', 'host mutual-domain release must remain aggregate-only');
+
 requireText('src/services/event-intent.service.ts', ".rpc('get_event_declared_fit'", 'pairwise fit must use the server intersection RPC');
 requireText('src/services/event-intent.service.ts', 'liveTargetUserIds', 'client fit requests must start from the already-visible live field');
 requireText('src/services/event-intent.service.ts', 'cannot be used as an event-wide fit directory', 'service documentation must preserve data minimization');
 requireText('src/services/event-intent.service.ts', ".rpc('get_event_intent_mix'", 'host demand mix must use the host-scoped server RPC');
+requireText('src/services/event-intent.service.ts', ".rpc('get_declared_fit_mutual_summary'", 'host outcome composition must use a cohort-gated server RPC');
+requireText('src/services/event-intent.service.ts', ".rpc('get_declared_fit_mutual_domains'", 'host mutual-domain composition must use a cohort-gated server RPC');
+requireText('src/services/event-intent.service.ts', 'does not call itself a conversion rate', 'client semantics must preserve outcome-composition versus conversion distinction');
 requireText('src/services/event-intent.service.ts', 'never fetches another participant', 'service documentation must preserve the intersection-only peer boundary');
 forbidText('src/services/event-intent.service.ts', ".from('participant_event_intents')", 'client services must not read peer declaration rows directly');
+forbidText('src/services/event-intent.service.ts', ".from('declared_fit_mutual_contexts')", 'client services must not read raw mutual-pair outcome context');
 
 requireText('src/screens/EventIntentScreen.tsx', 'It does not infer private intent from clicks, dwell time, profile views, or movement', 'participant editor must explain that declared fit is explicit rather than behavioral inference');
 requireText('src/screens/EventIntentScreen.tsx', 'Only the intersection that is relevant to you', 'participant editor must explain the pairwise disclosure boundary');
 requireText('src/screens/EventIntentMixScreen.tsx', 'at least five approved participants', 'host UI must explain small-cohort suppression');
+requireText('src/screens/EventIntentMixScreen.tsx', 'outcome composition, not a conversion rate', 'host mutual analytics must not overclaim causal or funnel semantics');
 requireText('src/screens/EventIntentMixScreen.tsx', 'not a participant list, popularity score, lead score, or cross-customer benchmark', 'host UI must reject person-ranking and covert benchmark semantics');
 requireText('src/screens/HostManagementScreen.tsx', "navigation.navigate('EventIntentMix'", 'declared aggregate demand must be reachable from the active host workspace');
 requireText('src/navigation/RootNavigator.tsx', 'EventIntentScreen', 'participant event-focus editor must be root-routable');
