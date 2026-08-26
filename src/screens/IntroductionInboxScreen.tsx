@@ -29,6 +29,7 @@ import { palette, radii, spacing } from '../theme';
 
 type Params = { IntroductionInbox: { eventId: string } };
 type PillTone = 'success' | 'warning' | 'premium' | 'neutral' | 'danger' | 'accent';
+type LoadMode = 'initial' | 'refresh' | 'quiet';
 
 function statusTone(status: WarmIntroductionStatus): PillTone {
   if (status === 'accepted') return 'premium';
@@ -88,7 +89,7 @@ function cardCopy(item: WarmIntroductionInboxItem): {
       return {
         eyebrow: 'MUTUAL CREATED',
         title: `${requester} and ${target} became a verified mutual.`,
-        body: `Beacon records the introduction outcome without turning you into a public connector score or leaderboard.`,
+        body: 'Beacon records the introduction outcome without turning you into a public connector score or leaderboard.',
       };
     }
   }
@@ -173,9 +174,10 @@ export default function IntroductionInboxScreen() {
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+  const load = useCallback(async (mode: LoadMode = 'initial') => {
+    if (mode === 'initial') setLoading(true);
     if (mode === 'refresh') setRefreshing(true);
-    else setLoading(true);
+
     const result = await listMyWarmIntroductions(eventId);
     if (result.error) {
       setError(result.error.message);
@@ -183,13 +185,16 @@ export default function IntroductionInboxScreen() {
       setError(null);
       setItems(result.data);
     }
-    setLoading(false);
-    setRefreshing(false);
+
+    if (mode === 'initial') setLoading(false);
+    if (mode === 'refresh') setRefreshing(false);
   }, [eventId]);
 
   useFocusEffect(useCallback(() => {
     load('initial');
-    const timer = setInterval(() => load('refresh'), 30_000);
+    // Quiet reconciliation keeps role/state transitions current without showing
+    // a pull-to-refresh spinner every thirty seconds.
+    const timer = setInterval(() => load('quiet'), 30_000);
     return () => clearInterval(timer);
   }, [load]));
 
@@ -223,7 +228,7 @@ export default function IntroductionInboxScreen() {
             : 'The introduction is open. No connection was created automatically.',
         );
       }
-      await load('refresh');
+      await load('quiet');
     }
     setWorkingId(null);
   }, [load]);
@@ -234,7 +239,7 @@ export default function IntroductionInboxScreen() {
     if (result.error || !result.changed) {
       Alert.alert('Could not cancel', result.error?.message ?? 'The request may have already changed state.');
     } else {
-      await load('refresh');
+      await load('quiet');
     }
     setWorkingId(null);
   }, [load]);
@@ -251,7 +256,7 @@ export default function IntroductionInboxScreen() {
     } else {
       Alert.alert('Connection signal sent', 'The other participant still controls whether this becomes a mutual.');
     }
-    await load('refresh');
+    await load('quiet');
     setWorkingId(null);
   }, [load, userId]);
 

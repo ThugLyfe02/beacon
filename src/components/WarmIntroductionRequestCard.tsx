@@ -40,10 +40,17 @@ export default function WarmIntroductionRequestCard({
   domains,
 }: Readonly<Props>) {
   const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
-  const localDomains = useMemo(
-    () => [...new Set(domains.filter(allowedDomain))].sort(),
-    [domains],
+
+  // AvatarActionSheet derives this array from live signal metadata and may create
+  // a new array instance during an otherwise equivalent render. Use a canonical
+  // primitive key so that equivalent evidence does not restart the availability
+  // request and create a polling storm while the sheet is open.
+  const domainKey = [...new Set(domains.filter(allowedDomain))].sort().join('|');
+  const localDomains = useMemo<EventIntentKey[]>(
+    () => domainKey.length > 0 ? domainKey.split('|').filter(allowedDomain) : [],
+    [domainKey],
   );
+
   const [availability, setAvailability] = useState<WarmIntroductionAvailability | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<EventIntentKey | null>(localDomains[0] ?? null);
   const [loading, setLoading] = useState(true);

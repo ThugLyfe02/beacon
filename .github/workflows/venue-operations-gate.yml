@@ -44,3 +44,4 @@ jobs:
           node scripts/validate-event-focus-windows.mjs
           node scripts/validate-participant-event-playbook.mjs
           node scripts/validate-warm-introductions.mjs
+          node scripts/validate-warm-introduction-production.mjs
