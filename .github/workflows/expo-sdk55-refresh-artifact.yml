@@ -1,0 +1,68 @@
+name: Expo SDK 55 lockfile remediation
+
+on:
+  push:
+    branches:
+      - feature/spatial-event-digital-twin
+
+permissions:
+  contents: read
+
+concurrency:
+  group: expo-sdk55-lock-refresh-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  refresh-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      EXPO_PUBLIC_SENTRY_ENV: ci
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Align packages with Expo SDK 55
+        run: npx expo install --fix --npm
+
+      - name: Capture validation output
+        shell: bash
+        run: |
+          set +e
+          npx expo-doctor > expo-doctor.txt 2>&1
+          echo $? > expo-doctor.exit
+          npx tsc --noEmit --pretty false > tsc.txt 2>&1
+          echo $? > tsc.exit
+          npm audit --omit=dev --json > npm-audit.json 2>&1
+          echo $? > npm-audit.exit
+          set -e
+
+      - name: Upload remediated dependency state
+        uses: actions/upload-artifact@v4
+        with:
+          name: expo-sdk55-remediation
+          path: |
+            package.json
+            package-lock.json
+            expo-doctor.txt
+            expo-doctor.exit
+            tsc.txt
+            tsc.exit
+            npm-audit.json
+            npm-audit.exit
+          if-no-files-found: error
+          retention-days: 2
