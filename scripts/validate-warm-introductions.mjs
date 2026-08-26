@@ -97,7 +97,7 @@ requireText(disclosureMigration, 'releases no connector identity', 'availability
 // Pairwise declared-fit reason and no free-form solicitation.
 requireText(protocolMigration, 'event_introduction_domains', 'request reasons must come from the existing explicit pairwise fit');
 requireText(protocolMigration, 'v_intent_key = any(v_domains)', 'the chosen introduction domain must be server-verified against the current intersection');
-requireText(protocolMigration, 'no connector list, graph-degree score, free-text pitch', 'the server contract must explicitly reject graph exposure and unsolicited free text');
+requireText(protocolMigration, 'No connector list, graph-degree score, free-text pitch', 'the server contract must explicitly reject graph exposure and unsolicited free text');
 forbidText(protocolMigration, 'pitch text', 'the protocol must not add an unbounded pitch field');
 forbidText(protocolMigration, 'message_body', 'the protocol must not become an unsolicited message channel');
 

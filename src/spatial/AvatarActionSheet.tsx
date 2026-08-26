@@ -11,6 +11,7 @@ import {
 import { useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { blockUser, reportUser } from '../services/abuse.service';
+import WarmIntroductionRequestCard from '../components/WarmIntroductionRequestCard';
 import { useAuth } from '../hooks/useAuth';
 import { useHeading } from '../hooks/useHeading';
 import { buildSpatialDirectionGuide } from './SpatialDirectionGuide';
@@ -100,6 +101,7 @@ export default function AvatarActionSheet({
   const theyCanHelp = target.declaredFitTheyCanHelp ?? [];
   const iCanHelp = target.declaredFitICanHelp ?? [];
   const hasDeclaredFit = declaredFitStrength > 0 && (theyCanHelp.length > 0 || iCanHelp.length > 0);
+  const introductionDomains = [...new Set([...theyCanHelp, ...iCanHelp])].sort();
 
   const handleOpenCamera = () => {
     onClose();
@@ -212,6 +214,14 @@ export default function AvatarActionSheet({
                     This is the intersection of choices both of you made for this event. Beacon does not reveal their full declaration or infer intent from browsing or movement.
                   </Text>
                 </View>
+              ) : null}
+
+              {hasDeclaredFit ? (
+                <WarmIntroductionRequestCard
+                  eventId={target.eventId}
+                  targetId={target.targetId}
+                  domains={introductionDomains}
+                />
               ) : null}
 
               <View style={[styles.directionCard, !direction.available && styles.directionCardMuted]}>

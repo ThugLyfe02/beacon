@@ -15,6 +15,7 @@ import {
   type EventIntentProgrammingPosture,
 } from '../spatial/EventIntentProgramming';
 import HostFocusWindowPanel from '../components/HostFocusWindowPanel';
+import IntroductionEvidenceCard from '../components/IntroductionEvidenceCard';
 import { GridBackground, Loader, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -200,6 +201,8 @@ export default function EventIntentMixScreen() {
           </NeonText>
         )}
       </Surface>
+
+      <IntroductionEvidenceCard eventId={eventId} />
 
       {programming.length > 0 ? (
         <View style={styles.section}>

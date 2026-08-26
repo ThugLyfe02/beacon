@@ -14,6 +14,7 @@ import TensionBar from "../components/TensionBar";
 import OpportunityWindowBanner from "../components/OpportunityWindowBanner";
 import VenueServiceStatusCard from "../components/VenueServiceStatusCard";
 import EventFocusWindowCard from "../components/EventFocusWindowCard";
+import IntroductionInboxPreview from "../components/IntroductionInboxPreview";
 import { FEATURE_FLAGS } from "../config/featureFlags";
 import { useAuth } from "../hooks/useAuth";
 import { usePresenceFeed } from "../hooks/usePresenceFeed";
@@ -182,6 +183,7 @@ export default function EventLobbyScreen() {
       </Pressable>
 
       <EventFocusWindowCard eventId={eventId} />
+      <IntroductionInboxPreview eventId={eventId} />
       <VenueServiceStatusCard eventId={eventId} />
 
       <View style={styles.fieldCard}>

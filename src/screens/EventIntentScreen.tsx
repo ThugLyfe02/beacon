@@ -16,6 +16,7 @@ import {
 } from '../services/event-intent.service';
 import type { ParticipantPlaybookMode } from '../intents/ParticipantEventPlaybook';
 import ParticipantEventPlaybookCard from '../components/ParticipantEventPlaybookCard';
+import WarmIntroductionPreferenceCard from '../components/WarmIntroductionPreferenceCard';
 import { GridBackground, Loader, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -170,6 +171,8 @@ export default function EventIntentScreen() {
         offering={offering}
         onApply={applyPlaybookSuggestion}
       />
+
+      <WarmIntroductionPreferenceCard eventId={eventId} />
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
