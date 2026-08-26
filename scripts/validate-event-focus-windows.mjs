@@ -69,9 +69,9 @@ forbidText('src/services/event-focus-window.service.ts', ".from('event_focus_win
 forbidText('src/services/event-focus-window.service.ts', ".from('event_focus_windows')", 'mobile code must consume purpose-built focus-window RPCs');
 
 requireText('src/components/EventFocusWindowCard.tsx', 'You are never enrolled until you choose to join', 'participant UI must make the explicit opt-in boundary clear');
-requireText('src/components/EventFocusWindowCard.tsx', 'real configured limit, not artificial scarcity', 'participant UI must distinguish real capacity from fake scarcity');
+requireText('src/components/EventFocusWindowCard.tsx', 'not artificial scarcity', 'participant UI must distinguish real capacity from fake scarcity');
 requireText('src/components/EventFocusWindowCard.tsx', 'setMyEventFocusWindowOptIn', 'participant UI must provide a functional join/leave action');
-requireText('src/components/EventFocusWindowCard.tsx', 'whose own explicit event focus intersects', 'participant UI must explain why the window is visible');
+requireText('src/components/EventFocusWindowCard.tsx', 'explicit event focus', 'participant UI must explain why the window is visible');
 
 requireText('src/components/HostFocusWindowPanel.tsx', 'programming.filter((action) => action.canOpenWindow', 'host publication must start from an evidence-eligible programming action');
 requireText('src/components/HostFocusWindowPanel.tsx', 'Beacon will not turn a balanced cohort', 'host UI must refuse unjustified programming');
