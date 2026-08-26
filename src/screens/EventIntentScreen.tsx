@@ -14,6 +14,8 @@ import {
   setMyEventIntent,
   type EventIntentKey,
 } from '../services/event-intent.service';
+import type { ParticipantPlaybookMode } from '../intents/ParticipantEventPlaybook';
+import ParticipantEventPlaybookCard from '../components/ParticipantEventPlaybookCard';
 import { GridBackground, Loader, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -82,6 +84,23 @@ export default function EventIntentScreen() {
     [offering, seeking],
   );
 
+  const applyPlaybookSuggestion = useCallback((
+    key: EventIntentKey,
+    mode: ParticipantPlaybookMode,
+  ) => {
+    const needsSeeking = mode !== 'offering' && !seeking.includes(key);
+    const needsOffering = mode !== 'seeking' && !offering.includes(key);
+
+    // The playbook is only a draft aid. It never evicts a current choice to make
+    // room for historical evidence, and it never saves on the participant's behalf.
+    if ((needsSeeking && seeking.length >= 6) || (needsOffering && offering.length >= 6)) {
+      return;
+    }
+
+    if (needsSeeking) setSeeking((current) => [...current, key].sort());
+    if (needsOffering) setOffering((current) => [...current, key].sort());
+  }, [offering, seeking]);
+
   const save = useCallback(async () => {
     setSaving(true);
     try {
@@ -144,6 +163,13 @@ export default function EventIntentScreen() {
           />
         </View>
       </Surface>
+
+      <ParticipantEventPlaybookCard
+        eventId={eventId}
+        seeking={seeking}
+        offering={offering}
+        onApply={applyPlaybookSuggestion}
+      />
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
