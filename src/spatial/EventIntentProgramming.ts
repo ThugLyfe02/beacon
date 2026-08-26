@@ -3,6 +3,7 @@ import type {
   EventIntentKey,
   EventIntentMixRow,
 } from '../services/event-intent.service';
+import type { EventFocusWindowFormat } from '../services/event-focus-window.service';
 
 export type EventIntentProgrammingPosture =
   | 'add-structure'
@@ -20,10 +21,23 @@ export interface EventIntentProgrammingAction {
   suggestedAction: string;
   measurement: string;
   evidence: string[];
+  canOpenWindow: boolean;
+  recommendedWindowFormat: EventFocusWindowFormat | null;
+  windowReason: string;
 }
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
+}
+
+function recommendedStructureFormat(input: {
+  offeringCount: number;
+  mutualMatchCount: number;
+  twoWayShare: number;
+}): EventFocusWindowFormat {
+  if (input.mutualMatchCount >= 5 && input.twoWayShare >= 0.45) return 'roundtable';
+  if (input.offeringCount >= 4) return 'office-hours';
+  return 'open-circle';
 }
 
 /**
@@ -35,6 +49,11 @@ function clamp01(value: number): number {
  * Mutual-domain evidence is composition of actual mutual outcomes, not a causal
  * conversion rate. The adjustment remains a human programming decision and its
  * effect should be measured separately if the host acts on it.
+ *
+ * `canOpenWindow` is deliberately stricter than having a recommendation. Beacon
+ * will not turn an unsupported need into artificial programming. A focus window
+ * is enabled only when the released aggregate shows real supply or real excess
+ * supply that an organizer can make legible through an opt-in physical session.
  */
 export function buildEventIntentProgramming(input: {
   mix: EventIntentMixRow[];
@@ -49,6 +68,7 @@ export function buildEventIntentProgramming(input: {
     const support = clamp01(row.contributor_count / 24);
     const mutual = mutualByDomain.get(row.intent_key) ?? null;
     const mutualSupport = mutual ? clamp01(mutual.mutual_match_count / 12) : 0;
+    const mutualMatchCount = mutual?.mutual_match_count ?? 0;
     const twoWayShare = mutual?.two_way_share ?? 0;
     const evidence = [
       `${row.seeking_count} participants explicitly looking for help`,
@@ -62,6 +82,13 @@ export function buildEventIntentProgramming(input: {
 
     if (row.balance === 'need-heavy') {
       const noMeaningfulSupply = row.offering_count <= 1;
+      const format = noMeaningfulSupply
+        ? null
+        : recommendedStructureFormat({
+            offeringCount: row.offering_count,
+            mutualMatchCount,
+            twoWayShare,
+          });
       return {
         id: `program-${row.intent_key}-structure`,
         intentKey: row.intent_key,
@@ -78,6 +105,11 @@ export function buildEventIntentProgramming(input: {
           : 'Create a bounded opt-in office-hours block, small roundtable, or facilitated introduction window around this domain so existing supply can serve more of the declared need.',
         measurement: 'After the programming change, compare the next cohort-gated declared-demand balance and supported mutual-domain composition. Do not treat a before/after change as causal proof without a controlled design.',
         evidence,
+        canOpenWindow: !noMeaningfulSupply,
+        recommendedWindowFormat: format,
+        windowReason: noMeaningfulSupply
+          ? 'Beacon will not publish a window when the released cohort contains almost no declared supply.'
+          : 'The released cohort contains both declared need and enough declared supply to justify an opt-in physical session.',
       };
     }
 
@@ -92,6 +124,9 @@ export function buildEventIntentProgramming(input: {
         suggestedAction: 'Use a clearly opt-in mentor table, office-hours slot, or program callout to make this supply legible without exposing who selected the capability or pressuring participants into interactions.',
         measurement: 'Watch whether the aggregate need/supply balance moves toward parity and whether supported mutual outcomes begin carrying this domain more often.',
         evidence,
+        canOpenWindow: true,
+        recommendedWindowFormat: 'mentor-desk',
+        windowReason: 'The released aggregate contains usable declared supply that can be made visible through a bounded opt-in session.',
       };
     }
 
@@ -106,6 +141,9 @@ export function buildEventIntentProgramming(input: {
         suggestedAction: 'Protect the current programming and facilitation pattern. Avoid adding another intervention solely because Beacon has data available.',
         measurement: 'Continue observing cohort-gated demand balance and mutual composition. Intervene only if the operating state materially changes.',
         evidence,
+        canOpenWindow: false,
+        recommendedWindowFormat: null,
+        windowReason: 'Current released evidence supports protecting the existing pattern rather than adding another session.',
       };
     }
 
@@ -119,6 +157,9 @@ export function buildEventIntentProgramming(input: {
       suggestedAction: 'Keep this domain observable and spend organizer attention on a larger released imbalance first.',
       measurement: 'Re-evaluate only after the declared cohort or supported mutual-outcome composition changes materially.',
       evidence,
+      canOpenWindow: false,
+      recommendedWindowFormat: null,
+      windowReason: 'The current released aggregate does not justify adding another session.',
     };
   });
 

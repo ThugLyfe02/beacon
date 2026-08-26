@@ -14,6 +14,7 @@ import {
   buildEventIntentProgramming,
   type EventIntentProgrammingPosture,
 } from '../spatial/EventIntentProgramming';
+import HostFocusWindowPanel from '../components/HostFocusWindowPanel';
 import { GridBackground, Loader, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -229,6 +230,10 @@ export default function EventIntentMixScreen() {
         </View>
       ) : null}
 
+      <View style={styles.focusWindowSection}>
+        <HostFocusWindowPanel eventId={eventId} programming={programming} />
+      </View>
+
       {rows.length === 0 ? (
         <Surface elevated padded style={styles.emptyCard}>
           <NeonText variant="h2">No category has enough support to release yet.</NeonText>
@@ -335,6 +340,7 @@ const styles = StyleSheet.create({
   metricValue: { marginTop: spacing.sm },
   readCard: { marginHorizontal: spacing.xl, marginTop: spacing.md, borderRadius: radii.lg, borderColor: palette.premiumSoft },
   section: { paddingHorizontal: spacing.xl, marginTop: spacing.xl, gap: spacing.sm },
+  focusWindowSection: { paddingHorizontal: spacing.xl },
   programCard: { borderRadius: radii.lg, borderColor: palette.hairlineStrong },
   actionBlock: { marginTop: spacing.md, padding: spacing.sm, borderRadius: radii.md, backgroundColor: palette.accentSoft },
   measurementCopy: { marginTop: spacing.sm, fontSize: 11, lineHeight: 16 },
