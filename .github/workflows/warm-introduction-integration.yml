@@ -126,13 +126,6 @@ jobs:
           );
 
           replaceOnce(
-            '.github/workflows/venue-operations-gate.yml',
-            '          node scripts/validate-participant-event-playbook.mjs\n',
-            '          node scripts/validate-participant-event-playbook.mjs\n          node scripts/validate-warm-introductions.mjs\n',
-            'venue gate warm-introduction validator',
-          );
-
-          replaceOnce(
             'scripts/validate-warm-introductions.mjs',
             "requireText(protocolMigration, 'no connector list, graph-degree score, free-text pitch', 'the server contract must explicitly reject graph exposure and unsolicited free text');",
             "requireText(protocolMigration, 'No connector list, graph-degree score, free-text pitch', 'the server contract must explicitly reject graph exposure and unsolicited free text');",
@@ -167,7 +160,6 @@ jobs:
             src/screens/EventLobbyScreen.tsx \
             src/screens/EventIntentMixScreen.tsx \
             src/navigation/RootNavigator.tsx \
-            .github/workflows/venue-operations-gate.yml \
             scripts/validate-warm-introductions.mjs
           git commit -m 'feat(events): integrate consent-gated warm introductions'
           git push origin HEAD:${GITHUB_REF_NAME}
