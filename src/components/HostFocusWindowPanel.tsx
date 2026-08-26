@@ -35,11 +35,13 @@ const REFRESH_INTERVAL_MS = 30_000;
 
 type Tone = 'success' | 'warning' | 'premium' | 'neutral' | 'danger';
 
-function formatTone(format: EventFocusWindowFormat): Tone {
+function formatTone(
+  format: EventFocusWindowFormat,
+): 'accent' | 'premium' | 'warning' | 'muted' {
   if (format === 'mentor-desk') return 'premium';
   if (format === 'office-hours') return 'warning';
-  if (format === 'roundtable') return 'accent' as Tone;
-  return 'neutral';
+  if (format === 'roundtable') return 'accent';
+  return 'muted';
 }
 
 function phaseTone(phase: HostEventFocusWindow['phase']): Tone {
