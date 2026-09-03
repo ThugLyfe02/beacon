@@ -19,6 +19,7 @@ import {
   listPreparedHandshakeCapabilities,
   markLocalCapabilityPresented,
   removePendingHandshake,
+  removePreparedHandshakeCapability,
   savePendingHandshake,
   savePreparedHandshakeCapabilities,
   updatePendingHandshake,
@@ -320,6 +321,21 @@ async function submitPending(record: OfflineHandshakePendingRecord): Promise<{
   return { result: normalizeReconciliation(response.data), error: response.error };
 }
 
+async function destroyResolvedLocalMaterial(
+  eventId: string,
+  userId: string,
+  record: OfflineHandshakePendingRecord,
+): Promise<void> {
+  // The initiator's prepared capability contains the plaintext offer token and
+  // manual fallback code. Once the server reports a verified or terminal state,
+  // that material has no legitimate future use and must be scrubbed immediately
+  // rather than waiting for ordinary reconcile-window expiry cleanup.
+  if (record.role === 'initiator' && record.capabilityId) {
+    await removePreparedHandshakeCapability(eventId, userId, record.capabilityId);
+  }
+  await removePendingHandshake(eventId, userId, record.localId);
+}
+
 export async function reconcilePendingHandshakes(input: {
   eventId: string;
   userId: string;
@@ -369,8 +385,7 @@ export async function reconcilePendingHandshakes(input: {
 
     if (response.result.handshakeState === 'server-verified') {
       verified.push(response.result);
-      // Destroy the local one-time material after durable server verification.
-      await removePendingHandshake(input.eventId, input.userId, record.localId);
+      await destroyResolvedLocalMaterial(input.eventId, input.userId, record);
       continue;
     }
 
@@ -383,7 +398,7 @@ export async function reconcilePendingHandshakes(input: {
       'cancelled',
     ].includes(response.result.handshakeState)) {
       terminal.push(response.result);
-      await removePendingHandshake(input.eventId, input.userId, record.localId);
+      await destroyResolvedLocalMaterial(input.eventId, input.userId, record);
       continue;
     }
 
