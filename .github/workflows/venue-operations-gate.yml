@@ -46,3 +46,4 @@ jobs:
           node scripts/validate-warm-introductions.mjs
           node scripts/validate-warm-introduction-production.mjs
           node scripts/validate-community-exchange.mjs
+          node scripts/validate-community-partner-programs.mjs
