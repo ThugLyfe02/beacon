@@ -216,6 +216,19 @@ export async function getBestLocalCapability(
     ?? null;
 }
 
+export async function removePreparedHandshakeCapability(
+  eventId: string,
+  ownerUserId: string,
+  capabilityId: string,
+): Promise<void> {
+  await withEventWriteLock(eventId, async () => {
+    const index = await ensureOwnedIndex(eventId, ownerUserId);
+    await deleteItem(capabilityKey(eventId, capabilityId));
+    index.capabilityIds = index.capabilityIds.filter((id) => id !== capabilityId);
+    await writeIndex(eventId, index);
+  });
+}
+
 export async function savePendingHandshake(record: OfflineHandshakePendingRecord): Promise<void> {
   await withEventWriteLock(record.eventId, async () => {
     const index = await ensureOwnedIndex(record.eventId, record.ownerUserId);
