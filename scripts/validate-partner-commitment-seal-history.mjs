@@ -29,7 +29,7 @@ requireText(migration, 'acceptance_decision_fingerprint', 'accepted contract mus
 requireText(migration, "'partner-commitment-contract-v2'", 'historical seal correction must be explicitly versioned');
 requireText(migration, 'p_cutoff timestamptz default null', 'historical backfill must derive accepted decisions as of the acceptance event rather than current state');
 requireText(migration, "where e.revision_id = r.id and e.status = 'accepted'", 'integrity coverage must be based on historical accepted lifecycle rather than latest decision state');
-requireText(migration, 'later withdrawal/rejection decisions do not alter the historical contract seal', 'trust semantics must explicitly preserve historical acceptance');
+requireText(migration, 'Later withdrawal/rejection decisions do not alter the historical contract seal', 'trust semantics must explicitly preserve historical acceptance');
 requireText(migration, 'integrity_version = 2', 'all upgraded seals must use the corrected canonical contract');
 requireText(migration, 'v_last_commitment is distinct from v_row.commitment_id', 'seal chaining must reset at each independent obligation');
 requireText(migration, 'v_previous_hash := null', 'each commitment must have an independent genesis seal');
