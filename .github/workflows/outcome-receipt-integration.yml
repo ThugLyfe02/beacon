@@ -1,0 +1,110 @@
+name: Participant outcome receipt integration
+
+on:
+  push:
+    branches:
+      - feature/spatial-event-digital-twin
+
+permissions:
+  contents: write
+
+concurrency:
+  group: outcome-receipt-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Integrate host and community receipt evidence
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function replaceExact(path, before, after) {
+            const source = fs.readFileSync(path, 'utf8');
+            if (!source.includes(before)) {
+              throw new Error(`${path}: expected integration seam not found`);
+            }
+            fs.writeFileSync(path, source.replace(before, after));
+          }
+
+          replaceExact(
+            'src/screens/HostManagementScreen.tsx',
+            "import HandshakeHealthCard from '../components/HandshakeHealthCard';",
+            "import HandshakeHealthCard from '../components/HandshakeHealthCard';\nimport OutcomeReceiptEvidenceCard from '../components/OutcomeReceiptEvidenceCard';",
+          );
+
+          replaceExact(
+            'src/screens/HostManagementScreen.tsx',
+            `      <View style={styles.section}>
+                <HandshakeHealthCard eventId={event.id} />
+              </View>
+
+              <View style={styles.section}>
+                <NeonText variant="label" tone="accent">HOST TOOLS</NeonText>`.replace(/^              /gm, ''),
+            `      <View style={styles.section}>
+                <HandshakeHealthCard eventId={event.id} />
+              </View>
+
+              <View style={styles.section}>
+                <OutcomeReceiptEvidenceCard eventId={event.id} />
+              </View>
+
+              <View style={styles.section}>
+                <NeonText variant="label" tone="accent">HOST TOOLS</NeonText>`.replace(/^              /gm, ''),
+          );
+
+          replaceExact(
+            'src/screens/CommunityExchangeScreen.tsx',
+            "import CommunitySupplyDemandPanel from '../components/CommunitySupplyDemandPanel';",
+            "import CommunitySupplyDemandPanel from '../components/CommunitySupplyDemandPanel';\nimport CommunityOutcomeReceiptEvidence from '../components/CommunityOutcomeReceiptEvidence';",
+          );
+
+          replaceExact(
+            'src/screens/CommunityExchangeScreen.tsx',
+            `              ) : null}
+                        </Surface>
+                      );
+                    })}`.replace(/^            /gm, ''),
+            `              ) : null}
+                  {exchange.state === 'active' ? (
+                    <CommunityOutcomeReceiptEvidence exchangeId={exchange.exchange_id} />
+                  ) : null}
+                </Surface>
+              );
+            })}`.replace(/^            /gm, ''),
+          );
+          NODE
+
+      - name: Validate receipt implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit --pretty false
+          node scripts/validate-participant-outcome-receipts.mjs
+          node scripts/validate-offline-event-handshake.mjs
+          node scripts/validate-community-exchange.mjs
+          node scripts/validate-product-preservation.mjs
+
+      - name: Commit validated integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/screens/HostManagementScreen.tsx src/screens/CommunityExchangeScreen.tsx
+          git commit -m 'feat(outcomes): integrate receipt evidence into host and community flows'
+          git push origin HEAD:${GITHUB_REF_NAME}
