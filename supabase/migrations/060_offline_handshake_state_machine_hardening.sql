@@ -58,12 +58,15 @@ begin
     raise exception 'offline handshake terminal state % cannot transition to %', old.state, new.state;
   end if;
 
+  -- Verification may only be reached after one of the two explicit role
+  -- confirmations has already moved the capability into a reconciliation state.
+  -- A prepared or merely presented capability can never jump straight to
+  -- server-verified, even from future privileged server code.
   v_allowed := case old.state
     when 'prepared' then new.state in (
       'presented',
       'pending-reconciliation',
       'counterparty-confirmed',
-      'server-verified',
       'expired',
       'replay-rejected',
       'authorization-invalidated',
@@ -74,7 +77,6 @@ begin
     when 'presented' then new.state in (
       'pending-reconciliation',
       'counterparty-confirmed',
-      'server-verified',
       'expired',
       'replay-rejected',
       'authorization-invalidated',
