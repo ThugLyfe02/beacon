@@ -1,0 +1,125 @@
+name: Community exchange integration
+
+on:
+  push:
+    branches:
+      - feature/spatial-event-digital-twin
+
+permissions:
+  contents: write
+
+concurrency:
+  group: community-exchange-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Integrate community exchange into participant and host flows
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function replaceOnce(path, before, after, label) {
+            const source = fs.readFileSync(path, 'utf8');
+            const occurrences = source.split(before).length - 1;
+            if (occurrences !== 1) throw new Error(`${label}: expected one anchor in ${path}, found ${occurrences}`);
+            fs.writeFileSync(path, source.replace(before, after));
+          }
+
+          replaceOnce(
+            'src/screens/EventLobbyScreen.tsx',
+            'import EventFocusWindowCard from "../components/EventFocusWindowCard";\n',
+            'import EventFocusWindowCard from "../components/EventFocusWindowCard";\nimport CommunityExchangePreview from "../components/CommunityExchangePreview";\n',
+            'lobby community preview import',
+          );
+          replaceOnce(
+            'src/screens/EventLobbyScreen.tsx',
+            '      <EventFocusWindowCard eventId={eventId} />\n      <IntroductionInboxPreview eventId={eventId} />',
+            '      <EventFocusWindowCard eventId={eventId} />\n      <CommunityExchangePreview eventId={eventId} />\n      <IntroductionInboxPreview eventId={eventId} />',
+            'lobby community preview render',
+          );
+
+          replaceOnce(
+            'src/screens/HostManagementScreen.tsx',
+            "        <Pressable\n          onPress={() => navigation.navigate('VenueSensors', { eventId: event.id })}",
+            "        <Pressable\n          onPress={() => navigation.navigate('CommunityExchange', { eventId: event.id })}\n          style={styles.hostToolBtn}\n        >\n          <View style={{ flex: 1 }}>\n            <NeonText variant=\"h2\">Community exchange</NeonText>\n            <NeonText variant=\"bodyMuted\" style={{ marginTop: 3 }}>\n              Invite partner communities, activate bilateral exchanges, and measure cross-community outcomes without exposing member rosters.\n            </NeonText>\n          </View>\n          <NeonText variant=\"h2\" tone=\"accent\">→</NeonText>\n        </Pressable>\n\n        <Pressable\n          onPress={() => navigation.navigate('VenueSensors', { eventId: event.id })}",
+            'host community tool',
+          );
+
+          replaceOnce(
+            'src/navigation/RootNavigator.tsx',
+            "import EventIntentMixScreen from '../screens/EventIntentMixScreen';\n",
+            "import EventIntentMixScreen from '../screens/EventIntentMixScreen';\nimport CommunityExchangeScreen from '../screens/CommunityExchangeScreen';\n",
+            'navigator community import',
+          );
+          replaceOnce(
+            'src/navigation/RootNavigator.tsx',
+            "        <Stack.Screen\n          name=\"IntroductionInbox\"",
+            "        <Stack.Screen\n          name=\"CommunityExchange\"\n          component={CommunityExchangeScreen}\n          options={{\n            headerShown: true,\n            title: 'Community Exchange',\n            headerStyle: { backgroundColor: palette.space },\n            headerTitleStyle: { color: palette.text, fontWeight: '700' },\n            headerTintColor: palette.premium,\n            animation: 'slide_from_right',\n          }}\n        />\n\n        <Stack.Screen\n          name=\"IntroductionInbox\"",
+            'navigator community route',
+          );
+
+          replaceOnce(
+            'src/spatial/AvatarActionSheet.tsx',
+            "import WarmIntroductionRequestCard from '../components/WarmIntroductionRequestCard';\n",
+            "import WarmIntroductionRequestCard from '../components/WarmIntroductionRequestCard';\nimport CommunityBridgeContextCard from '../components/CommunityBridgeContextCard';\n",
+            'avatar community bridge import',
+          );
+          replaceOnce(
+            'src/spatial/AvatarActionSheet.tsx',
+            "              {hasDeclaredFit ? (\n                <WarmIntroductionRequestCard",
+            "              {hasDeclaredFit ? (\n                <CommunityBridgeContextCard\n                  eventId={target.eventId}\n                  targetId={target.targetId}\n                  active={visible}\n                />\n              ) : null}\n\n              {hasDeclaredFit ? (\n                <WarmIntroductionRequestCard",
+            'avatar community bridge card',
+          );
+          NODE
+
+      - name: Validate strict types and product architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit --pretty false
+          node scripts/validate-venue-operations.mjs
+          node scripts/validate-venue-memory.mjs
+          node scripts/validate-venue-sensor-ingress.mjs
+          node scripts/validate-spatial-direction.mjs
+          node scripts/validate-participant-venue-guide.mjs
+          node scripts/validate-event-intent-exchange.mjs
+          node scripts/validate-event-focus-windows.mjs
+          node scripts/validate-participant-event-playbook.mjs
+          node scripts/validate-warm-introductions.mjs
+          node scripts/validate-warm-introduction-production.mjs
+          node scripts/validate-community-exchange.mjs
+
+      - name: Commit validated integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/screens/EventLobbyScreen.tsx \
+            src/screens/HostManagementScreen.tsx \
+            src/navigation/RootNavigator.tsx \
+            src/spatial/AvatarActionSheet.tsx
+          git commit -m 'feat(community): integrate exchange rail into live event flows'
+          git push origin HEAD:${GITHUB_REF_NAME}
