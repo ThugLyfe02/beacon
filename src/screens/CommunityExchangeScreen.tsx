@@ -40,6 +40,7 @@ import {
   type EventIntentKey,
 } from '../services/event-intent.service';
 import CommunityPartnerProgramsPanel from '../components/CommunityPartnerProgramsPanel';
+import CommunitySupplyDemandPanel from '../components/CommunitySupplyDemandPanel';
 import { GridBackground, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -489,6 +490,14 @@ export default function CommunityExchangeScreen() {
           ) : null}
         </View>
       ) : null}
+
+      <View style={styles.section}>
+        <CommunitySupplyDemandPanel
+          eventId={eventId}
+          activePartnerships={activePartnerships}
+          visibleToOperator={isHost || activePartnerships.some((item) => item.caller_is_owner)}
+        />
+      </View>
 
       <View style={styles.section}>
         <CommunityPartnerProgramsPanel
