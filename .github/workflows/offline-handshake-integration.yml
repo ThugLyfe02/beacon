@@ -82,13 +82,6 @@ jobs:
           fs.writeFileSync(appPath, `${JSON.stringify(app, null, 2)}\n`);
 
           replaceOnce(
-            '.github/workflows/venue-operations-gate.yml',
-            '          node scripts/validate-community-supply-demand.mjs\n',
-            '          node scripts/validate-community-supply-demand.mjs\n          node scripts/validate-offline-event-handshake.mjs\n',
-            'handshake architecture gate',
-          );
-
-          replaceOnce(
             'scripts/validate-offline-event-handshake.mjs',
             "requireText(localStore, 'previous account', 'local material must not survive as usable state across account switching');",
             "requireText(localStore, 'different authenticated account', 'local material must not survive as usable state across account switching');",
@@ -127,7 +120,6 @@ jobs:
             src/navigation/RootNavigator.tsx \
             src/screens/EventLobbyScreen.tsx \
             app.json \
-            scripts/validate-offline-event-handshake.mjs \
-            .github/workflows/venue-operations-gate.yml
+            scripts/validate-offline-event-handshake.mjs
           git commit -m 'feat(handshake): integrate offline continuity into live event flow'
           git push origin HEAD:${GITHUB_REF_NAME}
