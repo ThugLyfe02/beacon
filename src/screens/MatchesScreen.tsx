@@ -6,6 +6,7 @@ import { listMatchesWithProfiles, type MatchWithProfile } from '../services/matc
 import { listVaultEntries, updateVaultEntryStatus } from '../services/vault.service';
 import { buildVaultSummary, type VaultEntry } from '../vault/VaultEngine';
 import OutcomeHandshakeCard from '../components/OutcomeHandshakeCard';
+import OutcomeReceiptCard from '../components/OutcomeReceiptCard';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import {
   GridBackground,
@@ -119,7 +120,7 @@ export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
             <NeonText variant="h1" glow style={{ marginTop: spacing.sm }}>Connections</NeonText>
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.xs }}>{event.name}</NeonText>
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
-              A mutual is only the beginning. Beacon protects one-sided intent and converts compatible demand into concrete next steps.
+              A mutual is only the beginning. Private next-step alignment helps coordinate what you want to do; participant-owned receipts separately record what you deliberately attest actually happened.
             </NeonText>
 
             <View style={styles.actionRow}>
@@ -202,6 +203,8 @@ export function MatchesScreen({ userId }: Readonly<MatchesScreenProps>) {
               {FEATURE_FLAGS.outcomeHandshakeProtocol ? (
                 <OutcomeHandshakeCard matchId={item.id} userId={userId} counterpartyName={displayName} />
               ) : null}
+
+              <OutcomeReceiptCard matchId={item.id} counterpartyName={displayName} />
             </Surface>
           );
         }}
