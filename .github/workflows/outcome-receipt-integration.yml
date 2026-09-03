@@ -33,60 +33,56 @@ jobs:
           node <<'NODE'
           const fs = require('node:fs');
 
-          function replaceExact(path, before, after) {
-            const source = fs.readFileSync(path, 'utf8');
-            if (!source.includes(before)) {
-              throw new Error(`${path}: expected integration seam not found`);
-            }
-            fs.writeFileSync(path, source.replace(before, after));
+          function insertImport(path, existingImport, newImport) {
+            let source = fs.readFileSync(path, 'utf8');
+            if (source.includes(newImport)) return;
+            if (!source.includes(existingImport)) throw new Error(`${path}: import seam not found`);
+            source = source.replace(existingImport, `${existingImport}\n${newImport}`);
+            fs.writeFileSync(path, source);
           }
 
-          replaceExact(
+          insertImport(
             'src/screens/HostManagementScreen.tsx',
             "import HandshakeHealthCard from '../components/HandshakeHealthCard';",
-            "import HandshakeHealthCard from '../components/HandshakeHealthCard';\nimport OutcomeReceiptEvidenceCard from '../components/OutcomeReceiptEvidenceCard';",
+            "import OutcomeReceiptEvidenceCard from '../components/OutcomeReceiptEvidenceCard';",
           );
 
-          replaceExact(
-            'src/screens/HostManagementScreen.tsx',
-            `      <View style={styles.section}>
-                <HandshakeHealthCard eventId={event.id} />
-              </View>
+          {
+            const path = 'src/screens/HostManagementScreen.tsx';
+            let source = fs.readFileSync(path, 'utf8');
+            if (!source.includes('<OutcomeReceiptEvidenceCard eventId={event.id} />')) {
+              const marker = '<HandshakeHealthCard eventId={event.id} />';
+              const markerIndex = source.indexOf(marker);
+              if (markerIndex < 0) throw new Error(`${path}: handshake health marker not found`);
+              const closeIndex = source.indexOf('</View>', markerIndex);
+              if (closeIndex < 0) throw new Error(`${path}: host section close not found`);
+              const insertionPoint = closeIndex + '</View>'.length;
+              source = `${source.slice(0, insertionPoint)}\n\n      <View style={styles.section}>\n        <OutcomeReceiptEvidenceCard eventId={event.id} />\n      </View>${source.slice(insertionPoint)}`;
+              fs.writeFileSync(path, source);
+            }
+          }
 
-              <View style={styles.section}>
-                <NeonText variant="label" tone="accent">HOST TOOLS</NeonText>`.replace(/^              /gm, ''),
-            `      <View style={styles.section}>
-                <HandshakeHealthCard eventId={event.id} />
-              </View>
-
-              <View style={styles.section}>
-                <OutcomeReceiptEvidenceCard eventId={event.id} />
-              </View>
-
-              <View style={styles.section}>
-                <NeonText variant="label" tone="accent">HOST TOOLS</NeonText>`.replace(/^              /gm, ''),
-          );
-
-          replaceExact(
+          insertImport(
             'src/screens/CommunityExchangeScreen.tsx',
             "import CommunitySupplyDemandPanel from '../components/CommunitySupplyDemandPanel';",
-            "import CommunitySupplyDemandPanel from '../components/CommunitySupplyDemandPanel';\nimport CommunityOutcomeReceiptEvidence from '../components/CommunityOutcomeReceiptEvidence';",
+            "import CommunityOutcomeReceiptEvidence from '../components/CommunityOutcomeReceiptEvidence';",
           );
 
-          replaceExact(
-            'src/screens/CommunityExchangeScreen.tsx',
-            `              ) : null}
-                        </Surface>
-                      );
-                    })}`.replace(/^            /gm, ''),
-            `              ) : null}
-                  {exchange.state === 'active' ? (
-                    <CommunityOutcomeReceiptEvidence exchangeId={exchange.exchange_id} />
-                  ) : null}
-                </Surface>
-              );
-            })}`.replace(/^            /gm, ''),
-          );
+          {
+            const path = 'src/screens/CommunityExchangeScreen.tsx';
+            let source = fs.readFileSync(path, 'utf8');
+            if (!source.includes('<CommunityOutcomeReceiptEvidence exchangeId={exchange.exchange_id} />')) {
+              const marker = "{exchange.state === 'active' ? (";
+              const markerIndex = source.indexOf(marker);
+              if (markerIndex < 0) throw new Error(`${path}: active exchange marker not found`);
+              const closeMarker = '\n            </Surface>';
+              const closeIndex = source.indexOf(closeMarker, markerIndex);
+              if (closeIndex < 0) throw new Error(`${path}: active exchange surface close not found`);
+              const insertion = "\n              {exchange.state === 'active' ? (\n                <CommunityOutcomeReceiptEvidence exchangeId={exchange.exchange_id} />\n              ) : null}";
+              source = `${source.slice(0, closeIndex)}${insertion}${source.slice(closeIndex)}`;
+              fs.writeFileSync(path, source);
+            }
+          }
           NODE
 
       - name: Validate receipt implementation
