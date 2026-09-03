@@ -45,3 +45,4 @@ jobs:
           node scripts/validate-participant-event-playbook.mjs
           node scripts/validate-warm-introductions.mjs
           node scripts/validate-warm-introduction-production.mjs
+          node scripts/validate-community-exchange.mjs
