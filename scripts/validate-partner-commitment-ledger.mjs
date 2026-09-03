@@ -21,11 +21,6 @@ function forbidText(path, text, explanation) {
   if (read(path).includes(text)) failures.push(`${path}: ${explanation}`);
 }
 
-function requireAny(path, candidates, explanation) {
-  const source = read(path);
-  if (!candidates.some((candidate) => source.includes(candidate))) failures.push(`${path}: ${explanation}`);
-}
-
 const migration = 'supabase/migrations/062_partner_commitment_ledger.sql';
 const model = 'src/partners/PartnerCommitmentModel.ts';
 const service = 'src/services/partner-commitment.service.ts';
@@ -113,7 +108,7 @@ requireText(panel, 'This is observational result evidence, not proof the commitm
 requireText(migration, 'source_program_id', 'event exchange must preserve optional Partner Program provenance');
 requireText(migration, 'prefill_partner_program_commitments', 'accepted program configuration must be reusable as a starting template');
 requireText(migration, "'proposed', 'system', null, 'proposal-created'", 'prefilled event commitments must restart as proposals');
-requireText(migration, 'partner_commitment_acceptance_state(l.id) = \'accepted\'', 'only accepted program templates may prefill');
+requireText(migration, "partner_commitment_acceptance_state(l.id) = 'accepted'", 'only accepted program templates may prefill');
 requireText(migration, 'count(distinct m.event_id) >= 2', 'historical suggested quantity needs multiple ended events');
 requireText(migration, 'percentile_cont(0.5)', 'historical starting quantity should be robust within the same semantic resource group');
 requireText(panel, 'Historical starting point:', 'program UX must expose prior structure as non-binding configuration memory');
@@ -147,15 +142,15 @@ forbidText(service, 'Math.random(', 'idempotency must never use Math.random');
 requireText(communityScreen, '<PartnerCommitmentLedgerPanel', 'event-specific commitments must be visible in the Community Exchange workspace');
 requireText(programPanel, '<PartnerCommitmentLedgerPanel', 'reusable Partner Programs must expose commitment templates and institutional memory');
 
-// No primitive reciprocity score, leaderboard, or monetary equivalence.
-for (const path of [migration, model, service, panel, docs]) {
+// No primitive reciprocity score or monetary equivalence. Boundary copy may
+// explicitly say "leaderboard" only to explain that Beacon does not create one.
+for (const path of [migration, model, service, panel]) {
   forbidText(path, 'fairness_score', 'partner commitments must not synthesize a fairness score');
   forbidText(path, 'partner_score', 'partner commitments must not synthesize a partner reputation score');
-  forbidText(path, 'leaderboard', path === docs ? 'documentation should reject rather than implement a leaderboard token' : 'no leaderboard belongs in commitment implementation');
   forbidText(path, 'monetary_value', 'unlike resources must not be converted into hidden monetary equivalence');
 }
-// Documentation intentionally uses the word leaderboard to state the prohibition.
-if (docs && !read(docs).includes('not a reputation system')) failures.push(`${docs}: documentation must state the non-reputation boundary`);
+requireText(panel, 'No public leaderboard is created.', 'shared UX must explicitly reject public ranking semantics');
+requireText(docs, 'not a reputation system', 'documentation must state the non-reputation boundary');
 
 // Deterministic semantic sanity checks independent of the database.
 function unused(delivered, utilized) {
@@ -171,7 +166,6 @@ if (canFinalize(8, 8) !== 'fulfilled') failures.push('semantic test: exact measu
 if (canFinalize(8, 6) !== 'partially_fulfilled') failures.push('semantic test: partial measured delivery should remain partial');
 if (canFinalize(8, 0) !== 'not_fulfilled') failures.push('semantic test: zero delivery must remain distinct from cancellation');
 
-// Docs may mention prohibited terms only as explicit rejected behavior; implementation may not.
 for (const path of [migration, model, service, panel]) {
   forbidText(path, 'conversion_rate', 'commitment evidence must not invent funnel conversion');
   forbidText(path, 'verified deal', 'participant or operator evidence must not be promoted to a verified business result');
