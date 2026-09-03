@@ -1,0 +1,111 @@
+name: Offline handshake integration
+
+on:
+  push:
+    branches:
+      - feature/spatial-event-digital-twin
+
+permissions:
+  contents: write
+
+concurrency:
+  group: offline-handshake-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Integrate offline handshake into live event product
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function replaceOnce(path, before, after, label) {
+            const source = fs.readFileSync(path, 'utf8');
+            const count = source.split(before).length - 1;
+            if (count !== 1) throw new Error(`${label}: expected one anchor in ${path}, found ${count}`);
+            fs.writeFileSync(path, source.replace(before, after));
+          }
+
+          replaceOnce(
+            'src/navigation/RootNavigator.tsx',
+            "import EventLobbyScreen from '../screens/EventLobbyScreen';\n",
+            "import EventLobbyScreen from '../screens/EventLobbyScreen';\nimport MeetInBeaconScreen from '../screens/MeetInBeaconScreen';\n",
+            'meet screen import',
+          );
+
+          replaceOnce(
+            'src/navigation/RootNavigator.tsx',
+            '        <Stack.Screen\n          name="EventIntent"',
+            '        <Stack.Screen\n          name="MeetInBeacon"\n          component={MeetInBeaconScreen}\n          options={{\n            headerShown: true,\n            title: \'Meet in Beacon\',\n            headerStyle: { backgroundColor: palette.space },\n            headerTitleStyle: { color: palette.text, fontWeight: \'700\' },\n            headerTintColor: \'#6EE7B7\',\n            animation: \'slide_from_right\',\n          }}\n        />\n\n        <Stack.Screen\n          name="EventIntent"',
+            'meet screen route',
+          );
+
+          replaceOnce(
+            'src/screens/EventLobbyScreen.tsx',
+            'import EventFocusWindowCard from "../components/EventFocusWindowCard";\n',
+            'import EventFocusWindowCard from "../components/EventFocusWindowCard";\nimport MeetInBeaconPreview from "../components/MeetInBeaconPreview";\n',
+            'lobby handshake import',
+          );
+
+          replaceOnce(
+            'src/screens/EventLobbyScreen.tsx',
+            '      <EventFocusWindowCard eventId={eventId} />\n      <CommunityExchangePreview eventId={eventId} />',
+            '      <EventFocusWindowCard eventId={eventId} />\n      <MeetInBeaconPreview eventId={eventId} />\n      <CommunityExchangePreview eventId={eventId} />',
+            'lobby handshake render',
+          );
+
+          const appPath = 'app.json';
+          const app = JSON.parse(fs.readFileSync(appPath, 'utf8'));
+          app.expo.plugins = Array.from(new Set([...(app.expo.plugins ?? []), 'expo-secure-store']));
+          app.expo.ios.infoPlist.NSCameraUsageDescription = 'Beacon uses the camera for office-hours video, the AR field, and explicit one-time meeting QR handshakes.';
+          fs.writeFileSync(appPath, `${JSON.stringify(app, null, 2)}\n`);
+
+          replaceOnce(
+            '.github/workflows/venue-operations-gate.yml',
+            '          node scripts/validate-community-supply-demand.mjs\n',
+            '          node scripts/validate-community-supply-demand.mjs\n          node scripts/validate-offline-event-handshake.mjs\n',
+            'handshake architecture gate',
+          );
+          NODE
+
+      - name: Validate strict types, Expo configuration, and architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit --pretty false
+          npx expo-doctor
+          node scripts/validate-offline-event-handshake.mjs
+          node scripts/validate-venue-operations.mjs
+          node scripts/validate-event-intent-exchange.mjs
+          node scripts/validate-warm-introductions.mjs
+          node scripts/validate-community-exchange.mjs
+          node scripts/validate-community-partner-programs.mjs
+          node scripts/validate-community-supply-demand.mjs
+
+      - name: Commit validated integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/navigation/RootNavigator.tsx \
+            src/screens/EventLobbyScreen.tsx \
+            app.json \
+            .github/workflows/venue-operations-gate.yml
+          git commit -m 'feat(handshake): integrate offline continuity into live event flow'
+          git push origin HEAD:${GITHUB_REF_NAME}
