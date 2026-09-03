@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import type {
   PartnerCommitmentAcceptanceState,
   PartnerCommitmentEvidenceQuality,
+  PartnerCommitmentMeasurementReviewState,
   PartnerCommitmentMeasurementState,
   PartnerCommitmentPartyKind,
   PartnerCommitmentScopeKind,
@@ -35,6 +36,8 @@ export interface PartnerCommitmentRow {
   commitmentId: string;
   revisionId: string;
   revisionNo: number;
+  effectiveRevisionId: string | null;
+  pendingRevisionId: string | null;
   committedPartyKind: PartnerCommitmentPartyKind;
   committedCommunityId: string | null;
   committedPartyLabel: string;
@@ -57,6 +60,15 @@ export interface PartnerCommitmentRow {
   supportedWarmIntroductions: number | null;
   sourceTemplateRevisionId: string | null;
   createdAt: string;
+  pendingCommitmentType: PartnerCommitmentType | null;
+  pendingDomain: string | null;
+  pendingCommittedQuantity: number | null;
+  pendingAcceptanceState: PartnerCommitmentAcceptanceState | null;
+  callerPendingAmendmentDecision: boolean;
+  latestMeasurementId: string | null;
+  manualMeasurementId: string | null;
+  measurementReviewState: PartnerCommitmentMeasurementReviewState;
+  callerCanReviewMeasurement: boolean;
 }
 
 export interface PartnerCommitmentHistoryRow {
@@ -84,10 +96,14 @@ export interface PartnerProgramCommitmentMemoryRow {
   domain: string | null;
   sampleEventCount: number;
   commitmentOccurrences: number;
+  measuredEventCount: number;
+  measurementCoverage: number;
   averageCommittedQuantity: number;
-  averageDeliveredQuantity: number;
-  averageUtilizedQuantity: number;
+  averageDeliveredQuantity: number | null;
+  averageUtilizedQuantity: number | null;
   utilizedEventCount: number;
+  unusedMeasuredEventCount: number;
+  zeroUtilizationMeasuredEventCount: number;
   suggestedQuantity: number | null;
   latestEventEndedAt: string | null;
 }
@@ -99,6 +115,10 @@ export interface EventPartnerCommitmentSummary {
   fulfilledCommitmentCount: number;
   partiallyFulfilledCount: number;
   unresolvedCommitmentCount: number;
+  pendingAmendmentCount: number;
+  manualReviewPendingCount: number;
+  manualDisputeCount: number;
+  closedWithoutMeasurementCount: number;
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -174,6 +194,8 @@ function mapLedgerRow(raw: unknown): PartnerCommitmentRow | null {
     commitmentId,
     revisionId,
     revisionNo: numberOrNull(row.revision_no) ?? 1,
+    effectiveRevisionId: text(row.effective_revision_id),
+    pendingRevisionId: text(row.pending_revision_id),
     committedPartyKind: (text(row.committed_party_kind) ?? 'community') as PartnerCommitmentPartyKind,
     committedCommunityId: text(row.committed_community_id),
     committedPartyLabel: partyLabel,
@@ -196,6 +218,15 @@ function mapLedgerRow(raw: unknown): PartnerCommitmentRow | null {
     supportedWarmIntroductions: numberOrNull(row.supported_warm_introductions),
     sourceTemplateRevisionId: text(row.source_template_revision_id),
     createdAt,
+    pendingCommitmentType: text(row.pending_commitment_type) as PartnerCommitmentType | null,
+    pendingDomain: text(row.pending_domain),
+    pendingCommittedQuantity: numberOrNull(row.pending_committed_quantity),
+    pendingAcceptanceState: text(row.pending_acceptance_state) as PartnerCommitmentAcceptanceState | null,
+    callerPendingAmendmentDecision: row.caller_pending_amendment_decision === true,
+    latestMeasurementId: text(row.latest_measurement_id),
+    manualMeasurementId: text(row.manual_measurement_id),
+    measurementReviewState: (text(row.measurement_review_state) ?? 'not-required') as PartnerCommitmentMeasurementReviewState,
+    callerCanReviewMeasurement: row.caller_can_review_measurement === true,
   };
 }
 
@@ -311,6 +342,22 @@ export async function recordManualPartnerCommitmentMeasurement(input: {
   return { measurementId: typeof data === 'string' ? data : null, error };
 }
 
+export async function reviewPartnerCommitmentMeasurement(
+  measurementId: string,
+  decision: 'acknowledged' | 'disputed',
+): Promise<{ state: PartnerCommitmentMeasurementReviewState | null; error: PostgrestError | null }> {
+  const key = await idempotencyKey(`manual-review-${decision}`);
+  const { data, error } = await supabase.rpc('review_partner_commitment_manual_measurement', {
+    p_measurement_id: measurementId,
+    p_decision: decision,
+    p_idempotency_key: key,
+  });
+  return {
+    state: typeof data === 'string' ? data as PartnerCommitmentMeasurementReviewState : null,
+    error,
+  };
+}
+
 export async function advancePartnerCommitment(
   revisionId: string,
   targetStatus: 'scheduled' | 'delivering' | 'fulfilled' | 'partially_fulfilled' | 'cancelled' | 'not_fulfilled',
@@ -394,10 +441,14 @@ export async function getPartnerProgramCommitmentMemory(programId: string): Prom
       domain: text(row.domain),
       sampleEventCount: numberOrNull(row.sample_event_count) ?? 0,
       commitmentOccurrences: numberOrNull(row.commitment_occurrences) ?? 0,
+      measuredEventCount: numberOrNull(row.measured_event_count) ?? 0,
+      measurementCoverage: numberOrNull(row.measurement_coverage) ?? 0,
       averageCommittedQuantity: numberOrNull(row.average_committed_quantity) ?? 0,
-      averageDeliveredQuantity: numberOrNull(row.average_delivered_quantity) ?? 0,
-      averageUtilizedQuantity: numberOrNull(row.average_utilized_quantity) ?? 0,
+      averageDeliveredQuantity: numberOrNull(row.average_delivered_quantity),
+      averageUtilizedQuantity: numberOrNull(row.average_utilized_quantity),
       utilizedEventCount: numberOrNull(row.utilized_event_count) ?? 0,
+      unusedMeasuredEventCount: numberOrNull(row.unused_measured_event_count) ?? 0,
+      zeroUtilizationMeasuredEventCount: numberOrNull(row.zero_utilization_measured_event_count) ?? 0,
       suggestedQuantity: numberOrNull(row.suggested_quantity),
       latestEventEndedAt: text(row.latest_event_ended_at),
     }];
@@ -420,6 +471,10 @@ export async function getEventPartnerCommitmentSummary(eventId: string): Promise
       fulfilledCommitmentCount: numberOrNull(row.fulfilled_commitment_count) ?? 0,
       partiallyFulfilledCount: numberOrNull(row.partially_fulfilled_count) ?? 0,
       unresolvedCommitmentCount: numberOrNull(row.unresolved_commitment_count) ?? 0,
+      pendingAmendmentCount: numberOrNull(row.pending_amendment_count) ?? 0,
+      manualReviewPendingCount: numberOrNull(row.manual_review_pending_count) ?? 0,
+      manualDisputeCount: numberOrNull(row.manual_dispute_count) ?? 0,
+      closedWithoutMeasurementCount: numberOrNull(row.closed_without_measurement_count) ?? 0,
     },
     error: null,
   };

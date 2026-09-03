@@ -497,8 +497,9 @@ declare
   v_commitment_id uuid;
 begin
   if auth.uid() is null then raise exception 'authentication required'; end if;
-  select r.*, r.commitment_id into v_revision, v_commitment_id
+  select * into v_revision
   from public.partner_commitment_revisions r where r.id = p_revision_id;
+  v_commitment_id := v_revision.commitment_id;
   if v_revision.id is null then raise exception 'commitment revision not found'; end if;
   if public.partner_commitment_effective_revision(v_commitment_id) is distinct from p_revision_id then
     raise exception 'evidence refresh is allowed only on the effective accepted commitment revision';

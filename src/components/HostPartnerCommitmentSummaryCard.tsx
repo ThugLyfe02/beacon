@@ -68,6 +68,11 @@ export default function HostPartnerCommitmentSummaryCard({ eventId, onOpen }: Re
         </NeonText>
       ) : null}
 
+      {summary.pendingAmendmentCount > 0 ? <NeonText variant="bodyMuted" style={styles.copy}>{summary.pendingAmendmentCount} accepted commitment{summary.pendingAmendmentCount === 1 ? ' has' : 's have'} a pending amendment. Existing accepted terms remain in force until the amendment earns fresh acceptance.</NeonText> : null}
+      {summary.manualReviewPendingCount > 0 ? <NeonText variant="bodyMuted" style={styles.copy}>{summary.manualReviewPendingCount} manual measurement{summary.manualReviewPendingCount === 1 ? ' is' : 's are'} awaiting required counterparty acknowledgement.</NeonText> : null}
+      {summary.manualDisputeCount > 0 ? <NeonText variant="bodyMuted" style={styles.copy}>{summary.manualDisputeCount} manual measurement{summary.manualDisputeCount === 1 ? ' has' : 's have'} an explicit dispute. The ledger records disagreement; it does not score either partner.</NeonText> : null}
+      {summary.closedWithoutMeasurementCount > 0 ? <NeonText variant="bodyMuted" style={styles.copy}>{summary.closedWithoutMeasurementCount} accepted commitment{summary.closedWithoutMeasurementCount === 1 ? ' closed' : 's closed'} without sufficient measurement evidence. Missing evidence is not treated as zero delivery.</NeonText> : null}
+
       <Pressable disabled={loading} onPress={onOpen} style={styles.openButton}>
         <NeonText variant="label" tone="accent">OPEN SHARED LEDGERS →</NeonText>
       </Pressable>

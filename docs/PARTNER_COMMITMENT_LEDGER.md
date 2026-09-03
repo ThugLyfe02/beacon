@@ -206,6 +206,36 @@ The control plane specifically addresses:
 - **small participant evidence** — Outcome Receipt and warm-introduction result counts remain suppressed below cohort support;
 - **social shaming** — there is no public leaderboard, fairness rank, monetary conversion or cross-resource contribution score.
 
+## Contract-integrity layer
+
+### Accepted terms remain effective during amendment review
+
+Creating a revision does not silently replace an accepted obligation. If an 8-slot commitment is accepted and one party proposes 12 slots, the shared ledger continues to show 8 as the effective contract while the 12-slot amendment waits for fresh required acceptance. A rejected or withdrawn amendment therefore cannot erase the prior operating agreement.
+
+### Manual evidence is reviewable, not self-verifying
+
+A community can manually assert delivery only for its own commitment; the host cannot author that community's delivery quantity. Host commitments are similarly authored by the host. The other required parties can independently acknowledge or dispute the underlying manual assertion. Pending or disputed manual evidence may remain visible for audit, but it cannot finalize fulfilled / partially fulfilled / not fulfilled state.
+
+This is deliberately different from asking Beacon to decide who is telling the truth. Beacon records who asserted the quantity and whether the other contractual parties acknowledged or disputed it.
+
+### No double-claiming indistinguishable obligations
+
+Two accepted commitments from the same party with the same resource type, same domain and overlapping delivery window are rejected as operationally ambiguous. The party must revise the existing obligation or use a genuinely distinct time/domain contract. This prevents one Office Hours session or Focus Window from being presented as fulfillment of two indistinguishable promises.
+
+### Evidence semantics must match the source
+
+A server event may support only the semantics it actually records. For example, current Office Hours rows do not carry a reviewed domain field. Beacon therefore refuses to auto-verify a domain-specific Office Hours commitment from generic completed Office Hours traffic; the contribution needs stronger provenance or an explicit manual assertion subject to counterpart review.
+
+### Longitudinal memory carries measurement coverage
+
+Historical delivery and utilization averages exclude events with missing, insufficient, disputed or still-pending manual evidence. The memory surface reports how many ended events actually had admissible measurement and the corresponding coverage share. Unknown evidence is never coerced to zero use.
+
+This allows Beacon to say that a commitment pattern was repeatedly unused only when it was repeatedly **measured** as delivered but unused.
+
+### Delete-path hardening
+
+Core revisions, decisions, lifecycle events, measurements, source links, closeout rows and manual-review events reject both in-place updates and deletes at the database boundary. The normal product lifecycle is supersession and explicit terminal events, not history rewriting. Any future compliance erasure path deserves a separate, auditable system rather than a generic mutation endpoint.
+
 ## Product language
 
 Good:

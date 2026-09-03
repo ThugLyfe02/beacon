@@ -18,6 +18,7 @@ import {
   proposePartnerCommitment,
   recordManualPartnerCommitmentMeasurement,
   refreshPartnerCommitmentMeasurement,
+  reviewPartnerCommitmentMeasurement,
   revisePartnerCommitment,
   type PartnerCommitmentHistoryRow,
   type PartnerCommitmentRow,
@@ -194,12 +195,24 @@ export default function PartnerCommitmentLedgerPanel(props: Readonly<Props>) {
     setQuantity(String(row.committedQuantity));
   }, []);
 
-  const decide = useCallback(async (row: PartnerCommitmentRow, decision: 'accepted' | 'rejected' | 'withdrawn') => {
+  const decideRevision = useCallback(async (revisionId: string, decision: 'accepted' | 'rejected' | 'withdrawn') => {
     setWorking(true);
-    const result = await decidePartnerCommitment(row.revisionId, decision);
+    const result = await decidePartnerCommitment(revisionId, decision);
     setWorking(false);
     if (result.error || !result.state) {
       Alert.alert('Decision not recorded', result.error?.message ?? 'The server did not confirm the commitment decision.');
+      return;
+    }
+    await load();
+  }, [load]);
+
+  const reviewManualEvidence = useCallback(async (row: PartnerCommitmentRow, decision: 'acknowledged' | 'disputed') => {
+    if (!row.latestMeasurementId) return;
+    setWorking(true);
+    const result = await reviewPartnerCommitmentMeasurement(row.latestMeasurementId, decision);
+    setWorking(false);
+    if (result.error || !result.state) {
+      Alert.alert('Manual evidence review not recorded', result.error?.message ?? 'The server did not confirm your review.');
       return;
     }
     await load();
@@ -338,6 +351,7 @@ export default function PartnerCommitmentLedgerPanel(props: Readonly<Props>) {
             const unused = Math.max(0, delivered - used);
             const canMeasure = scope.scopeKind === 'event-exchange' && row.acceptanceState === 'accepted';
             const manualOpen = manualRevisionId === row.revisionId;
+            const manualFinalizationBlocked = row.measurementReviewState === 'pending' || row.measurementReviewState === 'disputed';
             return (
               <Surface key={row.commitmentId} elevated padded style={styles.card}>
                 <View style={styles.rowBetween}>
@@ -386,10 +400,38 @@ export default function PartnerCommitmentLedgerPanel(props: Readonly<Props>) {
                   <NeonText variant="bodyMuted" style={styles.smallTop}>Template only. Delivery and utilization are measured independently in each event that explicitly re-accepts this structure.</NeonText>
                 )}
 
+                {row.pendingRevisionId ? (
+                  <View style={styles.amendmentBox}>
+                    <NeonText variant="label" tone="premium">AMENDMENT PROPOSED · CURRENT CONTRACT REMAINS EFFECTIVE</NeonText>
+                    <NeonText variant="bodyMuted" style={styles.smallTop}>
+                      Proposed replacement: {row.pendingCommitmentType ? getPartnerCommitmentOption(row.pendingCommitmentType).label : 'commitment'} · {row.pendingCommittedQuantity != null && row.pendingCommitmentType ? formatPartnerCommitmentQuantity(row.pendingCommittedQuantity, row.pendingCommitmentType) : 'quantity pending'} · {formatDomain(row.pendingDomain)}. The accepted terms above continue to govern until every required party accepts this revision.
+                    </NeonText>
+                    {row.callerPendingAmendmentDecision ? (
+                      <View style={styles.buttonRow}>
+                        <Pressable disabled={working} onPress={() => decideRevision(row.pendingRevisionId!, 'accepted')} style={styles.primaryFlex}><NeonText variant="label" tone="accent">ACCEPT AMENDMENT</NeonText></Pressable>
+                        <Pressable disabled={working} onPress={() => decideRevision(row.pendingRevisionId!, 'rejected')} style={styles.ghostFlex}><NeonText variant="label" tone="muted">DECLINE AMENDMENT</NeonText></Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
+
+                {scope.scopeKind === 'event-exchange' && row.manualMeasurementId ? (
+                  <View style={styles.reviewBox}>
+                    <NeonText variant="label" tone={row.measurementReviewState === 'disputed' ? 'warning' : 'muted'}>MANUAL EVIDENCE · {row.measurementReviewState.replaceAll('-', ' ').toUpperCase()}</NeonText>
+                    <NeonText variant="bodyMuted" style={styles.smallTop}>A manual delivery assertion remains attributable to the committed party. It cannot finalize the contract until every required counterparty acknowledges it; a dispute records disagreement without scoring or shaming either organization.</NeonText>
+                    {row.callerCanReviewMeasurement && row.latestMeasurementId ? (
+                      <View style={styles.buttonRow}>
+                        <Pressable disabled={working} onPress={() => reviewManualEvidence(row, 'acknowledged')} style={styles.primaryFlex}><NeonText variant="label" tone="accent">ACKNOWLEDGE</NeonText></Pressable>
+                        <Pressable disabled={working} onPress={() => reviewManualEvidence(row, 'disputed')} style={styles.ghostFlex}><NeonText variant="label" tone="muted">DISPUTE</NeonText></Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
+
                 {row.callerPendingDecision ? (
                   <View style={styles.buttonRow}>
-                    <Pressable disabled={working} onPress={() => decide(row, 'accepted')} style={styles.primaryFlex}><NeonText variant="label" tone="accent">ACCEPT</NeonText></Pressable>
-                    <Pressable disabled={working} onPress={() => decide(row, 'rejected')} style={styles.ghostFlex}><NeonText variant="label" tone="muted">DECLINE</NeonText></Pressable>
+                    <Pressable disabled={working} onPress={() => decideRevision(row.revisionId, 'accepted')} style={styles.primaryFlex}><NeonText variant="label" tone="accent">ACCEPT</NeonText></Pressable>
+                    <Pressable disabled={working} onPress={() => decideRevision(row.revisionId, 'rejected')} style={styles.ghostFlex}><NeonText variant="label" tone="muted">DECLINE</NeonText></Pressable>
                   </View>
                 ) : null}
 
@@ -411,7 +453,7 @@ export default function PartnerCommitmentLedgerPanel(props: Readonly<Props>) {
                 {canMeasure ? (
                   <View style={styles.actionWrap}>
                     <Pressable disabled={working} onPress={() => refreshEvidence(row)} style={styles.actionButton}><NeonText variant="label" tone="premium">REFRESH BEACON EVIDENCE</NeonText></Pressable>
-                    <Pressable
+                    {row.callerCanManage ? <Pressable
                       disabled={working}
                       onPress={() => {
                         setManualRevisionId(manualOpen ? null : row.revisionId);
@@ -421,14 +463,14 @@ export default function PartnerCommitmentLedgerPanel(props: Readonly<Props>) {
                       style={styles.actionButton}
                     >
                       <NeonText variant="label" tone="muted">MANUAL ACKNOWLEDGEMENT</NeonText>
-                    </Pressable>
+                    </Pressable> : null}
                   </View>
                 ) : null}
 
                 {manualOpen ? (
                   <View style={styles.manualBox}>
-                    <NeonText variant="label" tone="warning">MANUAL OPERATOR EVIDENCE</NeonText>
-                    <NeonText variant="bodyMuted" style={styles.smallTop}>Manual quantities remain explicitly lower-quality than server-recorded delivery. They never become hidden “verified” facts.</NeonText>
+                    <NeonText variant="label" tone="warning">MANUAL OPERATOR EVIDENCE · PARTY ASSERTION</NeonText>
+                    <NeonText variant="bodyMuted" style={styles.smallTop}>Manual quantities can be entered only by the party that owns this commitment. They remain explicitly lower-quality than server-recorded delivery and require counterpart acknowledgement before they can finalize fulfillment.</NeonText>
                     <View style={styles.inputRow}>
                       <TextInput value={manualDelivered} onChangeText={setManualDelivered} keyboardType="decimal-pad" placeholder="Delivered" placeholderTextColor={palette.textDim} style={styles.numberInput} />
                       <TextInput value={manualUsed} onChangeText={setManualUsed} keyboardType="decimal-pad" placeholder="Used" placeholderTextColor={palette.textDim} style={styles.numberInput} />
@@ -437,7 +479,7 @@ export default function PartnerCommitmentLedgerPanel(props: Readonly<Props>) {
                   </View>
                 ) : null}
 
-                {scope.scopeKind === 'event-exchange' && row.callerCanManage && row.deliveredQuantity != null ? (
+                {scope.scopeKind === 'event-exchange' && row.callerCanManage && row.deliveredQuantity != null && !manualFinalizationBlocked ? (
                   <View style={styles.actionWrap}>
                     {row.deliveredQuantity >= row.committedQuantity && !['fulfilled','cancelled'].includes(row.lifecycleStatus) ? (
                       <Pressable disabled={working} onPress={() => advance(row, 'fulfilled')} style={styles.actionButton}><NeonText variant="label" tone="success">FINALIZE FULFILLED</NeonText></Pressable>
@@ -530,7 +572,8 @@ export default function PartnerCommitmentLedgerPanel(props: Readonly<Props>) {
               {memory.map((item) => (
                 <View key={`${item.partyKind}-${item.partyCommunityId ?? 'host'}-${item.commitmentType}-${item.domain ?? 'general'}`} style={styles.memoryRow}>
                   <NeonText variant="label" tone="muted">{item.partyLabel.toUpperCase()} · {getPartnerCommitmentOption(item.commitmentType).label.toUpperCase()}</NeonText>
-                  <NeonText variant="bodyMuted" style={styles.smallTop}>{item.sampleEventCount} ended event{item.sampleEventCount === 1 ? '' : 's'} · average promised {formatPartnerCommitmentQuantity(item.averageCommittedQuantity, item.commitmentType)} · average delivered {formatPartnerCommitmentQuantity(item.averageDeliveredQuantity, item.commitmentType)} · average used {formatPartnerCommitmentQuantity(item.averageUtilizedQuantity, item.commitmentType)}</NeonText>
+                  <NeonText variant="bodyMuted" style={styles.smallTop}>{item.sampleEventCount} ended event{item.sampleEventCount === 1 ? '' : 's'} · {item.measuredEventCount} with admissible measurement ({Math.round(item.measurementCoverage * 100)}% coverage) · average promised {formatPartnerCommitmentQuantity(item.averageCommittedQuantity, item.commitmentType)} · average delivered {formatPartnerCommitmentQuantity(item.averageDeliveredQuantity, item.commitmentType)} · average used {formatPartnerCommitmentQuantity(item.averageUtilizedQuantity, item.commitmentType)}</NeonText>
+                  {item.measuredEventCount > 0 ? <NeonText variant="bodyMuted" style={styles.smallTop}>{item.unusedMeasuredEventCount} measured event{item.unusedMeasuredEventCount === 1 ? '' : 's'} left delivered capacity unused; {item.zeroUtilizationMeasuredEventCount} had delivered capacity with zero recorded use. Unknown measurements are excluded rather than treated as zero.</NeonText> : null}
                   {item.suggestedQuantity != null ? <NeonText variant="bodyMuted" style={styles.smallTop}>Historical starting point: {formatPartnerCommitmentQuantity(item.suggestedQuantity, item.commitmentType)}. This does not create or accept a future commitment.</NeonText> : null}
                 </View>
               ))}
@@ -564,6 +607,8 @@ const styles = StyleSheet.create({
   ghostFlex: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radii.md, borderWidth: 1, borderColor: palette.hairlineStrong },
   primaryButton: { marginTop: spacing.md, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radii.md, borderWidth: 1, borderColor: palette.accent, backgroundColor: palette.accentSoft },
   manualBox: { marginTop: spacing.md, borderRadius: radii.md, borderWidth: 1, borderColor: palette.hairlineStrong, padding: spacing.md, backgroundColor: palette.surface },
+  amendmentBox: { marginTop: spacing.md, borderRadius: radii.md, borderWidth: 1, borderColor: palette.premiumSoft, padding: spacing.md, backgroundColor: 'rgba(124,58,237,0.08)' },
+  reviewBox: { marginTop: spacing.md, borderRadius: radii.md, borderWidth: 1, borderColor: palette.hairlineStrong, padding: spacing.md, backgroundColor: palette.surface },
   inputRow: { marginTop: spacing.md, flexDirection: 'row', gap: spacing.sm },
   numberInput: { flex: 1, minHeight: 44, borderRadius: radii.md, borderWidth: 1, borderColor: palette.hairlineStrong, color: palette.text, paddingHorizontal: spacing.md },
   fieldLabel: { marginTop: spacing.lg },

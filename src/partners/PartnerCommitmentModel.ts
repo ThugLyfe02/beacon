@@ -49,6 +49,12 @@ export type PartnerCommitmentEvidenceQuality =
   | 'mixed'
   | 'insufficient';
 
+export type PartnerCommitmentMeasurementReviewState =
+  | 'not-required'
+  | 'pending'
+  | 'acknowledged'
+  | 'disputed';
+
 export interface PartnerCommitmentOption {
   type: PartnerCommitmentType;
   label: string;

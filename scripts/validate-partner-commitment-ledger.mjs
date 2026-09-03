@@ -171,6 +171,26 @@ for (const path of [migration, model, service, panel]) {
   forbidText(path, 'verified deal', 'participant or operator evidence must not be promoted to a verified business result');
 }
 
+const integrityMigration = 'supabase/migrations/064_partner_commitment_contract_integrity.sql';
+read(integrityMigration);
+requireText(integrityMigration, 'partner_commitment_effective_revision', 'accepted terms must remain effective while an amendment awaits fresh approval');
+requireText(integrityMigration, 'partner_commitment_pending_revision', 'pending amendments must be represented separately from effective contract state');
+requireText(integrityMigration, 'an overlapping accepted commitment already covers this party, resource type, domain, and delivery window', 'semantically duplicate overlapping commitments must fail closed instead of double-claiming activity');
+requireText(integrityMigration, 'partner_commitment_manual_measurement_reviews', 'manual delivery assertions need append-only counterparty review');
+requireText(integrityMigration, "decision text not null check (decision in ('acknowledged','disputed'))", 'manual evidence review must preserve explicit acknowledgement and dispute semantics');
+requireText(integrityMigration, 'manual delivery assertion may be authored only by the committed party', 'host must not fabricate manual delivery quantities for a partner');
+requireText(integrityMigration, 'manual delivery evidence must be acknowledged by every required counterparty before it can finalize the commitment', 'unreviewed manual claims must not finalize fulfillment');
+requireText(integrityMigration, 'before update or delete', 'append-only commitment evidence must resist delete-path history rewriting');
+requireText(integrityMigration, 'domain-specific Office Hours lacks server-recorded domain provenance', 'generic Office Hours telemetry must not overclaim domain-specific fulfillment');
+requireText(integrityMigration, 'measurement_coverage', 'longitudinal usage claims must expose evidence coverage rather than coerce unknown to zero');
+requireText(integrityMigration, "filter (where r.measurement_admissible)", 'historical delivery and utilization averages must exclude inadmissible measurements');
+requireText(service, ".rpc('review_partner_commitment_manual_measurement'", 'manual evidence review must cross a server-scoped RPC boundary');
+requireText(panel, 'CURRENT CONTRACT REMAINS EFFECTIVE', 'partner UX must make amendment effectiveness explicit');
+requireText(panel, 'Unknown measurements are excluded rather than treated as zero.', 'longitudinal UX must distinguish missing evidence from zero utilization');
+requireText(panel, 'DISPUTE', 'counterpart UX must support explicit non-scoring disagreement with a manual assertion');
+forbidText(integrityMigration, 'partner_value_score', 'contract integrity must not introduce a synthetic partner value rank');
+forbidText(integrityMigration, 'fairness_score', 'contract integrity must not introduce a fairness leaderboard');
+
 if (failures.length > 0) {
   console.error('Partner Commitment Ledger validation failed:');
   failures.forEach((failure) => console.error(`- ${failure}`));
