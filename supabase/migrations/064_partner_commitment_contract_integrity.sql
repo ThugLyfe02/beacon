@@ -599,8 +599,8 @@ begin
     case p_target_status
       when 'scheduled' then 'scheduled-by-committed-party'
       when 'delivering' then 'delivery-started'
-      when 'fulfilled' then 'manual-measurement-finalized'
-      when 'partially_fulfilled' then 'manual-measurement-finalized'
+      when 'fulfilled' then 'measured-delivery-finalized'
+      when 'partially_fulfilled' then 'measured-delivery-finalized'
       when 'cancelled' then 'committed-party-cancelled'
       else 'event-window-closed-without-delivery'
     end,
@@ -692,7 +692,10 @@ as $$
     public.partner_commitment_acceptance_state(d.id),
     public.partner_commitment_latest_status(d.id),
     public.partner_commitment_required_roles(d.id),
-    c.effective_revision_id is null and exists (
+    c.effective_revision_id is null
+    and public.partner_commitment_acceptance_state(d.id) = 'awaiting-acceptance'
+    and public.partner_commitment_latest_status(d.id) = 'proposed'
+    and exists (
       select 1
       from unnest(public.partner_commitment_actor_roles(s.id, auth.uid())) role
       where role = any(public.partner_commitment_required_roles(d.id))

@@ -175,6 +175,8 @@ const integrityMigration = 'supabase/migrations/064_partner_commitment_contract_
 read(integrityMigration);
 requireText(integrityMigration, 'partner_commitment_effective_revision', 'accepted terms must remain effective while an amendment awaits fresh approval');
 requireText(integrityMigration, 'partner_commitment_pending_revision', 'pending amendments must be represented separately from effective contract state');
+requireText(integrityMigration, "partner_commitment_acceptance_state(d.id) = 'awaiting-acceptance'", 'rejected or withdrawn revisions must never re-surface as actionable pending decisions');
+requireText(integrityMigration, "partner_commitment_latest_status(d.id) = 'proposed'", 'only live proposed revisions may expose an acceptance action');
 requireText(integrityMigration, 'an overlapping accepted commitment already covers this party, resource type, domain, and delivery window', 'semantically duplicate overlapping commitments must fail closed instead of double-claiming activity');
 requireText(integrityMigration, 'partner_commitment_manual_measurement_reviews', 'manual delivery assertions need append-only counterparty review');
 requireText(integrityMigration, "decision text not null check (decision in ('acknowledged','disputed'))", 'manual evidence review must preserve explicit acknowledgement and dispute semantics');
