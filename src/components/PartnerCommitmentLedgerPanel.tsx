@@ -28,6 +28,7 @@ import {
 import { EVENT_INTENT_KEYS, EVENT_INTENT_LABELS, type EventIntentKey } from '../services/event-intent.service';
 import { NeonText, Pill, Surface } from './ui';
 import { palette, radii, spacing } from '../theme';
+import PartnerCommitmentGovernanceCard from './PartnerCommitmentGovernanceCard';
 
 type Props =
   | { scopeKind: 'program-template'; programId: string; compact?: boolean }
@@ -333,6 +334,8 @@ export default function PartnerCommitmentLedgerPanel(props: Readonly<Props>) {
               Different resources are not converted into a fairness score. Beacon shows promised, delivered, utilized and unused quantities within each resource's own semantics. No public leaderboard is created.
             </NeonText>
           </Surface>
+
+          <PartnerCommitmentGovernanceCard scope={scope} />
 
           {scope.scopeKind === 'event-exchange' && scope.canPrefillProgram ? (
             <Pressable disabled={working} onPress={prefill} style={styles.prefillButton}>
