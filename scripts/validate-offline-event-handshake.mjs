@@ -22,6 +22,7 @@ function forbidText(path, text, explanation) {
 }
 
 const migration = 'supabase/migrations/059_offline_event_handshakes.sql';
+const hardeningMigration = 'supabase/migrations/060_offline_handshake_state_machine_hardening.sql';
 const protocol = 'src/handshake/OfflineHandshakeProtocol.ts';
 const localStore = 'src/handshake/OfflineHandshakeLocalStore.ts';
 const transport = 'src/handshake/HandshakeTransport.ts';
@@ -31,7 +32,19 @@ const preview = 'src/components/MeetInBeaconPreview.tsx';
 const docs = 'docs/OFFLINE_EVENT_HANDSHAKE.md';
 const navigator = 'src/navigation/RootNavigator.tsx';
 const lobby = 'src/screens/EventLobbyScreen.tsx';
-const files = [migration, protocol, localStore, transport, service, screen, preview, docs, navigator, lobby];
+const files = [
+  migration,
+  hardeningMigration,
+  protocol,
+  localStore,
+  transport,
+  service,
+  screen,
+  preview,
+  docs,
+  navigator,
+  lobby,
+];
 files.forEach(read);
 
 requireText(migration, 'event_handshake_capabilities', 'server-minted short-lived capability state must be durable');
@@ -66,6 +79,17 @@ requireText(migration, 'get_my_verified_event_handshakes', 'participants need a 
 requireText(migration, 'get_event_handshake_health', 'operators need aggregate protocol-health observability');
 requireText(migration, 'v_capability_count < 5', 'host operational metrics must remain cohort gated');
 
+requireText(hardeningMigration, 'enforce_event_handshake_capability_transition', 'legal server state transitions must be enforced by the database');
+requireText(hardeningMigration, 'Terminal states are absorbing', 'verified/failed capabilities must never be resurrected by a later retry');
+requireText(hardeningMigration, "old.state in (", 'terminal-state guard must inspect prior durable state');
+requireText(hardeningMigration, "when 'prepared' then new.state in", 'prepared-state transitions must be explicitly allow-listed');
+requireText(hardeningMigration, "when 'pending-reconciliation' then new.state in", 'pending reconciliation may move only to legal terminal outcomes');
+requireText(hardeningMigration, "when 'counterparty-confirmed' then new.state in", 'counterparty-confirmed state may move only to legal terminal outcomes');
+requireText(hardeningMigration, "new.state = 'server-verified' and new.consumed_at is null", 'verified state must require server consumption evidence');
+requireText(hardeningMigration, 'event_handshake_confirmation_update_guard', 'participant confirmation evidence must reject in-place mutation');
+requireText(hardeningMigration, 'event_handshake_verification_update_guard', 'verified interaction evidence must reject in-place mutation');
+requireText(hardeningMigration, 'event_handshake_audit_update_guard', 'protocol audit evidence must reject in-place mutation');
+
 requireText(protocol, "OFFLINE_HANDSHAKE_QR_PREFIX = 'bhs1'", 'QR envelope must have a versioned protocol marker');
 requireText(protocol, "kind: 'offer'", 'protocol must distinguish offer from acknowledgement');
 requireText(protocol, "kind: 'ack'", 'protocol must distinguish acknowledgement from offer');
@@ -79,7 +103,9 @@ requireText(localStore, 'expo-secure-store', 'mobile one-time material must use 
 requireText(localStore, 'WHEN_UNLOCKED_THIS_DEVICE_ONLY', 'iOS keychain persistence should remain device bound');
 requireText(localStore, 'different authenticated account', 'local material must not survive as usable state across account switching');
 requireText(localStore, 'volatile', 'unsupported platforms need an explicit non-durable fallback instead of silently pretending persistence');
-requireText(localStore, 'removePendingHandshake', 'verified/terminal one-time material needs a destruction path');
+requireText(localStore, 'removePendingHandshake', 'verified/terminal pending acknowledgement material needs a destruction path');
+requireText(localStore, 'removePreparedHandshakeCapability', 'initiator offer-token and manual-code material needs explicit terminal destruction');
+requireText(localStore, 'deleteItem(capabilityKey(eventId, capabilityId))', 'capability destruction must remove the stored plaintext record, not only its index pointer');
 
 requireText(transport, "kind: 'qr'", 'QR must be an explicit transport adapter');
 requireText(transport, "kind: 'manual'", 'manual accessibility fallback must be a first-class transport adapter');
@@ -90,7 +116,9 @@ requireText(transport, 'passiveDiscoveryCreatesEvidence: false', 'passive discov
 requireText(service, ".rpc('prepare_event_handshake_capabilities'", 'client capability preparation must use server authority');
 requireText(service, ".rpc('submit_handshake_initiator_confirmation'", 'initiator reconciliation must use server authority');
 requireText(service, ".rpc('submit_handshake_responder_confirmation'", 'responder reconciliation must use server authority');
-requireText(service, 'Destroy the local one-time material after durable server verification', 'successful reconciliation must remove local secrets');
+requireText(service, 'destroyResolvedLocalMaterial', 'verified/terminal server results must trigger one-time local material destruction');
+requireText(service, "record.role === 'initiator' && record.capabilityId", 'only the initiator device should own and scrub prepared offer capability material');
+requireText(service, 'removePreparedHandshakeCapability(eventId, userId, record.capabilityId)', 'terminal reconciliation must remove the initiator plaintext capability');
 requireText(service, "attempts >= 5 ? 'needs-attention'", 'repeated failures must become visible rather than spin forever');
 forbidText(service, ".from('event_handshake_capabilities')", 'mobile client must not bypass the scoped handshake RPC boundary');
 forbidText(service, ".from('event_handshake_confirmations')", 'mobile client must not read/write raw confirmation rows');
@@ -118,7 +146,7 @@ requireText(docs, 'does **not** automatically', 'documentation must preserve rel
 requireText(docs, 'twenty', 'documentation must explain short capability windows');
 requireText(docs, 'six hours', 'documentation must explain bounded post-event reconciliation grace');
 
-for (const path of [migration, protocol, localStore, transport, service, screen, preview]) {
+for (const path of [migration, hardeningMigration, protocol, localStore, transport, service, screen, preview]) {
   forbidText(path, 'Math.random(', 'handshake identifiers/selection must never rely on Math.random');
   forbidText(path, 'targetPremium', 'offline interaction evidence must not depend on payment status');
   forbidText(path, 'popularityScore', 'offline interaction evidence must not create a popularity score');
