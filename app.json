@@ -16,12 +16,13 @@
     "plugins": [
       "expo-video",
       "expo-asset",
-      "@sentry/react-native"
+      "@sentry/react-native",
+      "expo-secure-store"
     ],
     "ios": {
       "bundleIdentifier": "com.beacon.client",
       "infoPlist": {
-        "NSCameraUsageDescription": "Beacon uses the camera for office-hours video calls and the AR field view.",
+        "NSCameraUsageDescription": "Beacon uses the camera for office-hours video, the AR field, and explicit one-time meeting QR handshakes.",
         "NSMicrophoneUsageDescription": "Beacon uses the microphone for office-hours voice and video calls.",
         "UIBackgroundModes": [
           "voip",

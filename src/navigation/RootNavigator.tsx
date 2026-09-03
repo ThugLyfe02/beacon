@@ -27,6 +27,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import EventFeedScreen from '../screens/EventFeedScreen';
 import EventLobbyScreen from '../screens/EventLobbyScreen';
+import MeetInBeaconScreen from '../screens/MeetInBeaconScreen';
 import EventIntentScreen from '../screens/EventIntentScreen';
 import EventIntentMixScreen from '../screens/EventIntentMixScreen';
 import CommunityExchangeScreen from '../screens/CommunityExchangeScreen';
@@ -390,6 +391,19 @@ export function RootNavigator() {
             headerStyle: { backgroundColor: palette.space },
             headerTitleStyle: { color: palette.text, fontWeight: '700' },
             headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="MeetInBeacon"
+          component={MeetInBeaconScreen}
+          options={{
+            headerShown: true,
+            title: 'Meet in Beacon',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: '#6EE7B7',
             animation: 'slide_from_right',
           }}
         />

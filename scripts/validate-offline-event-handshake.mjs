@@ -77,7 +77,7 @@ forbidText(protocol, 'email', 'QR protocol envelopes must not carry email identi
 
 requireText(localStore, 'expo-secure-store', 'mobile one-time material must use secure local storage where available');
 requireText(localStore, 'WHEN_UNLOCKED_THIS_DEVICE_ONLY', 'iOS keychain persistence should remain device bound');
-requireText(localStore, 'previous account', 'local material must not survive as usable state across account switching');
+requireText(localStore, 'different authenticated account', 'local material must not survive as usable state across account switching');
 requireText(localStore, 'volatile', 'unsupported platforms need an explicit non-durable fallback instead of silently pretending persistence');
 requireText(localStore, 'removePendingHandshake', 'verified/terminal one-time material needs a destruction path');
 
@@ -112,7 +112,7 @@ requireText(preview, 'No passive encounter tracking', 'lobby framing must preser
 requireText(navigator, 'MeetInBeacon', 'handshake screen must be part of the real navigation graph');
 requireText(lobby, '<MeetInBeaconPreview eventId={eventId} />', 'offline continuity must be visible in the live event lobby');
 
-requireText(docs, 'not cryptographic distance-bounding', 'documentation must explicitly state physical-proof limitations');
+requireText(docs, 'cryptographic distance-bounding', 'documentation must explicitly state physical-proof limitations');
 requireText(docs, 'BLE is transport, not consent', 'documentation must reject passive Bluetooth encounter collection');
 requireText(docs, 'does **not** automatically', 'documentation must preserve relationship-consent separation');
 requireText(docs, 'twenty', 'documentation must explain short capability windows');

@@ -43,9 +43,9 @@ import {
   type VerifiedEventHandshake,
 } from '../services/offline-handshake.service';
 
-interface Params {
+type Params = Record<string, object | undefined> & {
   MeetInBeacon: { eventId: string };
-}
+};
 
 type FlowMode =
   | 'home'

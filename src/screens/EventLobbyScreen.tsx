@@ -14,6 +14,7 @@ import TensionBar from "../components/TensionBar";
 import OpportunityWindowBanner from "../components/OpportunityWindowBanner";
 import VenueServiceStatusCard from "../components/VenueServiceStatusCard";
 import EventFocusWindowCard from "../components/EventFocusWindowCard";
+import MeetInBeaconPreview from "../components/MeetInBeaconPreview";
 import CommunityExchangePreview from "../components/CommunityExchangePreview";
 import IntroductionInboxPreview from "../components/IntroductionInboxPreview";
 import { FEATURE_FLAGS } from "../config/featureFlags";
@@ -184,6 +185,7 @@ export default function EventLobbyScreen() {
       </Pressable>
 
       <EventFocusWindowCard eventId={eventId} />
+      <MeetInBeaconPreview eventId={eventId} />
       <CommunityExchangePreview eventId={eventId} />
       <IntroductionInboxPreview eventId={eventId} />
       <VenueServiceStatusCard eventId={eventId} />
