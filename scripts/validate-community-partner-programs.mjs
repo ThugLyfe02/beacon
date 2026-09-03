@@ -35,7 +35,7 @@ requireText(migration, "community_a_id::text < community_b_id::text", 'program p
 requireText(migration, "p.state = 'active'", 'only active reusable programs may be offered to an event');
 requireText(migration, 'both program communities must be active partners of this event', 'program reuse must require both communities in the current event');
 requireText(migration, "false,\n    false,\n    'proposed'", 'using a historical program must reset both event-specific approvals');
-requireText(migration, 'does not carry member disclosure or event-specific exchange authority', 'reusable configuration must not inherit participant or event consent');
+requireText(migration, 'never carries member disclosure or event-specific exchange authority', 'reusable configuration must not inherit participant or event consent');
 
 requireText(service, ".rpc('use_community_partner_program'", 'host reuse must call the server event-consent reset boundary');
 requireText(service, ".rpc('get_event_available_partner_programs'", 'available programs must be server filtered for the current event');
