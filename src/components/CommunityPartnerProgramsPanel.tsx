@@ -13,6 +13,7 @@ import {
 import type { CommunityEventPartnership, CommunityPartner } from '../services/community-exchange.service';
 import { EVENT_INTENT_KEYS, EVENT_INTENT_LABELS, type EventIntentKey } from '../services/event-intent.service';
 import { NeonText, Pill, Surface } from './ui';
+import PartnerCommitmentLedgerPanel from './PartnerCommitmentLedgerPanel';
 import { palette, radii, spacing } from '../theme';
 
 interface Props {
@@ -179,6 +180,9 @@ export default function CommunityPartnerProgramsPanel({
                     <Pill label={program.state.toUpperCase()} tone={program.state === 'active' ? 'success' : program.state === 'proposed' ? 'warning' : 'neutral'} />
                   </View>
                   <NeonText variant="bodyMuted" style={styles.smallTop}>{program.domains.map((domain) => EVENT_INTENT_LABELS[domain]).join(' · ')}</NeonText>
+                  {program.state === 'active' || program.state === 'paused' ? (
+                    <PartnerCommitmentLedgerPanel scopeKind="program-template" programId={program.program_id} compact />
+                  ) : null}
 
                   {needsCallerDecision ? (
                     <View style={styles.buttonRow}>

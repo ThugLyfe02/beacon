@@ -42,6 +42,7 @@ import {
 import CommunityPartnerProgramsPanel from '../components/CommunityPartnerProgramsPanel';
 import CommunitySupplyDemandPanel from '../components/CommunitySupplyDemandPanel';
 import CommunityOutcomeReceiptEvidence from '../components/CommunityOutcomeReceiptEvidence';
+import PartnerCommitmentLedgerPanel from '../components/PartnerCommitmentLedgerPanel';
 import { GridBackground, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -547,6 +548,9 @@ export default function CommunityExchangeScreen() {
               ) : null}
               {exchange.state === 'active' ? (
                 <CommunityOutcomeReceiptEvidence exchangeId={exchange.exchange_id} />
+              ) : null}
+              {exchange.state === 'active' ? (
+                <PartnerCommitmentLedgerPanel scopeKind="event-exchange" exchangeId={exchange.exchange_id} />
               ) : null}
             </Surface>
           );
