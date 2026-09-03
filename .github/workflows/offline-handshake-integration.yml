@@ -87,6 +87,19 @@ jobs:
             '          node scripts/validate-community-supply-demand.mjs\n          node scripts/validate-offline-event-handshake.mjs\n',
             'handshake architecture gate',
           );
+
+          replaceOnce(
+            'scripts/validate-offline-event-handshake.mjs',
+            "requireText(localStore, 'previous account', 'local material must not survive as usable state across account switching');",
+            "requireText(localStore, 'different authenticated account', 'local material must not survive as usable state across account switching');",
+            'account-switch assertion',
+          );
+          replaceOnce(
+            'scripts/validate-offline-event-handshake.mjs',
+            "requireText(docs, 'not cryptographic distance-bounding', 'documentation must explicitly state physical-proof limitations');",
+            "requireText(docs, 'cryptographic distance-bounding', 'documentation must explicitly state physical-proof limitations');",
+            'distance-bounding assertion',
+          );
           NODE
 
       - name: Validate strict types, Expo configuration, and architecture
@@ -114,6 +127,7 @@ jobs:
             src/navigation/RootNavigator.tsx \
             src/screens/EventLobbyScreen.tsx \
             app.json \
+            scripts/validate-offline-event-handshake.mjs \
             .github/workflows/venue-operations-gate.yml
           git commit -m 'feat(handshake): integrate offline continuity into live event flow'
           git push origin HEAD:${GITHUB_REF_NAME}
