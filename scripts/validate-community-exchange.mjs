@@ -25,8 +25,13 @@ const migration = 'supabase/migrations/056_community_exchange.sql';
 const service = 'src/services/community-exchange.service.ts';
 const screen = 'src/screens/CommunityExchangeScreen.tsx';
 const preview = 'src/components/CommunityExchangePreview.tsx';
+const bridgeCard = 'src/components/CommunityBridgeContextCard.tsx';
 const docs = 'docs/COMMUNITY_EXCHANGE.md';
-const files = [migration, service, screen, preview, docs];
+const lobby = 'src/screens/EventLobbyScreen.tsx';
+const host = 'src/screens/HostManagementScreen.tsx';
+const navigator = 'src/navigation/RootNavigator.tsx';
+const avatarSheet = 'src/spatial/AvatarActionSheet.tsx';
+const files = [migration, service, screen, preview, bridgeCard, docs, lobby, host, navigator, avatarSheet];
 files.forEach(read);
 
 requireText(migration, 'community_partners', 'partner identity must be durable and operator-owned');
@@ -79,12 +84,23 @@ requireText(screen, 'NETWORK-OF-NETWORKS BOUNDARY', 'screen must surface the pro
 requireText(preview, "navigation.navigate('CommunityExchange'", 'event lobby preview must lead into the functional community surface');
 requireText(preview, 'real declared-fit domain crosses an approved community bridge', 'participant preview must explain that affiliation alone is insufficient');
 
+requireText(bridgeCard, 'getLiveCommunityBridges', 'selected-person community context must use the server-revalidated live bridge projection');
+requireText(bridgeCard, 'Community affiliation adds context to an already-real fit', 'peer-facing community context must not become a new ranking surface');
+requireText(bridgeCard, 'relationship graph', 'peer-facing copy must explicitly preserve graph privacy');
+
+requireText(lobby, '<CommunityExchangePreview eventId={eventId} />', 'community exchange must be reachable from the live event lobby');
+requireText(host, "navigation.navigate('CommunityExchange', { eventId: event.id })", 'community partnership controls must be reachable from the host workspace');
+requireText(host, 'measure cross-community outcomes without exposing member rosters', 'host entry point must preserve the roster boundary');
+requireText(navigator, "name=\"CommunityExchange\"", 'community exchange needs a registered application route');
+requireText(avatarSheet, '<CommunityBridgeContextCard', 'live selected-person context must surface eligible community bridges');
+requireText(avatarSheet, 'active={visible}', 'community bridge lookup should exist only while the selected-person surface is active');
+
 requireText(docs, 'network of networks', 'architecture documentation must state the partnership-level network thesis');
 requireText(docs, 'Open Badges 3.0', 'community portability seam should document the interoperable credential pathway without claiming current conformance');
 requireText(docs, 'should not claim Open Badges compatibility', 'documentation must avoid standards overclaiming');
 requireText(docs, 'no reusable member roster', 'documentation must explicitly reject community roster ingestion as a requirement');
 
-for (const path of [migration, service, screen, preview]) {
+for (const path of [migration, service, screen, preview, bridgeCard]) {
   forbidText(path, 'targetPremium', 'community routing must not use premium status');
   forbidText(path, 'graphDegree', 'community routing must not create hidden graph-degree ranking');
   forbidText(path, 'popularityScore', 'community routing must not create popularity scores');
