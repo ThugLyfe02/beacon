@@ -41,6 +41,13 @@ jobs:
           }
 
           replaceOnce(
+            'src/screens/MeetInBeaconScreen.tsx',
+            "interface Params {\n  MeetInBeacon: { eventId: string };\n}\n",
+            "type Params = Record<string, object | undefined> & {\n  MeetInBeacon: { eventId: string };\n};\n",
+            'typed navigation params',
+          );
+
+          replaceOnce(
             'src/navigation/RootNavigator.tsx',
             "import EventLobbyScreen from '../screens/EventLobbyScreen';\n",
             "import EventLobbyScreen from '../screens/EventLobbyScreen';\nimport MeetInBeaconScreen from '../screens/MeetInBeaconScreen';\n",
@@ -103,6 +110,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
+            src/screens/MeetInBeaconScreen.tsx \
             src/navigation/RootNavigator.tsx \
             src/screens/EventLobbyScreen.tsx \
             app.json \
