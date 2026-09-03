@@ -84,6 +84,7 @@ declare
   v_event_scope public.partner_commitment_scopes;
   v_program_scope_id uuid;
   v_event public.events;
+  v_exchange_state text;
   v_template record;
   v_commitment_id uuid;
   v_revision_id uuid;
@@ -98,6 +99,14 @@ begin
   select * into v_event_scope
   from public.partner_commitment_scopes
   where id = v_event_scope_id;
+
+  select state into v_exchange_state
+  from public.community_exchange_agreements
+  where id = v_event_scope.exchange_id;
+
+  if v_exchange_state is distinct from 'active' then
+    raise exception 'active operational exchange required for commitment prefill';
+  end if;
 
   if v_event_scope.program_id is null then
     raise exception 'exchange was not instantiated from a reusable partner program';
@@ -115,7 +124,7 @@ begin
   where id = v_event_scope.event_id;
 
   if not public.is_event_operational(v_event_scope.event_id) then
-    raise exception 'event is no longer operational';
+    raise exception 'active operational exchange required for commitment prefill';
   end if;
   if v_event.ends_at is null then
     raise exception 'event end time is required before commitments can be prefilled';
@@ -224,6 +233,6 @@ revoke all on function public.prefill_partner_program_commitments(uuid,text) fro
 grant execute on function public.prefill_partner_program_commitments(uuid,text) to authenticated;
 
 comment on function public.prefill_partner_program_commitments(uuid,text) is
-  'Copies only the currently effective accepted Partner Program revision into an event as a fresh proposal; pending/rejected amendments never silently replace accepted configuration.';
+  'Copies only the currently effective accepted Partner Program revision into an active operational exchange as a fresh proposal; pending/rejected amendments never silently replace accepted configuration.';
 comment on function public.partner_commitment_has_semantic_overlap(uuid) is
   'Rejects indistinguishable overlapping obligations even when an earlier obligation is fulfilled/partially fulfilled, preventing one real activity from satisfying two semantic duplicates.';
