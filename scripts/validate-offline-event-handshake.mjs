@@ -29,6 +29,8 @@ const transport = 'src/handshake/HandshakeTransport.ts';
 const service = 'src/services/offline-handshake.service.ts';
 const screen = 'src/screens/MeetInBeaconScreen.tsx';
 const preview = 'src/components/MeetInBeaconPreview.tsx';
+const hostHealth = 'src/components/HandshakeHealthCard.tsx';
+const hostScreen = 'src/screens/HostManagementScreen.tsx';
 const docs = 'docs/OFFLINE_EVENT_HANDSHAKE.md';
 const navigator = 'src/navigation/RootNavigator.tsx';
 const lobby = 'src/screens/EventLobbyScreen.tsx';
@@ -41,6 +43,8 @@ const files = [
   service,
   screen,
   preview,
+  hostHealth,
+  hostScreen,
   docs,
   navigator,
   lobby,
@@ -136,6 +140,10 @@ requireText(screen, 'CameraView', 'QR response/offer scanning must be implemente
 requireText(preview, 'OFFLINE READY', 'event lobby should expose readiness before an outage occurs');
 requireText(preview, 'AppState.addEventListener', 'pending handshakes should reconcile when the app returns to foreground');
 requireText(preview, 'No passive encounter tracking', 'lobby framing must preserve explicit-interaction semantics');
+requireText(hostHealth, 'getEventHandshakeHealth', 'host protocol health must consume the cohort-gated server projection');
+requireText(hostHealth, 'Evidence is still cohort building', 'small handshake cohorts must remain visibly suppressed');
+requireText(hostHealth, 'They do not identify who met', 'host protocol health must reject pair-level interpretation');
+requireText(hostScreen, '<HandshakeHealthCard eventId={event.id} />', 'host workspace must expose protocol resilience without a separate admin tool');
 
 requireText(navigator, 'MeetInBeacon', 'handshake screen must be part of the real navigation graph');
 requireText(lobby, '<MeetInBeaconPreview eventId={eventId} />', 'offline continuity must be visible in the live event lobby');

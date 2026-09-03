@@ -30,6 +30,7 @@ import {
   Surface,
 } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
+import HandshakeHealthCard from '../components/HandshakeHealthCard';
 
 interface HostManagementScreenProps {
   userId: string;
@@ -293,6 +294,10 @@ export default function HostManagementScreen({
           </Surface>
         </View>
       ) : null}
+
+      <View style={styles.section}>
+        <HandshakeHealthCard eventId={event.id} />
+      </View>
 
       <View style={styles.section}>
         <NeonText variant="label" tone="accent">HOST TOOLS</NeonText>
