@@ -1,0 +1,91 @@
+name: Finalize partner commitment projection semantics
+
+on:
+  push:
+    branches:
+      - feature/spatial-event-digital-twin
+
+permissions:
+  contents: write
+
+concurrency:
+  group: partner-commitment-finalize-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Close rejected-revision decision and provenance edge cases
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function replaceRequired(path, before, after) {
+            let source = fs.readFileSync(path, 'utf8');
+            if (source.includes(after)) return;
+            if (!source.includes(before)) throw new Error(`${path}: required seam not found`);
+            source = source.replace(before, after);
+            fs.writeFileSync(path, source);
+          }
+
+          const migration = 'supabase/migrations/064_partner_commitment_contract_integrity.sql';
+          replaceRequired(
+            migration,
+            `    c.effective_revision_id is null and exists (\n      select 1`,
+            `    c.effective_revision_id is null\n    and public.partner_commitment_acceptance_state(d.id) = 'awaiting-acceptance'\n    and public.partner_commitment_latest_status(d.id) = 'proposed'\n    and exists (\n      select 1`,
+          );
+
+          replaceRequired(
+            migration,
+            `      when 'fulfilled' then 'manual-measurement-finalized'\n      when 'partially_fulfilled' then 'manual-measurement-finalized'`,
+            `      when 'fulfilled' then 'measured-delivery-finalized'\n      when 'partially_fulfilled' then 'measured-delivery-finalized'`,
+          );
+
+          const validator = 'scripts/validate-partner-commitment-ledger.mjs';
+          let source = fs.readFileSync(validator, 'utf8');
+          const marker = `requireText(integrityMigration, 'partner_commitment_pending_revision', 'pending amendments must be represented separately from effective contract state');`;
+          const addition = `\nrequireText(integrityMigration, "partner_commitment_acceptance_state(d.id) = 'awaiting-acceptance'", 'rejected or withdrawn revisions must never re-surface as actionable pending decisions');\nrequireText(integrityMigration, "partner_commitment_latest_status(d.id) = 'proposed'", 'only live proposed revisions may expose an acceptance action');`;
+          if (!source.includes('rejected or withdrawn revisions must never re-surface')) {
+            if (!source.includes(marker)) throw new Error('validator insertion seam missing');
+            source = source.replace(marker, marker + addition);
+            fs.writeFileSync(validator, source);
+          }
+          NODE
+
+      - name: Validate final partner commitment contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit --pretty false
+          node scripts/validate-partner-commitment-ledger.mjs
+          node scripts/validate-community-partner-programs.mjs
+          node scripts/validate-community-exchange.mjs
+          node scripts/validate-participant-outcome-receipts.mjs
+          node scripts/validate-product-preservation.mjs
+
+      - name: Commit validated finalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/migrations/064_partner_commitment_contract_integrity.sql scripts/validate-partner-commitment-ledger.mjs
+          if git diff --cached --quiet; then
+            echo 'Finalization already present.'
+            exit 0
+          fi
+          git commit -m 'fix(partners): keep terminal revisions non-actionable'
+          git push origin HEAD:${GITHUB_REF_NAME}
