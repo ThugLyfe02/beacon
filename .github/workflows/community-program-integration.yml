@@ -1,0 +1,68 @@
+name: Community partner program integration
+
+on:
+  push:
+    branches:
+      - feature/spatial-event-digital-twin
+
+permissions:
+  contents: write
+
+concurrency:
+  group: community-program-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Integrate reusable partner programs
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'src/screens/CommunityExchangeScreen.tsx';
+          let source = fs.readFileSync(path, 'utf8');
+          const importAnchor = "import { GridBackground, NeonText, Pill, Surface } from '../components/ui';\n";
+          const importAfter = "import CommunityPartnerProgramsPanel from '../components/CommunityPartnerProgramsPanel';\nimport { GridBackground, NeonText, Pill, Surface } from '../components/ui';\n";
+          if ((source.split(importAnchor).length - 1) !== 1) throw new Error('community program import anchor mismatch');
+          source = source.replace(importAnchor, importAfter);
+
+          const renderAnchor = "      <View style={styles.section}>\n        <NeonText variant=\"label\" tone=\"accent\">COMMUNITY EXCHANGES</NeonText>";
+          const renderAfter = "      <View style={styles.section}>\n        <CommunityPartnerProgramsPanel\n          eventId={eventId}\n          isHost={isHost}\n          ownedCommunities={partners}\n          activePartnerships={activePartnerships}\n          onInstantiated={() => load(false)}\n        />\n      </View>\n\n      <View style={styles.section}>\n        <NeonText variant=\"label\" tone=\"accent\">COMMUNITY EXCHANGES</NeonText>";
+          if ((source.split(renderAnchor).length - 1) !== 1) throw new Error('community program render anchor mismatch');
+          source = source.replace(renderAnchor, renderAfter);
+          fs.writeFileSync(path, source);
+          NODE
+
+      - name: Validate strict types and architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit --pretty false
+          node scripts/validate-community-exchange.mjs
+          node scripts/validate-community-partner-programs.mjs
+          node scripts/validate-warm-introductions.mjs
+          node scripts/validate-warm-introduction-production.mjs
+          node scripts/validate-venue-operations.mjs
+
+      - name: Commit validated integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/screens/CommunityExchangeScreen.tsx
+          git commit -m 'feat(community): integrate reusable partner programs'
+          git push origin HEAD:${GITHUB_REF_NAME}
