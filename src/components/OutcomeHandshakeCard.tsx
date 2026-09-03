@@ -110,7 +110,7 @@ export default function OutcomeHandshakeCard({
     if (completed) {
       setState((current) => ({ ...current, status: 'completed' }));
     } else {
-      Alert.alert('Could not confirm outcome', 'Please try again after refreshing this mutual.');
+      Alert.alert('Could not close alignment', 'Please try again after refreshing this mutual.');
     }
   }
 
@@ -189,7 +189,7 @@ export default function OutcomeHandshakeCard({
         <View style={styles.alignedPanel}>
           <Text style={styles.alignedLabel}>{getActivationLabel(state.activationType)}</Text>
           <Text style={styles.alignedText}>
-            This alignment has been written into both private Vaults as an actionable next step.
+            This is private next-step alignment: both participants independently selected compatible intent. It is not evidence that the real-world outcome already occurred.
           </Text>
           <Pressable
             disabled={completing}
@@ -199,7 +199,7 @@ export default function OutcomeHandshakeCard({
             {completing ? (
               <ActivityIndicator color="#071018" />
             ) : (
-              <Text style={styles.completeButtonText}>Confirm real-world outcome</Text>
+              <Text style={styles.completeButtonText}>MARK ALIGNMENT HANDLED</Text>
             )}
           </Pressable>
         </View>
@@ -207,9 +207,9 @@ export default function OutcomeHandshakeCard({
 
       {state.status === 'completed' ? (
         <View style={styles.completedPanel}>
-          <Text style={styles.completedTitle}>Outcome confirmed</Text>
+          <Text style={styles.completedTitle}>Next-step alignment closed</Text>
           <Text style={styles.completedText}>
-            This connection moved beyond discovery into a completed next step.
+            This closes Beacon's private intent-alignment task. It does not prove what happened afterward. Use the Participant-Owned Outcome Receipt below to record the bounded fact you deliberately attest actually happened.
           </Text>
         </View>
       ) : null}
