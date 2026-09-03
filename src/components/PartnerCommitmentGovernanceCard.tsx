@@ -32,10 +32,10 @@ function toneForPosture(posture: 'ready' | 'attention' | 'blocked'): 'success' |
   return 'success';
 }
 
-function toneForIssue(severity: PartnerCommitmentPreflightIssue['severity']): 'danger' | 'warning' | 'muted' {
+function toneForIssue(severity: PartnerCommitmentPreflightIssue['severity']): 'danger' | 'warning' | 'neutral' {
   if (severity === 'block') return 'danger';
   if (severity === 'review') return 'warning';
-  return 'muted';
+  return 'neutral';
 }
 
 function shortHash(value: string | null): string {
