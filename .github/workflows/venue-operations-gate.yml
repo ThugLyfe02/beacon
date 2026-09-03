@@ -51,3 +51,4 @@ jobs:
           node scripts/validate-offline-event-handshake.mjs
           node scripts/validate-participant-outcome-receipts.mjs
           node scripts/validate-partner-commitment-ledger.mjs
+          node scripts/test-partner-commitment-semantics.mjs
