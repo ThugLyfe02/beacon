@@ -1,0 +1,89 @@
+name: Offline handshake host health integration
+
+on:
+  push:
+    branches:
+      - feature/spatial-event-digital-twin
+
+permissions:
+  contents: write
+
+concurrency:
+  group: offline-handshake-host-health-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Integrate cohort-gated handshake health into host workspace
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          function replaceOnce(path, before, after, label) {
+            const source = fs.readFileSync(path, 'utf8');
+            const count = source.split(before).length - 1;
+            if (count !== 1) throw new Error(`${label}: expected one anchor in ${path}, found ${count}`);
+            fs.writeFileSync(path, source.replace(before, after));
+          }
+
+          replaceOnce(
+            'src/screens/HostManagementScreen.tsx',
+            "import { palette, radii, spacing } from '../theme';\n",
+            "import { palette, radii, spacing } from '../theme';\nimport HandshakeHealthCard from '../components/HandshakeHealthCard';\n",
+            'host handshake health import',
+          );
+
+          replaceOnce(
+            'src/screens/HostManagementScreen.tsx',
+            '      <View style={styles.section}>\n        <NeonText variant="label" tone="accent">HOST TOOLS</NeonText>',
+            '      <View style={styles.section}>\n        <HandshakeHealthCard eventId={event.id} />\n      </View>\n\n      <View style={styles.section}>\n        <NeonText variant="label" tone="accent">HOST TOOLS</NeonText>',
+            'host handshake health render',
+          );
+
+          const validatorPath = 'scripts/validate-offline-event-handshake.mjs';
+          let validator = fs.readFileSync(validatorPath, 'utf8');
+          validator = validator.replace(
+            "const preview = 'src/components/MeetInBeaconPreview.tsx';\n",
+            "const preview = 'src/components/MeetInBeaconPreview.tsx';\nconst hostHealth = 'src/components/HandshakeHealthCard.tsx';\nconst hostScreen = 'src/screens/HostManagementScreen.tsx';\n",
+          );
+          validator = validator.replace(
+            '  preview,\n  docs,',
+            '  preview,\n  hostHealth,\n  hostScreen,\n  docs,',
+          );
+          validator = validator.replace(
+            "requireText(preview, 'No passive encounter tracking', 'lobby framing must preserve explicit-interaction semantics');\n",
+            "requireText(preview, 'No passive encounter tracking', 'lobby framing must preserve explicit-interaction semantics');\nrequireText(hostHealth, 'getEventHandshakeHealth', 'host protocol health must consume the cohort-gated server projection');\nrequireText(hostHealth, 'Evidence is still cohort building', 'small handshake cohorts must remain visibly suppressed');\nrequireText(hostHealth, 'They do not identify who met', 'host protocol health must reject pair-level interpretation');\nrequireText(hostScreen, '<HandshakeHealthCard eventId={event.id} />', 'host workspace must expose protocol resilience without a separate admin tool');\n",
+          );
+          fs.writeFileSync(validatorPath, validator);
+          NODE
+      - name: Validate strict types, Expo configuration, and handshake contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit --pretty false
+          npx expo-doctor
+          node scripts/validate-offline-event-handshake.mjs
+          node scripts/validate-venue-operations.mjs
+          node scripts/validate-event-intent-exchange.mjs
+          node scripts/validate-community-exchange.mjs
+      - name: Commit validated host integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/screens/HostManagementScreen.tsx scripts/validate-offline-event-handshake.mjs
+          git commit -m 'feat(handshake): expose cohort-gated protocol health to hosts'
+          git push origin HEAD:${GITHUB_REF_NAME}
