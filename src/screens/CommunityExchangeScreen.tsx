@@ -39,6 +39,7 @@ import {
   EVENT_INTENT_LABELS,
   type EventIntentKey,
 } from '../services/event-intent.service';
+import CommunityPartnerProgramsPanel from '../components/CommunityPartnerProgramsPanel';
 import { GridBackground, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -488,6 +489,16 @@ export default function CommunityExchangeScreen() {
           ) : null}
         </View>
       ) : null}
+
+      <View style={styles.section}>
+        <CommunityPartnerProgramsPanel
+          eventId={eventId}
+          isHost={isHost}
+          ownedCommunities={partners}
+          activePartnerships={activePartnerships}
+          onInstantiated={() => load(false)}
+        />
+      </View>
 
       <View style={styles.section}>
         <NeonText variant="label" tone="accent">COMMUNITY EXCHANGES</NeonText>
