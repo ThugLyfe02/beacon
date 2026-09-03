@@ -31,6 +31,7 @@ import {
 } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 import HandshakeHealthCard from '../components/HandshakeHealthCard';
+import OutcomeReceiptEvidenceCard from '../components/OutcomeReceiptEvidenceCard';
 
 interface HostManagementScreenProps {
   userId: string;
@@ -297,6 +298,10 @@ export default function HostManagementScreen({
 
       <View style={styles.section}>
         <HandshakeHealthCard eventId={event.id} />
+      </View>
+
+      <View style={styles.section}>
+        <OutcomeReceiptEvidenceCard eventId={event.id} />
       </View>
 
       <View style={styles.section}>

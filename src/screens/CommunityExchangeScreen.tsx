@@ -41,6 +41,7 @@ import {
 } from '../services/event-intent.service';
 import CommunityPartnerProgramsPanel from '../components/CommunityPartnerProgramsPanel';
 import CommunitySupplyDemandPanel from '../components/CommunitySupplyDemandPanel';
+import CommunityOutcomeReceiptEvidence from '../components/CommunityOutcomeReceiptEvidence';
 import { GridBackground, NeonText, Pill, Surface } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
 
@@ -543,6 +544,9 @@ export default function CommunityExchangeScreen() {
                 ) : evidence ? (
                   <NeonText variant="bodyMuted" style={styles.smallTop}>Operator evidence stays withheld until at least five participants in each community explicitly enable exchange for this event.</NeonText>
                 ) : null
+              ) : null}
+              {exchange.state === 'active' ? (
+                <CommunityOutcomeReceiptEvidence exchangeId={exchange.exchange_id} />
               ) : null}
             </Surface>
           );
