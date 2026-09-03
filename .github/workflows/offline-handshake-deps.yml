@@ -26,12 +26,13 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
-      - name: Install Expo-compatible local security and QR rendering dependencies
+      - name: Install Expo-compatible local security, randomness, and QR rendering dependencies
         shell: bash
         run: |
           set -euo pipefail
-          npx expo install expo-secure-store react-native-svg
+          npx expo install expo-secure-store expo-crypto react-native-svg
           npm install react-native-qrcode-svg
+          npx expo install --fix --npm
       - name: Validate Expo package alignment
         shell: bash
         run: |
@@ -49,5 +50,5 @@ jobs:
             echo 'Dependency state already present.'
             exit 0
           fi
-          git commit -m 'chore(deps): add secure local handshake and QR support'
+          git commit -m 'chore(deps): add secure offline handshake support'
           git push origin HEAD:${GITHUB_REF_NAME}
