@@ -323,6 +323,19 @@ export default function HostManagementScreen({
         </Pressable>
 
         <Pressable
+          onPress={() => navigation.navigate('CommunityExchange', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Community exchange</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Invite partner communities, activate bilateral exchanges, and measure cross-community outcomes without exposing member rosters.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
           onPress={() => navigation.navigate('VenueSensors', { eventId: event.id })}
           style={styles.hostToolBtn}
         >

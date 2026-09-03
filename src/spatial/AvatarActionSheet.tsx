@@ -12,6 +12,7 @@ import { useNavigation, useRoute, type NavigationProp } from '@react-navigation/
 import { supabase } from '../lib/supabase';
 import { blockUser, reportUser } from '../services/abuse.service';
 import WarmIntroductionRequestCard from '../components/WarmIntroductionRequestCard';
+import CommunityBridgeContextCard from '../components/CommunityBridgeContextCard';
 import { useAuth } from '../hooks/useAuth';
 import { useHeading } from '../hooks/useHeading';
 import { buildSpatialDirectionGuide } from './SpatialDirectionGuide';
@@ -214,6 +215,14 @@ export default function AvatarActionSheet({
                     This is the intersection of choices both of you made for this event. Beacon does not reveal their full declaration or infer intent from browsing or movement.
                   </Text>
                 </View>
+              ) : null}
+
+              {hasDeclaredFit ? (
+                <CommunityBridgeContextCard
+                  eventId={target.eventId}
+                  targetId={target.targetId}
+                  active={visible}
+                />
               ) : null}
 
               {hasDeclaredFit ? (

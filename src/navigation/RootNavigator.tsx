@@ -29,6 +29,7 @@ import EventFeedScreen from '../screens/EventFeedScreen';
 import EventLobbyScreen from '../screens/EventLobbyScreen';
 import EventIntentScreen from '../screens/EventIntentScreen';
 import EventIntentMixScreen from '../screens/EventIntentMixScreen';
+import CommunityExchangeScreen from '../screens/CommunityExchangeScreen';
 import IntroductionInboxScreen from '../screens/IntroductionInboxScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
@@ -415,6 +416,19 @@ export function RootNavigator() {
             headerStyle: { backgroundColor: palette.space },
             headerTitleStyle: { color: palette.text, fontWeight: '700' },
             headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="CommunityExchange"
+          component={CommunityExchangeScreen}
+          options={{
+            headerShown: true,
+            title: 'Community Exchange',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.premium,
             animation: 'slide_from_right',
           }}
         />
