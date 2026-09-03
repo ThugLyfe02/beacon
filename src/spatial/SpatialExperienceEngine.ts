@@ -8,7 +8,7 @@ export interface SpatialFocusTarget {
   score: number;
   rank: number;
   tier: SpatialAttentionTier;
-  reason: 'mutual' | 'premium-nearby' | 'closest' | 'momentum';
+  reason: 'mutual' | 'declared-fit' | 'premium-nearby' | 'closest' | 'momentum';
 }
 
 export interface SpatialExperienceState {
@@ -23,15 +23,18 @@ export interface SpatialExperienceState {
 function scoreTarget(target: ProximitySignal & { bucket?: number }): Omit<SpatialFocusTarget, 'rank' | 'tier'> {
   const distanceScore = Math.max(0, 42 - target.distanceFeet);
   const mutualBoost = target.mutual ? 38 : 0;
+  const declaredFitStrength = Math.max(0, Math.min(1, target.declaredFitStrength ?? 0));
+  const declaredFitBoost = declaredFitStrength * 30 + (target.declaredFitTwoWay ? 10 : 0);
   const premiumBoost = target.targetPremium ? 14 : 0;
   const bucketBoost = (target.bucket ?? 0) * 5;
   const freshnessBoost = target.timestamp != null
     ? Math.max(0, 6 - Math.floor((Date.now() - target.timestamp) / 10_000))
     : 0;
-  const score = distanceScore + mutualBoost + premiumBoost + bucketBoost + freshnessBoost;
+  const score = distanceScore + mutualBoost + declaredFitBoost + premiumBoost + bucketBoost + freshnessBoost;
 
   let reason: SpatialFocusTarget['reason'] = 'closest';
   if (target.mutual) reason = 'mutual';
+  else if (declaredFitStrength > 0) reason = 'declared-fit';
   else if (target.targetPremium && target.distanceFeet <= 20) reason = 'premium-nearby';
   else if ((target.bucket ?? 0) >= 2) reason = 'momentum';
 
@@ -74,6 +77,16 @@ function copyForState(
     };
   }
 
+  if (primary.reason === 'declared-fit') {
+    return {
+      headline: primary.target.declaredFitTwoWay
+        ? 'A two-way declared fit is nearby'
+        : 'Someone nearby matches what you explicitly came for',
+      detail: 'The emphasis comes from event-scoped selections both participants chose to share—not inferred browsing or movement behavior.',
+      accent: '#22d3ee',
+    };
+  }
+
   if (mood === 'surge') {
     return {
       headline: 'This window is moving quickly',
@@ -84,7 +97,7 @@ function copyForState(
 
   if (primary.reason === 'premium-nearby') {
     return {
-      headline: 'A high-value path is close',
+      headline: 'A highlighted path is close',
       detail: 'The strongest route is emphasized while the full live field remains visible around it.',
       accent: '#f59e0b',
     };
@@ -101,11 +114,13 @@ function copyForState(
  * Converts the existing PresenceState into a scalable visual hierarchy.
  * Every visible attendee remains represented. Detail is allocated by salience,
  * while lower-priority paths become ambient markers instead of disappearing.
+ * Declared fit is pairwise and explicit; it never becomes a public popularity
+ * score and never suppresses people who do not share an intent intersection.
  */
 export function buildSpatialExperience(presence: PresenceState): SpatialExperienceState {
   const focusTargets = presence.visibleTargets
     .map(scoreTarget)
-    .sort((left, right) => right.score - left.score)
+    .sort((left, right) => right.score - left.score || left.target.targetId.localeCompare(right.target.targetId))
     .map((focus, rank) => ({
       ...focus,
       rank,
@@ -123,17 +138,47 @@ export function buildSpatialExperience(presence: PresenceState): SpatialExperien
   };
 }
 
+function stableSeed(id: string): number {
+  return id
+    .split('')
+    .reduce((accumulator, character) => accumulator + character.codePointAt(0)!, 0);
+}
+
+/**
+ * Converts a live proximity signal into the field coordinate system.
+ *
+ * When a true observer-to-target bearing exists, the spatial field honors it
+ * directly: north is -Z, east is +X, south is +Z, west is -X. This matches the
+ * sector coordinates used by aggregate world intelligence and removes the old
+ * failure mode where a person's screen direction was determined by their user
+ * id rather than the physical room.
+ *
+ * A deterministic id-derived direction remains only as a compatibility fallback
+ * for legacy or temporarily incomplete signals that do not carry bearing data.
+ * The fallback is stable and is never presented as a measured compass direction.
+ */
 export function positionForSpatialTarget(
   target: ProximitySignal,
 ): [number, number, number] {
-  const seed = target.targetId
-    .split('')
-    .reduce((accumulator, character) => accumulator + character.codePointAt(0)!, 0);
-  const angle = (seed % 360) * (Math.PI / 180);
   const radius = Math.max(1, target.distanceFeet / 4);
+  const seed = stableSeed(target.targetId);
+  const lift = ((seed % 7) - 3) * 0.04;
+  const bearing = target.bearingFromObserverDeg;
+
+  if (bearing != null && Number.isFinite(bearing)) {
+    const normalized = ((bearing % 360) + 360) % 360;
+    const radians = normalized * (Math.PI / 180);
+    return [
+      Math.sin(radians) * radius,
+      lift,
+      -Math.cos(radians) * radius,
+    ];
+  }
+
+  const fallbackAngle = (seed % 360) * (Math.PI / 180);
   return [
-    Math.cos(angle) * radius,
-    Math.sin(angle * 0.7) * 1.5,
-    Math.sin(angle) * radius,
+    Math.cos(fallbackAngle) * radius,
+    lift,
+    Math.sin(fallbackAngle) * radius,
   ];
 }

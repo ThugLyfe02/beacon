@@ -10,9 +10,9 @@ import {
 import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
 import {
   getHostedEvent,
-  deleteEvent,
   updateEventLocation,
 } from '../services/event.service';
+import { endActiveEvent } from '../services/event-lifecycle.service';
 import {
   getPendingJoinRequests,
   approveJoinRequest,
@@ -30,6 +30,8 @@ import {
   Surface,
 } from '../components/ui';
 import { palette, radii, spacing } from '../theme';
+import HandshakeHealthCard from '../components/HandshakeHealthCard';
+import OutcomeReceiptEvidenceCard from '../components/OutcomeReceiptEvidenceCard';
 
 interface HostManagementScreenProps {
   userId: string;
@@ -53,7 +55,6 @@ export default function HostManagementScreen({
       const { showAlert = false } = opts;
       setIsLoading(true);
 
-      // Step 1: hosted event lookup
       let hostedEvent: EventRow | null = null;
       try {
         hostedEvent = await getHostedEvent(userId);
@@ -70,11 +71,12 @@ export default function HostManagementScreen({
 
       if (!hostedEvent) {
         setLoadError(null);
+        setRequests([]);
+        setIsBroadcasting(false);
         setIsLoading(false);
         return;
       }
 
-      // Step 2: pending requests
       try {
         const pending = await getPendingJoinRequests(hostedEvent.id);
         setRequests(pending);
@@ -93,19 +95,16 @@ export default function HostManagementScreen({
     [userId]
   );
 
-  // Initial mount — show alert if first load fails so the user sees the cause.
   useEffect(() => {
     loadEventData({ showAlert: true });
   }, [loadEventData]);
 
-  // Refresh whenever the Host tab regains focus. Silent — don't spam alerts.
   useFocusEffect(
     useCallback(() => {
       loadEventData({ showAlert: false });
     }, [loadEventData])
   );
 
-  // Auto-poll every 10s while the screen is mounted. Silent on errors.
   useEffect(() => {
     const id = setInterval(() => loadEventData({ showAlert: false }), 10000);
     return () => clearInterval(id);
@@ -165,22 +164,28 @@ export default function HostManagementScreen({
 
   const handleEndEvent = () => {
     Alert.alert(
-      'End beacon?',
-      'This deletes the event and removes everyone.',
+      'End event?',
+      'This closes live participation, location broadcasting, and outstanding venue-command authority while preserving event and operational history for recap and learning.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'End event',
           style: 'destructive',
           onPress: async () => {
+            if (!event) return;
+            setIsBroadcasting(false);
             try {
-              if (event) {
-                await deleteEvent(event.id, userId);
-                onEventEnded();
+              const result = await endActiveEvent(event.id);
+              if (result.error || !result.endedAt) {
+                throw new Error(result.error?.message ?? 'Event close was not confirmed by the server.');
               }
+              setEvent(null);
+              setRequests([]);
+              onEventEnded();
             } catch (error) {
               console.error('Failed to end event:', error);
-              Alert.alert('Action failed', 'Could not end event.');
+              const message = error instanceof Error ? error.message : 'Could not close the event.';
+              Alert.alert('Action failed', message);
             }
           },
         },
@@ -202,16 +207,42 @@ export default function HostManagementScreen({
 
   if (!event) {
     return (
-      <View style={styles.centered}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.idleContent}>
         <GridBackground />
         <Surface elevated padded glow style={styles.emptyCard}>
-          <Pill label="No active event" tone="neutral" dot />
-          <NeonText variant="h1" style={{ marginTop: spacing.md }}>Dark room.</NeonText>
+          <Pill label="No live event" tone="neutral" dot />
+          <NeonText variant="h1" style={{ marginTop: spacing.md }}>The live room is closed. The value is not.</NeonText>
           <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
-            Create an event to start broadcasting.
+            Your host workspace stays available after closeout so measured venue evidence can inform the next event instead of disappearing with the session.
           </NeonText>
         </Surface>
-      </View>
+
+        <Pressable
+          onPress={() => navigation.navigate('VenuePortfolio')}
+          style={styles.idleToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Event portfolio</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Compare your own venue history, measured intervention quality, evidence coverage, and repeat-event trend.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('CreateEvent')}
+          style={styles.idleToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Create the next event</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Start a new live event without discarding what the previous venue operations taught Beacon.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+      </ScrollView>
     );
   }
 
@@ -265,16 +296,107 @@ export default function HostManagementScreen({
         </View>
       ) : null}
 
-      {event ? (
-        <View style={styles.section}>
-          <Pressable
-            onPress={() => navigation.navigate('EscortPanel', { eventId: event.id })}
-            style={styles.escortBtn}
-          >
-            <NeonText variant="label" tone="accent">ESCORT QUEUE →</NeonText>
-          </Pressable>
-        </View>
-      ) : null}
+      <View style={styles.section}>
+        <HandshakeHealthCard eventId={event.id} />
+      </View>
+
+      <View style={styles.section}>
+        <OutcomeReceiptEvidenceCard eventId={event.id} />
+      </View>
+
+      <View style={styles.section}>
+        <NeonText variant="label" tone="accent">HOST TOOLS</NeonText>
+        <Pressable
+          onPress={() => navigation.navigate('VenueOperations', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Venue operations</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Measured interventions, service pressure, and host-scoped operational evidence.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('EventIntentMix', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Declared demand</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              See aggregate participant need and supply from explicit event selections, with small-cohort suppression and no individual intent list.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('CommunityExchange', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Community exchange</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Invite partner communities, activate bilateral exchanges, and measure cross-community outcomes without exposing member rosters.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('VenueSensors', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Sensor sources</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Provision revocable BLE, Wi-Fi, camera, and edge aggregate inputs against the pinned venue release.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('VenuePortfolio')}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Event portfolio</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              See what your own previous events measured and whether repeat venue operations are improving.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('VenueOperators', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Venue operators</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Delegate event-scoped organizer, venue-ops, and security authority with server-enforced roles.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate('EscortPanel', { eventId: event.id })}
+          style={styles.hostToolBtn}
+        >
+          <View style={{ flex: 1 }}>
+            <NeonText variant="h2">Escort queue</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
+              Manage active host-assisted connection requests.
+            </NeonText>
+          </View>
+          <NeonText variant="h2" tone="accent">→</NeonText>
+        </Pressable>
+      </View>
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -358,6 +480,13 @@ const styles = StyleSheet.create({
     backgroundColor: palette.void,
     paddingHorizontal: spacing.xl,
   },
+  idleContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxxl,
+  },
   section: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.md },
   sectionHeader: {
     flexDirection: 'row',
@@ -405,11 +534,24 @@ const styles = StyleSheet.create({
     borderColor: palette.danger,
   },
   emptyCard: { width: '100%', borderRadius: radii.xl, gap: spacing.xs },
-  escortBtn: {
+  hostToolBtn: {
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: palette.accent,
-    borderRadius: radii.md,
+    borderColor: palette.hairlineStrong,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
+  },
+  idleToolBtn: {
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: palette.hairlineStrong,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
 });

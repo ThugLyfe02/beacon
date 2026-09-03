@@ -12,7 +12,8 @@ import type {
 } from '../types/database';
 
 /**
- * Request to join an event
+ * Request to join an event. The server binds membership to auth.uid(); userId is
+ * retained only for compatibility with existing callers and is not trusted.
  */
 export async function requestToJoinEvent(
   eventId: string,
@@ -54,37 +55,37 @@ export async function getMyPendingRequests(): Promise<
 }
 
 /**
- * Join event with access code (auto-approve if code is valid)
+ * Join an event using its server-held access code. The approval RPC no longer
+ * accepts a caller-selected user id; the database approves auth.uid() only.
  */
 export async function joinEventWithCode(
   eventId: string,
   userId: string,
   accessCode: string
 ): Promise<EventParticipantRow> {
-  // First create pending participant
   const participant = await requestToJoinEvent(eventId, userId);
 
-  // Try to approve with code
-  const { data: approved, error } = await supabase.rpc('approve_participant_with_code', {
+  const { data: approved, error } = await supabase.rpc('approve_self_with_event_code', {
     p_event_id: eventId,
-    p_user_id: userId,
-    p_access_code: accessCode,
+    p_access_code: accessCode.trim(),
   });
 
   if (error || !approved) {
-    console.error('[participant.service] Invalid access code');
-    throw new Error('Invalid access code');
+    console.error('[participant.service] Access-code approval failed:', error?.message ?? 'code rejected');
+    throw new Error('Invalid or expired event access code');
   }
 
-  // Fetch updated participant
-  const { data: updated } = await supabase
+  const { data: updated, error: fetchError } = await supabase
     .from('event_participants')
     .select('*')
     .eq('event_id', eventId)
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
-  return updated || participant;
+  if (fetchError) {
+    console.error('[participant.service] approved membership refresh failed:', fetchError);
+  }
+  return (updated as EventParticipantRow | null) ?? participant;
 }
 
 /**
@@ -99,7 +100,7 @@ export async function getPendingJoinRequests(
 
   if (error) {
     console.error('[participant.service] Error fetching pending requests:', error);
-    throw new Error(error.message ?? 'Failed to fetch pending requests');
+    throw new Error(error.message ?? 'Failed to fetch participants');
   }
 
   return (data ?? []).map((row: any) => ({
@@ -132,7 +133,6 @@ export async function approveJoinRequest(
     throw new Error(error.message ?? 'Failed to approve request');
   }
   if (!data) {
-    // Update returned no rows — almost always an RLS / policy mismatch.
     throw new Error(
       'Approval was blocked by the database (RLS). Apply migration 004 + 008 to grant the host UPDATE access on event_participants.'
     );

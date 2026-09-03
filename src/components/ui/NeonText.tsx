@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TextProps, TextStyle } from 'react-native';
 import { palette, typography } from '../../theme';
 
-type Tone = 'accent' | 'text' | 'muted' | 'dim' | 'premium' | 'danger' | 'success';
+type Tone = 'accent' | 'text' | 'muted' | 'dim' | 'premium' | 'warning' | 'danger' | 'success';
 type Variant = keyof typeof typography;
 
 interface Props extends TextProps {
@@ -40,6 +40,8 @@ function toneColor(tone: Tone): string {
       return palette.textDim;
     case 'premium':
       return palette.premium;
+    case 'warning':
+      return palette.warning;
     case 'danger':
       return palette.danger;
     case 'success':

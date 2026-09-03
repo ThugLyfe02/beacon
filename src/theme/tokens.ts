@@ -21,6 +21,8 @@ export const palette = {
   premiumGlow: 'rgba(255, 210, 74, 0.5)',
   premiumSoft: 'rgba(255, 210, 74, 0.12)',
 
+  warning: '#F59E0B',
+  warningSoft: 'rgba(245, 158, 11, 0.12)',
   danger: '#FF4D6A',
   dangerSoft: 'rgba(255, 77, 106, 0.12)',
   success: '#22E39E',

@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useRegisterPushToken } from '../hooks/useRegisterPushToken';
 import { hasCompletedProfile } from '../services/user.service';
 import { getUserEvents, getHostedEvent } from '../services/event.service';
+import { hasHostedEventHistory } from '../services/venue-portfolio.service';
 import { NavigatorContext } from './NavigatorContext';
 
 import { OtpScreen } from '../screens/OtpScreen';
@@ -26,12 +27,21 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import EventFeedScreen from '../screens/EventFeedScreen';
 import EventLobbyScreen from '../screens/EventLobbyScreen';
+import MeetInBeaconScreen from '../screens/MeetInBeaconScreen';
+import EventIntentScreen from '../screens/EventIntentScreen';
+import EventIntentMixScreen from '../screens/EventIntentMixScreen';
+import CommunityExchangeScreen from '../screens/CommunityExchangeScreen';
+import IntroductionInboxScreen from '../screens/IntroductionInboxScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
 import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
 import OfficeHoursInboxScreen from '../screens/OfficeHoursInboxScreen';
 import OfficeHoursCallScreen from '../screens/OfficeHoursCallScreen';
 import EscortPanelScreen from '../screens/EscortPanelScreen';
+import VenueOperationsScreen from '../screens/VenueOperationsScreen';
+import VenueOperatorsScreen from '../screens/VenueOperatorsScreen';
+import VenuePortfolioScreen from '../screens/VenuePortfolioScreen';
+import VenueSensorsScreen from '../screens/VenueSensorsScreen';
 import ARFieldScreen from '../spatial/ARFieldScreen';
 
 const Stack = createNativeStackNavigator();
@@ -124,10 +134,13 @@ export function RootNavigator() {
         setProfileComplete(completed);
         if (completed) {
           try {
-            const hostedEvent = await getHostedEvent(user.id);
-            if (!cancelled) setIsHost(hostedEvent !== null);
+            const [hostedEvent, hasHistory] = await Promise.all([
+              getHostedEvent(user.id),
+              hasHostedEventHistory(),
+            ]);
+            if (!cancelled) setIsHost(hostedEvent !== null || hasHistory);
           } catch (eventError) {
-            console.error('[RootNavigator] Error checking host status:', eventError);
+            console.error('[RootNavigator] Error checking host workspace status:', eventError);
             if (!cancelled) setIsHost(false);
           }
         }
@@ -186,7 +199,9 @@ export function RootNavigator() {
   }
 
   const handleEventEnded = async () => {
-    setIsHost(false);
+    // Closing a live event preserves host history, so the host workspace should
+    // remain available for closeout, portfolio review, and repeat-event learning.
+    setIsHost(true);
     try {
       await getUserEvents(user.id);
     } catch (error) {
@@ -310,6 +325,58 @@ export function RootNavigator() {
         />
 
         <Stack.Screen
+          name="VenueOperations"
+          component={VenueOperationsScreen}
+          options={{
+            headerShown: true,
+            title: 'Venue Operations',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="VenueOperators"
+          component={VenueOperatorsScreen}
+          options={{
+            headerShown: true,
+            title: 'Venue Operators',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="VenueSensors"
+          component={VenueSensorsScreen}
+          options={{
+            headerShown: true,
+            title: 'Sensor Sources',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="VenuePortfolio"
+          component={VenuePortfolioScreen}
+          options={{
+            headerShown: true,
+            title: 'Event Portfolio',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
           name="EventFeed"
           component={EventFeedScreen}
           options={{ animation: 'slide_from_right' }}
@@ -324,6 +391,71 @@ export function RootNavigator() {
             headerStyle: { backgroundColor: palette.space },
             headerTitleStyle: { color: palette.text, fontWeight: '700' },
             headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="MeetInBeacon"
+          component={MeetInBeaconScreen}
+          options={{
+            headerShown: true,
+            title: 'Meet in Beacon',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: '#6EE7B7',
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="EventIntent"
+          component={EventIntentScreen}
+          options={{
+            headerShown: true,
+            title: 'Event Focus',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="EventIntentMix"
+          component={EventIntentMixScreen}
+          options={{
+            headerShown: true,
+            title: 'Declared Demand',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.accent,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="CommunityExchange"
+          component={CommunityExchangeScreen}
+          options={{
+            headerShown: true,
+            title: 'Community Exchange',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.premium,
+            animation: 'slide_from_right',
+          }}
+        />
+
+        <Stack.Screen
+          name="IntroductionInbox"
+          component={IntroductionInboxScreen}
+          options={{
+            headerShown: true,
+            title: 'Warm Introductions',
+            headerStyle: { backgroundColor: palette.space },
+            headerTitleStyle: { color: palette.text, fontWeight: '700' },
+            headerTintColor: palette.premium,
             animation: 'slide_from_right',
           }}
         />

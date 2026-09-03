@@ -1,0 +1,58 @@
+name: Venue Operations Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: venue-operations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  architecture:
+    name: Venue operations architecture
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate venue operations contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/validate-venue-operations.mjs
+          node scripts/validate-venue-memory.mjs
+          node scripts/validate-venue-sensor-ingress.mjs
+          node scripts/validate-spatial-direction.mjs
+          node scripts/validate-participant-venue-guide.mjs
+          node scripts/validate-event-intent-exchange.mjs
+          node scripts/validate-event-focus-windows.mjs
+          node scripts/validate-participant-event-playbook.mjs
+          node scripts/validate-warm-introductions.mjs
+          node scripts/validate-warm-introduction-production.mjs
+          node scripts/validate-community-exchange.mjs
+          node scripts/validate-community-partner-programs.mjs
+          node scripts/validate-community-supply-demand.mjs
+          node scripts/validate-offline-event-handshake.mjs
+          node scripts/validate-participant-outcome-receipts.mjs
+          node scripts/validate-partner-commitment-ledger.mjs
+          node scripts/validate-partner-commitment-template-effectiveness.mjs
+          node scripts/validate-partner-commitment-governance.mjs
+          node scripts/validate-partner-commitment-seal-history.mjs
+          node scripts/test-partner-commitment-semantics.mjs
+          node scripts/test-partner-commitment-template-semantics.mjs

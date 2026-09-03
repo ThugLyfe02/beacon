@@ -63,6 +63,7 @@ export interface EventRow {
   show_participant_count: boolean;
   starts_at: Timestamp | null;
   ends_at: Timestamp | null;
+  ended_at: Timestamp | null;
   created_at: Timestamp;
 }
 
@@ -150,8 +151,10 @@ export type UserUpdate = Partial<
   >
 >;
 
-export type EventInsert = Omit<EventRow, 'id' | 'created_at' | 'join_code'>;
-export type EventUpdate = Partial<Omit<EventRow, 'id' | 'host_id' | 'created_at' | 'join_code'>>;
+// ended_at is server-owned lifecycle state. Ordinary create/update payloads do
+// not get to manufacture or reopen event lifecycle state.
+export type EventInsert = Omit<EventRow, 'id' | 'created_at' | 'join_code' | 'ended_at'>;
+export type EventUpdate = Partial<Omit<EventRow, 'id' | 'host_id' | 'created_at' | 'join_code' | 'ended_at'>>;
 
 export type EventParticipantInsert = Pick<
   EventParticipantRow,
@@ -178,12 +181,11 @@ export interface MutualMatchResult {
 
 /** Flattened participant shown on the Discover screen */
 export interface DiscoverableParticipant {
-  participant_id: UUID;     // event_participants.id
+  participant_id: UUID;
   user_id: UUID;
   event_id: UUID;
   status: ParticipantStatus;
   joined_at: Timestamp;
-  // User profile fields (global scope)
   email: string;
   name: string | null;
   role: string | null;
@@ -203,7 +205,6 @@ export interface PendingJoinRequest {
   user_id: UUID;
   event_id: UUID;
   joined_at: Timestamp;
-  // User info
   name: string | null;
   email: string;
   role: string | null;
@@ -228,8 +229,8 @@ export interface Database {
       };
       events: {
         Row: EventRow;
-        Insert: EventInsert; // hosts can create events
-        Update: EventUpdate; // hosts can update their events
+        Insert: EventInsert;
+        Update: EventUpdate;
       };
       event_participants: {
         Row: EventParticipantRow;
@@ -243,7 +244,7 @@ export interface Database {
       };
       matches: {
         Row: MatchRow;
-        Insert: never; // SECURITY DEFINER function only
+        Insert: never;
         Update: never;
       };
       posts: {
@@ -259,7 +260,7 @@ export interface Database {
       };
       post_likes: {
         Row: PostLikeRow;
-        Insert: never; // toggle via RPC
+        Insert: never;
         Update: never;
       };
     };
@@ -272,12 +273,43 @@ export interface Database {
         };
         Returns: MutualMatchResult[];
       };
+      create_hosted_event: {
+        Args: {
+          p_name: string;
+          p_description: string | null;
+          p_location_type: LocationType;
+          p_latitude: number | null;
+          p_longitude: number | null;
+          p_address: string | null;
+          p_requires_approval: boolean;
+          p_access_code: string | null;
+          p_show_participant_count: boolean;
+          p_starts_at: Timestamp | null;
+          p_ends_at: Timestamp | null;
+        };
+        Returns: EventRow;
+      };
       approve_participant_with_code: {
         Args: {
           p_event_id: UUID;
           p_user_id: UUID;
           p_access_code: string;
         };
+        Returns: boolean;
+      };
+      approve_self_with_event_code: {
+        Args: {
+          p_event_id: UUID;
+          p_access_code: string;
+        };
+        Returns: boolean;
+      };
+      end_event: {
+        Args: { p_event_id: UUID };
+        Returns: Timestamp;
+      };
+      is_event_operational: {
+        Args: { p_event_id: UUID };
         Returns: boolean;
       };
       set_premium_dev: {

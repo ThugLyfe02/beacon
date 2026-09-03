@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "policyName": "Beacon mobile toolchain advisory boundary",
-  "expiresOn": "2026-08-31",
+  "expiresOn": "2026-10-15",
   "minimumBlockingSeverity": "high",
   "alwaysBlockCritical": true,
   "runtimePackagesNeverExempt": [
@@ -44,7 +44,8 @@
   "context": {
     "expoSdk": "55",
     "reactNative": "0.83.x",
-    "reason": "npm currently reports high-severity advisories through Expo and React Native build, code-generation, test and development-server packages. npm's proposed remediation downgrades Expo to SDK 46 or moves React Native outside the Expo SDK 55 compatibility matrix. These packages are accepted only when every high-severity path resolves exclusively through this explicit toolchain set.",
-    "reviewTrigger": "Re-evaluate immediately when Expo SDK 55 or React Native 0.83 publishes compatible patched transitive versions, when a listed package becomes runtime reachable, or before the expiry date."
+    "reviewedOn": "2026-09-03",
+    "reason": "The policy was re-reviewed after adding the offline-handshake mobile dependencies. The then-current production audit contained one high-severity brace-expansion advisory on build/toolchain paths; a semver-compatible npm lockfile remediation removed all high and critical findings while Expo Doctor, strict TypeScript, Android export, and handshake architecture validation remained healthy. The explicit toolchain boundary is retained as an expiring guard for future transitive advisories; runtime packages remain non-exempt and critical findings always block.",
+    "reviewTrigger": "Re-evaluate immediately if any high/critical finding returns, if Expo SDK 55 or React Native 0.83 changes materially, if a listed toolchain package becomes runtime reachable, or before the expiry date."
   }
 }

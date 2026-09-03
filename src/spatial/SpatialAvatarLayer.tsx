@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import AvatarRenderer from './AvatarRenderer';
+import SpatialPositionedAvatar from './SpatialPositionedAvatar';
 import { buildSpatialLayout, type SpatialLayoutNode } from './SpatialLayoutEngine';
 import type { ProximitySignal } from '../presence/PresenceEngine';
 
@@ -11,11 +11,13 @@ interface SpatialAvatarLayerProps {
 
 /**
  * Preserves every visible attendee while separating collisions at the scene
- * level. AvatarRenderer remains the source of truth for models, fallback
- * geometry and animation; this layer only adds a stable parent displacement.
+ * level. A precomputed layout is the shared coordinate truth for rendering,
+ * camera focus, landmarks, and interaction hit targets.
  *
- * A precomputed layout can be supplied so camera focus, landmarks and rendered
- * avatars all address the exact same world position.
+ * SpatialPositionedAvatar adapts the mature AvatarRenderer to an explicit world
+ * position without changing its model/cache/animation pipeline. This matters now
+ * that the field honors real compass bearings: renderer placement can no longer
+ * fall back to an unrelated id-derived angle after the layout has resolved.
  */
 export default function SpatialAvatarLayer({
   targets,
@@ -28,9 +30,12 @@ export default function SpatialAvatarLayer({
   return (
     <group>
       {layout.map((node) => (
-        <group key={node.target.targetId} position={node.displacement}>
-          <AvatarRenderer avatar={node.target} onTap={onTap} />
-        </group>
+        <SpatialPositionedAvatar
+          key={node.target.targetId}
+          avatar={node.target}
+          position={node.position}
+          onTap={onTap}
+        />
       ))}
     </group>
   );
