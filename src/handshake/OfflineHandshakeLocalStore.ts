@@ -65,17 +65,18 @@ async function deleteItem(key: string): Promise<void> {
 
 async function withEventWriteLock<T>(eventId: string, operation: () => Promise<T>): Promise<T> {
   const previous = writeChains.get(eventId) ?? Promise.resolve();
-  let release: (() => void) | null = null;
-  const current = new Promise<void>((resolve) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  writeChains.set(eventId, previous.then(() => current));
+  const chain = previous.then(() => gate);
+  writeChains.set(eventId, chain);
   await previous;
   try {
     return await operation();
   } finally {
-    release?.();
-    if (writeChains.get(eventId) === current) writeChains.delete(eventId);
+    release();
+    if (writeChains.get(eventId) === chain) writeChains.delete(eventId);
   }
 }
 
