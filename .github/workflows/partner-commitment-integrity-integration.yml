@@ -1,0 +1,286 @@
+name: Partner commitment contract integrity integration
+
+on:
+  push:
+    branches:
+      - feature/spatial-event-digital-twin
+
+permissions:
+  contents: write
+
+concurrency:
+  group: partner-commitment-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Integrate contract-integrity model and UX
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function read(path) { return fs.readFileSync(path, 'utf8'); }
+          function write(path, value) { fs.writeFileSync(path, value); }
+          function replaceRequired(path, before, after) {
+            let source = read(path);
+            if (source.includes(after)) return;
+            if (!source.includes(before)) throw new Error(`${path}: required seam not found: ${before.slice(0, 80)}`);
+            source = source.replace(before, after);
+            write(path, source);
+          }
+          function insertBefore(path, marker, addition, idempotencyNeedle = addition) {
+            let source = read(path);
+            if (source.includes(idempotencyNeedle)) return;
+            const index = source.indexOf(marker);
+            if (index < 0) throw new Error(`${path}: marker not found: ${marker.slice(0, 80)}`);
+            source = `${source.slice(0, index)}${addition}${source.slice(index)}`;
+            write(path, source);
+          }
+          function insertAfter(path, marker, addition, idempotencyNeedle = addition) {
+            let source = read(path);
+            if (source.includes(idempotencyNeedle)) return;
+            const index = source.indexOf(marker);
+            if (index < 0) throw new Error(`${path}: marker not found: ${marker.slice(0, 80)}`);
+            const point = index + marker.length;
+            source = `${source.slice(0, point)}${addition}${source.slice(point)}`;
+            write(path, source);
+          }
+
+          // Fix the wrapper's PL/pgSQL composite assignment before this migration
+          // is ever applied to a database.
+          replaceRequired(
+            'supabase/migrations/064_partner_commitment_contract_integrity.sql',
+            `  select r.*, r.commitment_id into v_revision, v_commitment_id\n  from public.partner_commitment_revisions r where r.id = p_revision_id;`,
+            `  select * into v_revision\n  from public.partner_commitment_revisions r where r.id = p_revision_id;\n  v_commitment_id := v_revision.commitment_id;`,
+          );
+
+          // Client semantic model.
+          insertBefore(
+            'src/partners/PartnerCommitmentModel.ts',
+            'export interface PartnerCommitmentOption {',
+            `export type PartnerCommitmentMeasurementReviewState =\n  | 'not-required'\n  | 'pending'\n  | 'acknowledged'\n  | 'disputed';\n\n`,
+            'PartnerCommitmentMeasurementReviewState',
+          );
+
+          // Service types and RPC mappings.
+          replaceRequired(
+            'src/services/partner-commitment.service.ts',
+            `  PartnerCommitmentEvidenceQuality,\n  PartnerCommitmentMeasurementState,`,
+            `  PartnerCommitmentEvidenceQuality,\n  PartnerCommitmentMeasurementReviewState,\n  PartnerCommitmentMeasurementState,`,
+          );
+
+          replaceRequired(
+            'src/services/partner-commitment.service.ts',
+            `  revisionNo: number;\n  committedPartyKind: PartnerCommitmentPartyKind;`,
+            `  revisionNo: number;\n  effectiveRevisionId: string | null;\n  pendingRevisionId: string | null;\n  committedPartyKind: PartnerCommitmentPartyKind;`,
+          );
+          replaceRequired(
+            'src/services/partner-commitment.service.ts',
+            `  sourceTemplateRevisionId: string | null;\n  createdAt: string;\n}`,
+            `  sourceTemplateRevisionId: string | null;\n  createdAt: string;\n  pendingCommitmentType: PartnerCommitmentType | null;\n  pendingDomain: string | null;\n  pendingCommittedQuantity: number | null;\n  pendingAcceptanceState: PartnerCommitmentAcceptanceState | null;\n  callerPendingAmendmentDecision: boolean;\n  latestMeasurementId: string | null;\n  manualMeasurementId: string | null;\n  measurementReviewState: PartnerCommitmentMeasurementReviewState;\n  callerCanReviewMeasurement: boolean;\n}`,
+          );
+
+          replaceRequired(
+            'src/services/partner-commitment.service.ts',
+            `  commitmentOccurrences: number;\n  averageCommittedQuantity: number;\n  averageDeliveredQuantity: number;\n  averageUtilizedQuantity: number;\n  utilizedEventCount: number;`,
+            `  commitmentOccurrences: number;\n  measuredEventCount: number;\n  measurementCoverage: number;\n  averageCommittedQuantity: number;\n  averageDeliveredQuantity: number | null;\n  averageUtilizedQuantity: number | null;\n  utilizedEventCount: number;\n  unusedMeasuredEventCount: number;\n  zeroUtilizationMeasuredEventCount: number;`,
+          );
+          replaceRequired(
+            'src/services/partner-commitment.service.ts',
+            `  partiallyFulfilledCount: number;\n  unresolvedCommitmentCount: number;\n}`,
+            `  partiallyFulfilledCount: number;\n  unresolvedCommitmentCount: number;\n  pendingAmendmentCount: number;\n  manualReviewPendingCount: number;\n  manualDisputeCount: number;\n  closedWithoutMeasurementCount: number;\n}`,
+          );
+
+          replaceRequired(
+            'src/services/partner-commitment.service.ts',
+            `    revisionNo: numberOrNull(row.revision_no) ?? 1,\n    committedPartyKind:`,
+            `    revisionNo: numberOrNull(row.revision_no) ?? 1,\n    effectiveRevisionId: text(row.effective_revision_id),\n    pendingRevisionId: text(row.pending_revision_id),\n    committedPartyKind:`,
+          );
+          replaceRequired(
+            'src/services/partner-commitment.service.ts',
+            `    sourceTemplateRevisionId: text(row.source_template_revision_id),\n    createdAt,\n  };`,
+            `    sourceTemplateRevisionId: text(row.source_template_revision_id),\n    createdAt,\n    pendingCommitmentType: text(row.pending_commitment_type) as PartnerCommitmentType | null,\n    pendingDomain: text(row.pending_domain),\n    pendingCommittedQuantity: numberOrNull(row.pending_committed_quantity),\n    pendingAcceptanceState: text(row.pending_acceptance_state) as PartnerCommitmentAcceptanceState | null,\n    callerPendingAmendmentDecision: row.caller_pending_amendment_decision === true,\n    latestMeasurementId: text(row.latest_measurement_id),\n    manualMeasurementId: text(row.manual_measurement_id),\n    measurementReviewState: (text(row.measurement_review_state) ?? 'not-required') as PartnerCommitmentMeasurementReviewState,\n    callerCanReviewMeasurement: row.caller_can_review_measurement === true,\n  };`,
+          );
+
+          insertBefore(
+            'src/services/partner-commitment.service.ts',
+            'export async function advancePartnerCommitment(',
+            `export async function reviewPartnerCommitmentMeasurement(\n  measurementId: string,\n  decision: 'acknowledged' | 'disputed',\n): Promise<{ state: PartnerCommitmentMeasurementReviewState | null; error: PostgrestError | null }> {\n  const key = await idempotencyKey(\`manual-review-\${decision}\`);\n  const { data, error } = await supabase.rpc('review_partner_commitment_manual_measurement', {\n    p_measurement_id: measurementId,\n    p_decision: decision,\n    p_idempotency_key: key,\n  });\n  return {\n    state: typeof data === 'string' ? data as PartnerCommitmentMeasurementReviewState : null,\n    error,\n  };\n}\n\n`,
+            'reviewPartnerCommitmentMeasurement(',
+          );
+
+          replaceRequired(
+            'src/services/partner-commitment.service.ts',
+            `      commitmentOccurrences: numberOrNull(row.commitment_occurrences) ?? 0,\n      averageCommittedQuantity: numberOrNull(row.average_committed_quantity) ?? 0,\n      averageDeliveredQuantity: numberOrNull(row.average_delivered_quantity) ?? 0,\n      averageUtilizedQuantity: numberOrNull(row.average_utilized_quantity) ?? 0,\n      utilizedEventCount: numberOrNull(row.utilized_event_count) ?? 0,`,
+            `      commitmentOccurrences: numberOrNull(row.commitment_occurrences) ?? 0,\n      measuredEventCount: numberOrNull(row.measured_event_count) ?? 0,\n      measurementCoverage: numberOrNull(row.measurement_coverage) ?? 0,\n      averageCommittedQuantity: numberOrNull(row.average_committed_quantity) ?? 0,\n      averageDeliveredQuantity: numberOrNull(row.average_delivered_quantity),\n      averageUtilizedQuantity: numberOrNull(row.average_utilized_quantity),\n      utilizedEventCount: numberOrNull(row.utilized_event_count) ?? 0,\n      unusedMeasuredEventCount: numberOrNull(row.unused_measured_event_count) ?? 0,\n      zeroUtilizationMeasuredEventCount: numberOrNull(row.zero_utilization_measured_event_count) ?? 0,`,
+          );
+          replaceRequired(
+            'src/services/partner-commitment.service.ts',
+            `      partiallyFulfilledCount: numberOrNull(row.partially_fulfilled_count) ?? 0,\n      unresolvedCommitmentCount: numberOrNull(row.unresolved_commitment_count) ?? 0,`,
+            `      partiallyFulfilledCount: numberOrNull(row.partially_fulfilled_count) ?? 0,\n      unresolvedCommitmentCount: numberOrNull(row.unresolved_commitment_count) ?? 0,\n      pendingAmendmentCount: numberOrNull(row.pending_amendment_count) ?? 0,\n      manualReviewPendingCount: numberOrNull(row.manual_review_pending_count) ?? 0,\n      manualDisputeCount: numberOrNull(row.manual_dispute_count) ?? 0,\n      closedWithoutMeasurementCount: numberOrNull(row.closed_without_measurement_count) ?? 0,`,
+          );
+
+          // Shared ledger UX: keep accepted terms in force while amendments wait;
+          // make manual evidence review explicit and non-shaming.
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `  recordManualPartnerCommitmentMeasurement,\n  refreshPartnerCommitmentMeasurement,`,
+            `  recordManualPartnerCommitmentMeasurement,\n  refreshPartnerCommitmentMeasurement,\n  reviewPartnerCommitmentMeasurement,`,
+          );
+
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `  const decide = useCallback(async (row: PartnerCommitmentRow, decision: 'accepted' | 'rejected' | 'withdrawn') => {\n    setWorking(true);\n    const result = await decidePartnerCommitment(row.revisionId, decision);`,
+            `  const decideRevision = useCallback(async (revisionId: string, decision: 'accepted' | 'rejected' | 'withdrawn') => {\n    setWorking(true);\n    const result = await decidePartnerCommitment(revisionId, decision);`,
+          );
+
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `  }, [load]);\n\n  const advance = useCallback(async (`,
+            `  }, [load]);\n\n  const reviewManualEvidence = useCallback(async (row: PartnerCommitmentRow, decision: 'acknowledged' | 'disputed') => {\n    if (!row.latestMeasurementId) return;\n    setWorking(true);\n    const result = await reviewPartnerCommitmentMeasurement(row.latestMeasurementId, decision);\n    setWorking(false);\n    if (result.error || !result.state) {\n      Alert.alert('Manual evidence review not recorded', result.error?.message ?? 'The server did not confirm your review.');\n      return;\n    }\n    await load();\n  }, [load]);\n\n  const advance = useCallback(async (`,
+            'reviewManualEvidence = useCallback',
+          );
+
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `            const canMeasure = scope.scopeKind === 'event-exchange' && row.acceptanceState === 'accepted';\n            const manualOpen = manualRevisionId === row.revisionId;`,
+            `            const canMeasure = scope.scopeKind === 'event-exchange' && row.acceptanceState === 'accepted';\n            const manualOpen = manualRevisionId === row.revisionId;\n            const manualFinalizationBlocked = row.measurementReviewState === 'pending' || row.measurementReviewState === 'disputed';`,
+          );
+
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `                    <Pressable disabled={working} onPress={() => decide(row, 'accepted')} style={styles.primaryFlex}><NeonText variant="label" tone="accent">ACCEPT</NeonText></Pressable>\n                    <Pressable disabled={working} onPress={() => decide(row, 'rejected')} style={styles.ghostFlex}><NeonText variant="label" tone="muted">DECLINE</NeonText></Pressable>`,
+            `                    <Pressable disabled={working} onPress={() => decideRevision(row.revisionId, 'accepted')} style={styles.primaryFlex}><NeonText variant="label" tone="accent">ACCEPT</NeonText></Pressable>\n                    <Pressable disabled={working} onPress={() => decideRevision(row.revisionId, 'rejected')} style={styles.ghostFlex}><NeonText variant="label" tone="muted">DECLINE</NeonText></Pressable>`,
+          );
+
+          insertBefore(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `                {row.callerPendingDecision ? (`,
+            `                {row.pendingRevisionId ? (\n                  <View style={styles.amendmentBox}>\n                    <NeonText variant="label" tone="premium">AMENDMENT PROPOSED · CURRENT CONTRACT REMAINS EFFECTIVE</NeonText>\n                    <NeonText variant="bodyMuted" style={styles.smallTop}>\n                      Proposed replacement: {row.pendingCommitmentType ? getPartnerCommitmentOption(row.pendingCommitmentType).label : 'commitment'} · {row.pendingCommittedQuantity != null && row.pendingCommitmentType ? formatPartnerCommitmentQuantity(row.pendingCommittedQuantity, row.pendingCommitmentType) : 'quantity pending'} · {formatDomain(row.pendingDomain)}. The accepted terms above continue to govern until every required party accepts this revision.\n                    </NeonText>\n                    {row.callerPendingAmendmentDecision ? (\n                      <View style={styles.buttonRow}>\n                        <Pressable disabled={working} onPress={() => decideRevision(row.pendingRevisionId!, 'accepted')} style={styles.primaryFlex}><NeonText variant="label" tone="accent">ACCEPT AMENDMENT</NeonText></Pressable>\n                        <Pressable disabled={working} onPress={() => decideRevision(row.pendingRevisionId!, 'rejected')} style={styles.ghostFlex}><NeonText variant="label" tone="muted">DECLINE AMENDMENT</NeonText></Pressable>\n                      </View>\n                    ) : null}\n                  </View>\n                ) : null}\n\n`,
+            'AMENDMENT PROPOSED · CURRENT CONTRACT REMAINS EFFECTIVE',
+          );
+
+          insertBefore(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `                {row.callerPendingDecision ? (`,
+            `                {scope.scopeKind === 'event-exchange' && row.manualMeasurementId ? (\n                  <View style={styles.reviewBox}>\n                    <NeonText variant="label" tone={row.measurementReviewState === 'disputed' ? 'warning' : 'muted'}>MANUAL EVIDENCE · {row.measurementReviewState.replaceAll('-', ' ').toUpperCase()}</NeonText>\n                    <NeonText variant="bodyMuted" style={styles.smallTop}>A manual delivery assertion remains attributable to the committed party. It cannot finalize the contract until every required counterparty acknowledges it; a dispute records disagreement without scoring or shaming either organization.</NeonText>\n                    {row.callerCanReviewMeasurement && row.latestMeasurementId ? (\n                      <View style={styles.buttonRow}>\n                        <Pressable disabled={working} onPress={() => reviewManualEvidence(row, 'acknowledged')} style={styles.primaryFlex}><NeonText variant="label" tone="accent">ACKNOWLEDGE</NeonText></Pressable>\n                        <Pressable disabled={working} onPress={() => reviewManualEvidence(row, 'disputed')} style={styles.ghostFlex}><NeonText variant="label" tone="muted">DISPUTE</NeonText></Pressable>\n                      </View>\n                    ) : null}\n                  </View>\n                ) : null}\n\n`,
+            'MANUAL EVIDENCE · {row.measurementReviewState',
+          );
+
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `<Pressable disabled={working} onPress={() => decide(row, 'accepted')}`,
+            `<Pressable disabled={working} onPress={() => decideRevision(row.revisionId, 'accepted')}`,
+          );
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `<Pressable disabled={working} onPress={() => decide(row, 'rejected')}`,
+            `<Pressable disabled={working} onPress={() => decideRevision(row.revisionId, 'rejected')}`,
+          );
+
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `                    <Pressable\n                      disabled={working}\n                      onPress={() => {`,
+            `                    {row.callerCanManage ? <Pressable\n                      disabled={working}\n                      onPress={() => {`,
+          );
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `                      <NeonText variant="label" tone="muted">MANUAL ACKNOWLEDGEMENT</NeonText>\n                    </Pressable>`,
+            `                      <NeonText variant="label" tone="muted">MANUAL ACKNOWLEDGEMENT</NeonText>\n                    </Pressable> : null}`,
+          );
+
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `<NeonText variant="label" tone="warning">MANUAL OPERATOR EVIDENCE</NeonText>\n                    <NeonText variant="bodyMuted" style={styles.smallTop}>Manual quantities remain explicitly lower-quality than server-recorded delivery. They never become hidden “verified” facts.</NeonText>`,
+            `<NeonText variant="label" tone="warning">MANUAL OPERATOR EVIDENCE · PARTY ASSERTION</NeonText>\n                    <NeonText variant="bodyMuted" style={styles.smallTop}>Manual quantities can be entered only by the party that owns this commitment. They remain explicitly lower-quality than server-recorded delivery and require counterpart acknowledgement before they can finalize fulfillment.</NeonText>`,
+          );
+
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `{scope.scopeKind === 'event-exchange' && row.callerCanManage && row.deliveredQuantity != null ? (`,
+            `{scope.scopeKind === 'event-exchange' && row.callerCanManage && row.deliveredQuantity != null && !manualFinalizationBlocked ? (`,
+          );
+
+          replaceRequired(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `<NeonText variant="bodyMuted" style={styles.smallTop}>{item.sampleEventCount} ended event{item.sampleEventCount === 1 ? '' : 's'} · average promised {formatPartnerCommitmentQuantity(item.averageCommittedQuantity, item.commitmentType)} · average delivered {formatPartnerCommitmentQuantity(item.averageDeliveredQuantity, item.commitmentType)} · average used {formatPartnerCommitmentQuantity(item.averageUtilizedQuantity, item.commitmentType)}</NeonText>`,
+            `<NeonText variant="bodyMuted" style={styles.smallTop}>{item.sampleEventCount} ended event{item.sampleEventCount === 1 ? '' : 's'} · {item.measuredEventCount} with admissible measurement ({Math.round(item.measurementCoverage * 100)}% coverage) · average promised {formatPartnerCommitmentQuantity(item.averageCommittedQuantity, item.commitmentType)} · average delivered {formatPartnerCommitmentQuantity(item.averageDeliveredQuantity, item.commitmentType)} · average used {formatPartnerCommitmentQuantity(item.averageUtilizedQuantity, item.commitmentType)}</NeonText>\n                  {item.measuredEventCount > 0 ? <NeonText variant="bodyMuted" style={styles.smallTop}>{item.unusedMeasuredEventCount} measured event{item.unusedMeasuredEventCount === 1 ? '' : 's'} left delivered capacity unused; {item.zeroUtilizationMeasuredEventCount} had delivered capacity with zero recorded use. Unknown measurements are excluded rather than treated as zero.</NeonText> : null}`,
+          );
+
+          insertAfter(
+            'src/components/PartnerCommitmentLedgerPanel.tsx',
+            `  manualBox: { marginTop: spacing.md, borderRadius: radii.md, borderWidth: 1, borderColor: palette.hairlineStrong, padding: spacing.md, backgroundColor: palette.surface },`,
+            `\n  amendmentBox: { marginTop: spacing.md, borderRadius: radii.md, borderWidth: 1, borderColor: palette.premiumSoft, padding: spacing.md, backgroundColor: 'rgba(124,58,237,0.08)' },\n  reviewBox: { marginTop: spacing.md, borderRadius: radii.md, borderWidth: 1, borderColor: palette.hairlineStrong, padding: spacing.md, backgroundColor: palette.surface },`,
+            'amendmentBox:',
+          );
+
+          // Host view gets operational exceptions without inventing partner rank.
+          insertBefore(
+            'src/components/HostPartnerCommitmentSummaryCard.tsx',
+            `      <Pressable disabled={loading} onPress={onOpen}`,
+            `      {summary.pendingAmendmentCount > 0 ? <NeonText variant="bodyMuted" style={styles.copy}>{summary.pendingAmendmentCount} accepted commitment{summary.pendingAmendmentCount === 1 ? ' has' : 's have'} a pending amendment. Existing accepted terms remain in force until the amendment earns fresh acceptance.</NeonText> : null}\n      {summary.manualReviewPendingCount > 0 ? <NeonText variant="bodyMuted" style={styles.copy}>{summary.manualReviewPendingCount} manual measurement{summary.manualReviewPendingCount === 1 ? ' is' : 's are'} awaiting required counterparty acknowledgement.</NeonText> : null}\n      {summary.manualDisputeCount > 0 ? <NeonText variant="bodyMuted" style={styles.copy}>{summary.manualDisputeCount} manual measurement{summary.manualDisputeCount === 1 ? ' has' : 's have'} an explicit dispute. The ledger records disagreement; it does not score either partner.</NeonText> : null}\n      {summary.closedWithoutMeasurementCount > 0 ? <NeonText variant="bodyMuted" style={styles.copy}>{summary.closedWithoutMeasurementCount} accepted commitment{summary.closedWithoutMeasurementCount === 1 ? ' closed' : 's closed'} without sufficient measurement evidence. Missing evidence is not treated as zero delivery.</NeonText> : null}\n\n`,
+            'pendingAmendmentCount > 0',
+          );
+
+          // Documentation.
+          insertBefore(
+            'docs/PARTNER_COMMITMENT_LEDGER.md',
+            '\n## Product language\n',
+            `\n## Contract-integrity layer\n\n### Accepted terms remain effective during amendment review\n\nCreating a revision does not silently replace an accepted obligation. If an 8-slot commitment is accepted and one party proposes 12 slots, the shared ledger continues to show 8 as the effective contract while the 12-slot amendment waits for fresh required acceptance. A rejected or withdrawn amendment therefore cannot erase the prior operating agreement.\n\n### Manual evidence is reviewable, not self-verifying\n\nA community can manually assert delivery only for its own commitment; the host cannot author that community's delivery quantity. Host commitments are similarly authored by the host. The other required parties can independently acknowledge or dispute the underlying manual assertion. Pending or disputed manual evidence may remain visible for audit, but it cannot finalize fulfilled / partially fulfilled / not fulfilled state.\n\nThis is deliberately different from asking Beacon to decide who is telling the truth. Beacon records who asserted the quantity and whether the other contractual parties acknowledged or disputed it.\n\n### No double-claiming indistinguishable obligations\n\nTwo accepted commitments from the same party with the same resource type, same domain and overlapping delivery window are rejected as operationally ambiguous. The party must revise the existing obligation or use a genuinely distinct time/domain contract. This prevents one Office Hours session or Focus Window from being presented as fulfillment of two indistinguishable promises.\n\n### Evidence semantics must match the source\n\nA server event may support only the semantics it actually records. For example, current Office Hours rows do not carry a reviewed domain field. Beacon therefore refuses to auto-verify a domain-specific Office Hours commitment from generic completed Office Hours traffic; the contribution needs stronger provenance or an explicit manual assertion subject to counterpart review.\n\n### Longitudinal memory carries measurement coverage\n\nHistorical delivery and utilization averages exclude events with missing, insufficient, disputed or still-pending manual evidence. The memory surface reports how many ended events actually had admissible measurement and the corresponding coverage share. Unknown evidence is never coerced to zero use.\n\nThis allows Beacon to say that a commitment pattern was repeatedly unused only when it was repeatedly **measured** as delivered but unused.\n\n### Delete-path hardening\n\nCore revisions, decisions, lifecycle events, measurements, source links, closeout rows and manual-review events reject both in-place updates and deletes at the database boundary. The normal product lifecycle is supersession and explicit terminal events, not history rewriting. Any future compliance erasure path deserves a separate, auditable system rather than a generic mutation endpoint.\n`,
+            '## Contract-integrity layer',
+          );
+
+          // Validator: production invariants for the deeper integrity layer.
+          insertBefore(
+            'scripts/validate-partner-commitment-ledger.mjs',
+            `if (failures.length > 0) {`,
+            `const integrityMigration = 'supabase/migrations/064_partner_commitment_contract_integrity.sql';\nread(integrityMigration);\nrequireText(integrityMigration, 'partner_commitment_effective_revision', 'accepted terms must remain effective while an amendment awaits fresh approval');\nrequireText(integrityMigration, 'partner_commitment_pending_revision', 'pending amendments must be represented separately from effective contract state');\nrequireText(integrityMigration, 'an overlapping accepted commitment already covers this party, resource type, domain, and delivery window', 'semantically duplicate overlapping commitments must fail closed instead of double-claiming activity');\nrequireText(integrityMigration, 'partner_commitment_manual_measurement_reviews', 'manual delivery assertions need append-only counterparty review');\nrequireText(integrityMigration, "decision text not null check (decision in ('acknowledged','disputed'))", 'manual evidence review must preserve explicit acknowledgement and dispute semantics');\nrequireText(integrityMigration, 'manual delivery assertion may be authored only by the committed party', 'host must not fabricate manual delivery quantities for a partner');\nrequireText(integrityMigration, 'manual delivery evidence must be acknowledged by every required counterparty before it can finalize the commitment', 'unreviewed manual claims must not finalize fulfillment');\nrequireText(integrityMigration, 'before update or delete', 'append-only commitment evidence must resist delete-path history rewriting');\nrequireText(integrityMigration, 'domain-specific Office Hours lacks server-recorded domain provenance', 'generic Office Hours telemetry must not overclaim domain-specific fulfillment');\nrequireText(integrityMigration, 'measurement_coverage', 'longitudinal usage claims must expose evidence coverage rather than coerce unknown to zero');\nrequireText(integrityMigration, "filter (where r.measurement_admissible)", 'historical delivery and utilization averages must exclude inadmissible measurements');\nrequireText(service, ".rpc('review_partner_commitment_manual_measurement'", 'manual evidence review must cross a server-scoped RPC boundary');\nrequireText(panel, 'CURRENT CONTRACT REMAINS EFFECTIVE', 'partner UX must make amendment effectiveness explicit');\nrequireText(panel, 'Unknown measurements are excluded rather than treated as zero.', 'longitudinal UX must distinguish missing evidence from zero utilization');\nrequireText(panel, 'DISPUTE', 'counterpart UX must support explicit non-scoring disagreement with a manual assertion');\nforbidText(integrityMigration, 'partner_value_score', 'contract integrity must not introduce a synthetic partner value rank');\nforbidText(integrityMigration, 'fairness_score', 'contract integrity must not introduce a fairness leaderboard');\n\n`,
+            'const integrityMigration =',
+          );
+          NODE
+
+      - name: Validate integrated commitment ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit --pretty false
+          node scripts/validate-partner-commitment-ledger.mjs
+          node scripts/validate-community-partner-programs.mjs
+          node scripts/validate-community-exchange.mjs
+          node scripts/validate-participant-outcome-receipts.mjs
+          node scripts/validate-product-preservation.mjs
+
+      - name: Commit validated integrity layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            supabase/migrations/064_partner_commitment_contract_integrity.sql \
+            src/partners/PartnerCommitmentModel.ts \
+            src/services/partner-commitment.service.ts \
+            src/components/PartnerCommitmentLedgerPanel.tsx \
+            src/components/HostPartnerCommitmentSummaryCard.tsx \
+            docs/PARTNER_COMMITMENT_LEDGER.md \
+            scripts/validate-partner-commitment-ledger.mjs
+          if git diff --cached --quiet; then
+            echo 'Integrity integration already present; nothing to commit.'
+            exit 0
+          fi
+          git commit -m 'feat(partners): harden bilateral commitment contract semantics'
+          git push origin HEAD:${GITHUB_REF_NAME}
