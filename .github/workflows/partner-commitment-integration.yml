@@ -1,0 +1,108 @@
+name: Partner commitment integration
+
+on:
+  push:
+    branches:
+      - feature/spatial-event-digital-twin
+
+permissions:
+  contents: write
+
+concurrency:
+  group: partner-commitment-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Integrate Partner Commitment Ledger surfaces
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function insertImport(path, existingImport, newImport) {
+            let source = fs.readFileSync(path, 'utf8');
+            if (source.includes(newImport)) return;
+            if (!source.includes(existingImport)) throw new Error(`${path}: import seam not found`);
+            source = source.replace(existingImport, `${existingImport}\n${newImport}`);
+            fs.writeFileSync(path, source);
+          }
+
+          insertImport(
+            'src/screens/CommunityExchangeScreen.tsx',
+            "import CommunityOutcomeReceiptEvidence from '../components/CommunityOutcomeReceiptEvidence';",
+            "import PartnerCommitmentLedgerPanel from '../components/PartnerCommitmentLedgerPanel';",
+          );
+
+          {
+            const path = 'src/screens/CommunityExchangeScreen.tsx';
+            let source = fs.readFileSync(path, 'utf8');
+            const component = '<PartnerCommitmentLedgerPanel scopeKind="event-exchange" exchangeId={exchange.exchange_id} />';
+            if (!source.includes(component)) {
+              const marker = `              {exchange.state === 'active' ? (\n                <CommunityOutcomeReceiptEvidence exchangeId={exchange.exchange_id} />\n              ) : null}`;
+              const index = source.indexOf(marker);
+              if (index < 0) throw new Error(`${path}: outcome receipt integration marker not found`);
+              const insertionPoint = index + marker.length;
+              source = `${source.slice(0, insertionPoint)}\n              {exchange.state === 'active' ? (\n                <PartnerCommitmentLedgerPanel scopeKind="event-exchange" exchangeId={exchange.exchange_id} />\n              ) : null}${source.slice(insertionPoint)}`;
+              fs.writeFileSync(path, source);
+            }
+          }
+
+          insertImport(
+            'src/components/CommunityPartnerProgramsPanel.tsx',
+            "import { NeonText, Pill, Surface } from './ui';",
+            "import PartnerCommitmentLedgerPanel from './PartnerCommitmentLedgerPanel';",
+          );
+
+          {
+            const path = 'src/components/CommunityPartnerProgramsPanel.tsx';
+            let source = fs.readFileSync(path, 'utf8');
+            const component = '<PartnerCommitmentLedgerPanel scopeKind="program-template" programId={program.program_id} compact />';
+            if (!source.includes(component)) {
+              const marker = `                  <NeonText variant="bodyMuted" style={styles.smallTop}>{program.domains.map((domain) => EVENT_INTENT_LABELS[domain]).join(' · ')}</NeonText>`;
+              const index = source.indexOf(marker);
+              if (index < 0) throw new Error(`${path}: partner program domains marker not found`);
+              const insertionPoint = index + marker.length;
+              source = `${source.slice(0, insertionPoint)}\n                  {program.state === 'active' || program.state === 'paused' ? (\n                    <PartnerCommitmentLedgerPanel scopeKind="program-template" programId={program.program_id} compact />\n                  ) : null}${source.slice(insertionPoint)}`;
+              fs.writeFileSync(path, source);
+            }
+          }
+          NODE
+
+      - name: Validate Partner Commitment Ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsc --noEmit --pretty false
+          node scripts/validate-partner-commitment-ledger.mjs
+          node scripts/validate-community-partner-programs.mjs
+          node scripts/validate-community-exchange.mjs
+          node scripts/validate-participant-outcome-receipts.mjs
+          node scripts/validate-product-preservation.mjs
+
+      - name: Commit validated integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/screens/CommunityExchangeScreen.tsx src/components/CommunityPartnerProgramsPanel.tsx
+          if git diff --cached --quiet; then
+            echo 'Integration already present; nothing to commit.'
+            exit 0
+          fi
+          git commit -m 'feat(partners): integrate commitment ledger into partner workflows'
+          git push origin HEAD:${GITHUB_REF_NAME}
