@@ -48,3 +48,4 @@ jobs:
           node scripts/validate-community-exchange.mjs
           node scripts/validate-community-partner-programs.mjs
           node scripts/validate-community-supply-demand.mjs
+          node scripts/validate-offline-event-handshake.mjs
