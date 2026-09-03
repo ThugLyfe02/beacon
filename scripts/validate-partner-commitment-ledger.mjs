@@ -49,7 +49,7 @@ for (const type of [
   requireText(migration, `'${type}'`, `bounded commitment vocabulary must include ${type}`);
   requireText(model, `'${type}'`, `client model must include ${type}`);
 }
-requireText(migration, "domain_support_capacity' and domain is not null", 'domain-specific capacity must carry an explicit reviewed domain');
+requireText(migration, "commitment_type <> 'domain_support_capacity' or domain is not null", 'domain-specific capacity must carry an explicit reviewed domain');
 forbidText(model, 'free_text', 'commitment semantics must not collapse into arbitrary free text');
 forbidText(migration, 'private_note', 'raw private notes do not belong in the commitment contract');
 
