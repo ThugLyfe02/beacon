@@ -53,5 +53,6 @@ jobs:
           node scripts/validate-partner-commitment-ledger.mjs
           node scripts/validate-partner-commitment-template-effectiveness.mjs
           node scripts/validate-partner-commitment-governance.mjs
+          node scripts/validate-partner-commitment-seal-history.mjs
           node scripts/test-partner-commitment-semantics.mjs
           node scripts/test-partner-commitment-template-semantics.mjs
