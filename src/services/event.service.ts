@@ -215,26 +215,24 @@ export async function getUserEvents(userId: string): Promise<EventRow[]> {
 }
 
 /**
- * Get the newest hosted event that is still active/upcoming.
+ * Get the newest hosted event that has not been durably finalized.
  *
- * Finalized events are intentionally retained in `events` for Vault, outcome
- * intelligence and venue memory, so "latest hosted" and "currently hosting" are
- * no longer interchangeable. This service-level invariant prevents archived
- * events from being resurrected by any future caller.
+ * `ends_at` marks the live/scheduled boundary; `finalized_at` means outcome
+ * evidence was atomically sealed. Keeping those states separate lets a host
+ * recover and finalize an event after its scheduled clock has already elapsed.
  */
 export async function getHostedEvent(hostId: string): Promise<EventRow | null> {
-  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('events')
     .select('*')
     .eq('host_id', hostId)
-    .or(`ends_at.is.null,ends_at.gt.${now}`)
+    .is('finalized_at', null)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    console.error('[event.service] Error fetching active hosted event:', error);
+    console.error('[event.service] Error fetching unfinalized hosted event:', error);
     throw new Error(error.message || 'Failed to fetch hosted event');
   }
   return data ? (data as EventRow) : null;
