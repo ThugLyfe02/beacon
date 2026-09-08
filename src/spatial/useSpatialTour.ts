@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SpatialLandmark } from './SpatialLandmarkEngine';
 import {
+  buildSpatialContinuityState,
+  spatialLandmarkFingerprint,
+  type SpatialContinuityState,
+  type SpatialLandmarkAcknowledgement,
+} from './SpatialContinuityEngine';
+import {
   buildSpatialTourPlan,
   spatialTourProgress,
   type SpatialTourPlan,
@@ -16,6 +22,7 @@ export interface SpatialTourController {
   progress: number;
   unseenCount: number;
   seenLandmarkIds: string[];
+  continuity: SpatialContinuityState;
   markSeen: (landmarkId: string) => void;
   start: () => void;
   pause: () => void;
@@ -29,9 +36,10 @@ export interface SpatialTourController {
 /**
  * Session-scoped controller for Beacon's user-initiated field tour.
  *
- * It remembers which explainable landmarks have been framed during this event,
- * prioritizes newly appeared landmarks on the next tour, pauses cleanly, and
- * never starts or advances unless the user explicitly begins the experience.
+ * It remembers which semantic landmark versions have actually been framed
+ * during this event. Confidence/salience jitter inside the same material band
+ * stays acknowledged; a landmark becomes unseen again only after a meaningful
+ * world change. The controller never starts or advances unless the user explicitly begins the experience.
  */
 export function useSpatialTour(
   landmarks: SpatialLandmark[],
@@ -40,37 +48,59 @@ export function useSpatialTour(
   const [status, setStatus] = useState<SpatialTourStatus>('idle');
   const [plan, setPlan] = useState<SpatialTourPlan | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
-  const [seenLandmarkIds, setSeenLandmarkIds] = useState<string[]>([]);
+  const [acknowledgements, setAcknowledgements] = useState<Record<string, SpatialLandmarkAcknowledgement>>({});
 
   useEffect(() => {
     setStatus('idle');
     setPlan(null);
     setStepIndex(0);
-    setSeenLandmarkIds([]);
+    setAcknowledgements({});
   }, [scopeKey]);
 
-  const seenSet = useMemo(() => new Set(seenLandmarkIds), [seenLandmarkIds]);
-  const unseenCount = useMemo(
-    () => landmarks.filter((landmark) => !seenSet.has(landmark.id)).length,
-    [landmarks, seenSet],
+  const landmarkById = useMemo(
+    () => new Map(landmarks.map((landmark) => [landmark.id, landmark] as const)),
+    [landmarks],
   );
 
+  const continuity = useMemo(
+    () => buildSpatialContinuityState(landmarks, acknowledgements),
+    [landmarks, acknowledgements],
+  );
+
+  const seenLandmarkIds = useMemo(
+    () => landmarks
+      .filter((landmark) => acknowledgements[landmark.id]?.fingerprint === spatialLandmarkFingerprint(landmark))
+      .map((landmark) => landmark.id),
+    [landmarks, acknowledgements],
+  );
+
+  const unseenCount = continuity.meaningfulChangeCount;
   const currentStep = plan?.steps[stepIndex] ?? null;
 
   const markSeen = useCallback((landmarkId: string) => {
-    setSeenLandmarkIds((current) => (
-      current.includes(landmarkId) ? current : [...current, landmarkId]
-    ));
-  }, []);
+    const landmark = landmarkById.get(landmarkId);
+    if (!landmark) return;
+    const fingerprint = spatialLandmarkFingerprint(landmark);
+    setAcknowledgements((current) => {
+      if (current[landmarkId]?.fingerprint === fingerprint) return current;
+      return {
+        ...current,
+        [landmarkId]: {
+          fingerprint,
+          acknowledgedAt: Date.now(),
+        },
+      };
+    });
+  }, [landmarkById]);
 
   const start = useCallback(() => {
-    const nextPlan = buildSpatialTourPlan(landmarks, seenLandmarkIds);
+    const nextPlan = buildSpatialTourPlan(landmarks, acknowledgements);
     if (nextPlan.steps.length === 0) return;
     setPlan(nextPlan);
     setStepIndex(0);
     setStatus('running');
     markSeen(nextPlan.steps[0].landmarkId);
-  }, [landmarks, seenLandmarkIds, markSeen]);
+  }, [landmarks, acknowledgements, markSeen]);
 
   const moveTo = useCallback((nextIndex: number) => {
     if (!plan || plan.steps.length === 0) return;
@@ -136,6 +166,7 @@ export function useSpatialTour(
     progress: spatialTourProgress(plan, stepIndex),
     unseenCount,
     seenLandmarkIds,
+    continuity,
     markSeen,
     start,
     pause,
