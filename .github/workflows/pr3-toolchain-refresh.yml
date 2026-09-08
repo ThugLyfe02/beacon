@@ -1,0 +1,58 @@
+name: PR3 Toolchain Refresh
+
+on:
+  push:
+    branches:
+      - feature/spatial-navigation-cinematic-world
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.event.head_commit.message == 'chore(toolchain): generate Expo SDK 55 refresh artifact'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NPM_CONFIG_IGNORE_SCRIPTS: 'true'
+      EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      EXPO_PUBLIC_SENTRY_ENV: ci
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/spatial-navigation-cinematic-world
+          fetch-depth: 0
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Align packages to the installed Expo SDK
+        run: npx expo install --fix
+
+      - name: Verify Expo package matrix
+        run: npx expo-doctor
+
+      - name: Re-audit resolved production tree
+        run: npm audit --omit=dev || true
+
+      - name: Commit regenerated package matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- package.json package-lock.json; then
+            echo 'Expo reported no package matrix changes.'
+            exit 0
+          fi
+          git config user.name 'beacon-toolchain-bot'
+          git config user.email 'beacon-toolchain-bot@users.noreply.github.com'
+          git add package.json package-lock.json
+          git commit -m 'chore(toolchain): align Expo SDK 55 patch matrix'
+          git push origin HEAD:feature/spatial-navigation-cinematic-world
