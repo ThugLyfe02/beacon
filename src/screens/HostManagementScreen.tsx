@@ -10,9 +10,9 @@ import {
 import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
 import {
   getHostedEvent,
-  deleteEvent,
   updateEventLocation,
 } from '../services/event.service';
+import { finalizeHostedEvent } from '../services/outcome-intelligence.service';
 import {
   getPendingJoinRequests,
   approveJoinRequest,
@@ -36,6 +36,12 @@ interface HostManagementScreenProps {
   onEventEnded: () => void;
 }
 
+function isEndedEvent(event: EventRow): boolean {
+  if (!event.ends_at) return false;
+  const endsAt = Date.parse(event.ends_at);
+  return Number.isFinite(endsAt) && endsAt <= Date.now();
+}
+
 export default function HostManagementScreen({
   userId,
   onEventEnded,
@@ -45,6 +51,7 @@ export default function HostManagementScreen({
   const [requests, setRequests] = useState<PendingJoinRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [locationSubscription, setLocationSubscription] = useState<LocationSubscription | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -53,10 +60,12 @@ export default function HostManagementScreen({
       const { showAlert = false } = opts;
       setIsLoading(true);
 
-      // Step 1: hosted event lookup
+      // Step 1: hosted event lookup. Preserved historical events are intentionally
+      // not treated as active host sessions after their declared end time.
       let hostedEvent: EventRow | null = null;
       try {
         hostedEvent = await getHostedEvent(userId);
+        if (hostedEvent && isEndedEvent(hostedEvent)) hostedEvent = null;
         setEvent(hostedEvent);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -69,6 +78,8 @@ export default function HostManagementScreen({
       }
 
       if (!hostedEvent) {
+        setRequests([]);
+        setIsBroadcasting(false);
         setLoadError(null);
         setIsLoading(false);
         return;
@@ -119,7 +130,7 @@ export default function HostManagementScreen({
         setLocationSubscription(null);
       }
     };
-    if (event?.location_type === 'live' && isBroadcasting) {
+    if (event?.location_type === 'live' && isBroadcasting && !isFinalizing) {
       (async () => {
         const sub = await watchLocation(async (coords) => {
           try {
@@ -139,7 +150,7 @@ export default function HostManagementScreen({
       stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBroadcasting, event?.location_type, event?.id, userId]);
+  }, [isBroadcasting, isFinalizing, event?.location_type, event?.id, userId]);
 
   const handleApprove = async (participantId: string) => {
     try {
@@ -164,23 +175,36 @@ export default function HostManagementScreen({
   };
 
   const handleEndEvent = () => {
+    if (!event || isFinalizing) return;
     Alert.alert(
-      'End beacon?',
-      'This deletes the event and removes everyone.',
+      'Finalize beacon?',
+      'This closes the live room, preserves matches, Vault and outcome history, and captures the final organizer intelligence snapshot. Event history is not deleted.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'End event',
+          text: 'Finalize event',
           style: 'destructive',
           onPress: async () => {
+            setIsFinalizing(true);
+            setIsBroadcasting(false);
             try {
-              if (event) {
-                await deleteEvent(event.id, userId);
-                onEventEnded();
-              }
+              locationSubscription?.remove();
+              setLocationSubscription(null);
+              const snapshot = await finalizeHostedEvent(event.id);
+              setEvent(null);
+              setRequests([]);
+              onEventEnded();
+              Alert.alert(
+                'Beacon finalized',
+                `Outcome history preserved · ${snapshot.mutualsFormed} mutual${snapshot.mutualsFormed === 1 ? '' : 's'} · Beacon Index ${snapshot.beaconIndex}.`,
+              );
             } catch (error) {
-              console.error('Failed to end event:', error);
-              Alert.alert('Action failed', 'Could not end event.');
+              console.error('Failed to finalize event:', error);
+              const message = error instanceof Error ? error.message : 'Could not finalize the event safely.';
+              Alert.alert('Finalization failed', message);
+              setIsBroadcasting(event.location_type === 'live');
+            } finally {
+              setIsFinalizing(false);
             }
           },
         },
@@ -208,7 +232,7 @@ export default function HostManagementScreen({
           <Pill label="No active event" tone="neutral" dot />
           <NeonText variant="h1" style={{ marginTop: spacing.md }}>Dark room.</NeonText>
           <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
-            Create an event to start broadcasting.
+            Create an event to start broadcasting. Finalized event history remains preserved for outcomes and world memory.
           </NeonText>
         </Surface>
       </View>
@@ -257,6 +281,7 @@ export default function HostManagementScreen({
             <Switch
               value={isBroadcasting}
               onValueChange={setIsBroadcasting}
+              disabled={isFinalizing}
               trackColor={{ false: palette.hairlineStrong, true: palette.accentDim }}
               thumbColor={isBroadcasting ? palette.accent : palette.textMuted}
               ios_backgroundColor={palette.hairlineStrong}
@@ -338,8 +363,9 @@ export default function HostManagementScreen({
 
       <View style={styles.section}>
         <GlowButton
-          label="End event"
+          label={isFinalizing ? "Finalizing…" : "Finalize event"}
           onPress={handleEndEvent}
+          disabled={isFinalizing}
           variant="ghost"
           fullWidth
           style={styles.dangerBtn}
