@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { SpatialLandmarkKind } from './SpatialLandmarkEngine';
 import type { SpatialTourController } from './useSpatialTour';
 
 interface Props {
@@ -13,28 +14,41 @@ function formatDuration(milliseconds: number): string {
   return seconds >= 60 ? `${Math.ceil(seconds / 60)}m` : `${seconds}s`;
 }
 
+function formatChangeKinds(counts: Record<SpatialLandmarkKind, number>): string | null {
+  const parts: string[] = [];
+  if (counts.mutual > 0) parts.push(`${counts.mutual} mutual route${counts.mutual === 1 ? '' : 's'}`);
+  if (counts.forecast > 0) parts.push(`${counts.forecast} momentum shift${counts.forecast === 1 ? '' : 's'}`);
+  if (counts.cluster > 0) parts.push(`${counts.cluster} activity zone${counts.cluster === 1 ? '' : 's'}`);
+  if (counts['field-center'] > 0) parts.push('field shape');
+  return parts.length > 0 ? parts.slice(0, 2).join(' · ') : null;
+}
+
 export default function SpatialTourHUD({ tour, landmarkCount, accent }: Readonly<Props>) {
   if (landmarkCount === 0) return null;
 
   if (tour.status === 'idle') {
+    const changeKinds = formatChangeKinds(tour.continuity.unseenByKind);
     return (
       <View pointerEvents="box-none" style={styles.compactWrap}>
         <View style={[styles.compactCard, { borderColor: `${accent}55` }]}>
           <View style={styles.compactCopy}>
-            <Text style={[styles.eyebrow, { color: accent }]}>FIELD SCOUT</Text>
+            <Text style={[styles.eyebrow, { color: accent }]}>FIELD SCOUT · CONTINUITY</Text>
             <Text style={styles.compactTitle}>
               {tour.unseenCount > 0
-                ? `${tour.unseenCount} new world change${tour.unseenCount === 1 ? '' : 's'} to frame`
-                : `${landmarkCount} explainable landmark${landmarkCount === 1 ? '' : 's'} available`}
+                ? tour.continuity.headline
+                : `${landmarkCount} explainable landmark${landmarkCount === 1 ? '' : 's'} · field stable`}
+            </Text>
+            <Text style={styles.compactDetail}>
+              {changeKinds ?? 'No landmark has crossed a new evidence or salience band.'}
             </Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Start a guided tour of the live field"
+            accessibilityLabel="Start a guided tour of meaningful changes in the live field"
             onPress={tour.start}
             style={[styles.primaryButton, { borderColor: accent }]}
           >
-            <Text style={[styles.primaryText, { color: accent }]}>Scout field</Text>
+            <Text style={[styles.primaryText, { color: accent }]}>Scout changes</Text>
           </Pressable>
         </View>
       </View>
@@ -49,9 +63,9 @@ export default function SpatialTourHUD({ tour, landmarkCount, accent }: Readonly
       <View pointerEvents="box-none" style={styles.activeWrap}>
         <View style={[styles.card, { borderColor: `${accent}66` }]}>
           <Text style={[styles.eyebrow, { color: accent }]}>FIELD SCOUT COMPLETE</Text>
-          <Text style={styles.title}>You have seen the current shape of the room.</Text>
+          <Text style={styles.title}>You have framed the current semantic shape of the room.</Text>
           <Text style={styles.detail}>
-            Beacon will mark newly formed landmarks as the event changes. The live world remains available behind this summary.
+            Beacon keeps these landmark versions acknowledged for this event. A landmark becomes new again only when its evidence or importance materially changes; ordinary sensor churn stays quiet.
           </Text>
           <View style={styles.controls}>
             <Pressable accessibilityRole="button" onPress={tour.replay} style={styles.button}>
@@ -76,7 +90,12 @@ export default function SpatialTourHUD({ tour, landmarkCount, accent }: Readonly
             <Text style={[styles.eyebrow, { color: accent }]}>GUIDED FIELD SCOUT</Text>
             <Text style={styles.counter}>{tour.stepIndex + 1} / {total}</Text>
           </View>
-          <Text style={styles.duration}>{formatDuration(step.durationMs)} frame</Text>
+          <View style={styles.frameMeta}>
+            <Text style={[styles.novelty, step.novelty === 'changed' && { color: accent }]}>
+              {step.novelty === 'changed' ? 'MATERIAL CHANGE' : 'CONTEXT FRAME'}
+            </Text>
+            <Text style={styles.duration}>{formatDuration(step.durationMs)} frame</Text>
+          </View>
         </View>
 
         <Text style={styles.title}>{step.title}</Text>
@@ -126,7 +145,7 @@ const styles = StyleSheet.create({
   compactCard: {
     width: '100%',
     maxWidth: 430,
-    minHeight: 68,
+    minHeight: 76,
     paddingHorizontal: 14,
     paddingVertical: 11,
     borderRadius: 18,
@@ -139,6 +158,7 @@ const styles = StyleSheet.create({
   },
   compactCopy: { flex: 1 },
   compactTitle: { marginTop: 4, color: '#E2E8F0', fontSize: 12, lineHeight: 16, fontWeight: '700' },
+  compactDetail: { marginTop: 3, color: '#64748B', fontSize: 9, lineHeight: 12, fontWeight: '600' },
   activeWrap: {
     position: 'absolute',
     left: 14,
@@ -155,8 +175,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(4, 7, 16, 0.94)',
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  frameMeta: { alignItems: 'flex-end', gap: 3 },
   eyebrow: { fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
   counter: { marginTop: 3, color: '#64748B', fontSize: 10, fontWeight: '700' },
+  novelty: { color: '#64748B', fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
   duration: { color: '#64748B', fontSize: 9, fontWeight: '700' },
   title: { marginTop: 8, color: '#F8FAFC', fontSize: 16, lineHeight: 21, fontWeight: '800' },
   detail: { marginTop: 5, color: '#A8B2C1', fontSize: 11, lineHeight: 16 },
