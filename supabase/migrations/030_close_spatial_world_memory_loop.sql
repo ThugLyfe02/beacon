@@ -16,7 +16,7 @@ create or replace function public.compute_world_memory_venue_key(
 )
 returns text
 language sql
-immutable
+stable
 as $$
   select case
     when p_latitude is not null and p_longitude is not null then
