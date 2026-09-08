@@ -125,7 +125,14 @@ export function RootNavigator() {
         if (completed) {
           try {
             const hostedEvent = await getHostedEvent(user.id);
-            if (!cancelled) setIsHost(hostedEvent !== null);
+            if (!cancelled) {
+              const endsAt = hostedEvent?.ends_at ? Date.parse(hostedEvent.ends_at) : Number.NaN;
+              const isStillActive = Boolean(
+                hostedEvent
+                && (!hostedEvent.ends_at || !Number.isFinite(endsAt) || endsAt > Date.now()),
+              );
+              setIsHost(isStillActive);
+            }
           } catch (eventError) {
             console.error('[RootNavigator] Error checking host status:', eventError);
             if (!cancelled) setIsHost(false);
