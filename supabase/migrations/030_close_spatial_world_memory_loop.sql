@@ -77,6 +77,7 @@ as $$
 declare
   v_event public.events;
   v_venue_key text;
+  v_first_mutual_at timestamptz;
   v_first_mutual_minute numeric;
 begin
   select * into v_event
@@ -108,13 +109,17 @@ begin
   );
 
   if v_event.starts_at is not null then
-    select greatest(
-      0::numeric,
-      extract(epoch from (min(m.created_at) - v_event.starts_at))::numeric / 60
-    )
-    into v_first_mutual_minute
+    select min(m.created_at)
+    into v_first_mutual_at
     from public.matches m
     where m.event_id = new.event_id;
+
+    if v_first_mutual_at is not null then
+      v_first_mutual_minute := greatest(
+        0::numeric,
+        extract(epoch from (v_first_mutual_at - v_event.starts_at))::numeric / 60
+      );
+    end if;
   end if;
 
   insert into public.event_world_observations (
