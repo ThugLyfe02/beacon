@@ -6,11 +6,11 @@ on:
       - feature/spatial-navigation-cinematic-world
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   refresh:
-    if: github.event.head_commit.message == 'chore(toolchain): generate Expo SDK 55 refresh artifact'
+    if: startsWith(github.event.head_commit.message, 'chore(toolchain): generate Expo SDK 55 refresh artifact')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -37,22 +37,38 @@ jobs:
       - name: Align packages to the installed Expo SDK
         run: npx expo install --fix
 
-      - name: Verify Expo package matrix
-        run: npx expo-doctor
-
-      - name: Re-audit resolved production tree
-        run: npm audit --omit=dev || true
-
-      - name: Commit regenerated package matrix
+      - name: Capture Expo Doctor result
         shell: bash
         run: |
-          set -euo pipefail
-          if git diff --quiet -- package.json package-lock.json; then
-            echo 'Expo reported no package matrix changes.'
-            exit 0
-          fi
-          git config user.name 'beacon-toolchain-bot'
-          git config user.email 'beacon-toolchain-bot@users.noreply.github.com'
-          git add package.json package-lock.json
-          git commit -m 'chore(toolchain): align Expo SDK 55 patch matrix'
-          git push origin HEAD:feature/spatial-navigation-cinematic-world
+          set +e
+          npx expo-doctor > expo-doctor-refreshed.txt 2>&1
+          echo $? > expo-doctor-exit-code.txt
+          cat expo-doctor-refreshed.txt
+          exit 0
+
+      - name: Capture refreshed production audit
+        shell: bash
+        run: |
+          set +e
+          npm audit --omit=dev --json > npm-audit-refreshed.json
+          echo $? > npm-audit-exit-code.txt
+          npm audit --omit=dev || true
+          exit 0
+
+      - name: Capture dependency diff
+        run: git diff -- package.json package-lock.json > toolchain-refresh.patch
+
+      - name: Upload regenerated toolchain
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr3-toolchain-refresh
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            package.json
+            package-lock.json
+            toolchain-refresh.patch
+            expo-doctor-refreshed.txt
+            expo-doctor-exit-code.txt
+            npm-audit-refreshed.json
+            npm-audit-exit-code.txt
