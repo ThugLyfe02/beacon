@@ -124,15 +124,11 @@ export function RootNavigator() {
         setProfileComplete(completed);
         if (completed) {
           try {
+            // getHostedEvent now means "newest unfinalized hosted event". A live
+            // window may already have ended naturally while the host still needs
+            // access to the control deck to seal outcomes and venue memory.
             const hostedEvent = await getHostedEvent(user.id);
-            if (!cancelled) {
-              const endsAt = hostedEvent?.ends_at ? Date.parse(hostedEvent.ends_at) : Number.NaN;
-              const isStillActive = Boolean(
-                hostedEvent
-                && (!hostedEvent.ends_at || !Number.isFinite(endsAt) || endsAt > Date.now()),
-              );
-              setIsHost(isStillActive);
-            }
+            if (!cancelled) setIsHost(hostedEvent !== null);
           } catch (eventError) {
             console.error('[RootNavigator] Error checking host status:', eventError);
             if (!cancelled) setIsHost(false);
