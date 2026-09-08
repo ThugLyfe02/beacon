@@ -109,7 +109,8 @@ export async function createEvent(
 
     if (!participantError) return event;
 
-    // Compensate rather than leaving a hostless event if participation creation fails.
+    // This delete is compensation for an event that never completed creation; it
+    // is intentionally not exposed as a general client lifecycle operation.
     await supabase.from('events').delete().eq('id', event.id).eq('host_id', hostId);
     console.error('[event.service] Host participation creation failed:', participantError);
     throw new Error('Event creation could not be completed safely');
@@ -149,15 +150,6 @@ export async function updateEventLocation(
   longitude: number,
 ): Promise<EventRow> {
   return updateEvent(eventId, hostId, { latitude, longitude });
-}
-
-/** Delete an event owned by the authenticated host. */
-export async function deleteEvent(eventId: string, hostId: string): Promise<void> {
-  const { error } = await supabase.from('events').delete().eq('id', eventId).eq('host_id', hostId);
-  if (error) {
-    console.error('[event.service] Error deleting event:', error);
-    throw new Error(error.message || 'Failed to delete event');
-  }
 }
 
 /** Retrieve an event already visible under current RLS policy. */
@@ -222,18 +214,27 @@ export async function getUserEvents(userId: string): Promise<EventRow[]> {
   });
 }
 
-/** Get the most recently created event currently hosted by this user. */
+/**
+ * Get the newest hosted event that is still active/upcoming.
+ *
+ * Finalized events are intentionally retained in `events` for Vault, outcome
+ * intelligence and venue memory, so "latest hosted" and "currently hosting" are
+ * no longer interchangeable. This service-level invariant prevents archived
+ * events from being resurrected by any future caller.
+ */
 export async function getHostedEvent(hostId: string): Promise<EventRow | null> {
+  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('events')
     .select('*')
     .eq('host_id', hostId)
+    .or(`ends_at.is.null,ends_at.gt.${now}`)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    console.error('[event.service] Error fetching hosted event:', error);
+    console.error('[event.service] Error fetching active hosted event:', error);
     throw new Error(error.message || 'Failed to fetch hosted event');
   }
   return data ? (data as EventRow) : null;
