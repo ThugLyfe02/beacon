@@ -37,7 +37,10 @@ import { buildSpatialLayout } from "./SpatialLayoutEngine";
 import { buildSpatialProgression } from "./SpatialProgressionEngine";
 import { buildSpatialContractBoard } from "./SpatialContractEngine";
 import { buildSpatialDirector } from "./SpatialDirectorEngine";
-import { buildSpatialWorldIntelligence } from "./SpatialWorldIntelligenceEngine";
+import {
+  buildSpatialWorldIntelligence,
+  type VenueMemorySnapshot,
+} from "./SpatialWorldIntelligenceEngine";
 import { buildTemporalArchitecture } from "./TemporalArchitectureEngine";
 import { buildSpatialWorldOrchestration } from "./SpatialWorldOrchestrator";
 import { buildSpatialNavigation, type SpatialCameraMode } from "./SpatialNavigationEngine";
@@ -67,6 +70,7 @@ import { usePresenceFeed } from "../hooks/usePresenceFeed";
 import { useReducedMotionPreference } from "../hooks/useReducedMotionPreference";
 import { usePremiumStatus } from "../premium/usePremium";
 import { getEventById } from "../services/event.service";
+import { buildVenueKey, getVenueWorldMemory } from "../services/world-memory.service";
 import { sendConnectionRequest } from "../services/match.service";
 import type { ProximitySignal } from "../presence/PresenceEngine";
 
@@ -113,6 +117,7 @@ export default function SpatialFieldScreen() {
   const reducedMotion = useReducedMotionPreference();
 
   const [eventTiming, setEventTiming] = useState<EventTiming | null>(null);
+  const [venueMemory, setVenueMemory] = useState<VenueMemorySnapshot | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<Target | null>(null);
   const [cameraMode, setCameraMode] = useState<SpatialCameraMode>("overview");
   const [activeLandmarkId, setActiveLandmarkId] = useState<string | null>(null);
@@ -123,6 +128,7 @@ export default function SpatialFieldScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    setVenueMemory(null);
     (async () => {
       const event = await getEventById(eventId);
       if (cancelled) return;
@@ -130,6 +136,16 @@ export default function SpatialFieldScreen() {
         startsAt: event?.starts_at ?? new Date(Date.now() - 15 * 60_000).toISOString(),
         endsAt: event?.ends_at ?? new Date(Date.now() + 60 * 60_000).toISOString(),
       });
+
+      if (!event) return;
+      const venueKey = buildVenueKey({
+        address: event.address,
+        latitude: event.latitude,
+        longitude: event.longitude,
+        eventId,
+      });
+      const memory = await getVenueWorldMemory(venueKey);
+      if (!cancelled) setVenueMemory(memory);
     })();
     return () => {
       cancelled = true;
@@ -216,9 +232,9 @@ export default function SpatialFieldScreen() {
       mutualMatches,
       eventStartsAt: fallbackStartsAt,
       eventEndsAt: fallbackEndsAt,
-      venueMemory: null,
+      venueMemory,
     }),
-    [presence, runtime, mutualMatches, fallbackStartsAt, fallbackEndsAt],
+    [presence, runtime, mutualMatches, fallbackStartsAt, fallbackEndsAt, venueMemory],
   );
 
   const temporal = useMemo(
@@ -590,7 +606,7 @@ export default function SpatialFieldScreen() {
         {__DEV__ && (
           <View style={styles.debugHud}>
             <Text style={styles.debugText}>
-              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · reciprocity: {reciprocity.primary?.state ?? "none"} · loops: {networkEffects.opportunities.length} · delta: {Math.round(counterfactuals.opportunityDelta * 100)} · quality: {quality.tier}
+              phase: {temporal.phase} · camera: {cinematicNavigation.mode} · reciprocity: {reciprocity.primary?.state ?? "none"} · loops: {networkEffects.opportunities.length} · delta: {Math.round(counterfactuals.opportunityDelta * 100)} · memory: {venueMemory?.sampleSize ?? 0} · quality: {quality.tier}
             </Text>
           </View>
         )}
