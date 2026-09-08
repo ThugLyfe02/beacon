@@ -89,6 +89,26 @@ export async function captureEventOutcomeSnapshot(
   return mapSnapshot(data as EventOutcomeSnapshotRow);
 }
 
+/**
+ * Atomically closes a hosted event and captures its final database-derived
+ * outcome snapshot. The backend preserves the event row and all event-scoped
+ * history, then feeds the privacy-gated venue-memory loop in the same transaction.
+ */
+export async function finalizeHostedEvent(
+  eventId: string,
+): Promise<EventOutcomeSnapshot> {
+  const { data, error } = await supabase
+    .rpc('finalize_hosted_event', { p_event_id: eventId })
+    .single();
+
+  if (error || !data) {
+    console.error('[outcome-intelligence.service] event finalization failed:', error);
+    throw new Error('Unable to finalize this event safely. No event history was deleted.');
+  }
+
+  return mapSnapshot(data as EventOutcomeSnapshotRow);
+}
+
 export async function listEventOutcomeSnapshots(
   eventId: string,
   limit = 12,
