@@ -6,6 +6,7 @@ import {
   type InternalGraphExportPersonMode,
 } from './InternalGraphExportEngine';
 import { loadInternalGraphExportPayload } from './internalGraph.service';
+import { recordInternalGraphExportReceipt } from './internalGraphExportAudit.service';
 
 export type InternalGraphExportFormat = 'graphml' | 'cypher';
 
@@ -14,6 +15,7 @@ export interface InternalGraphExportResult {
   personMode: InternalGraphExportPersonMode;
   restricted: boolean;
   graphVersion: string;
+  receiptId: number;
   uri: string;
   bytes: number;
   nodeCount: number;
@@ -35,13 +37,12 @@ function freshExportSalt(): string {
 }
 
 /**
- * Writes an operator export to the app cache and opens the native share sheet.
+ * Writes an operator export to the app cache, seals a minimal server receipt, and
+ * only then opens the native share sheet.
  *
- * The server independently requires graph_export and graph_restricted when
- * requested. Portable exports pseudonymize person labels/IDs by default with a
- * fresh per-export salt so two exported files cannot casually correlate people by
- * Constellation alias. Labeled mode is an explicit operator choice for controlled
- * forensic workflows, never the default.
+ * Portable exports pseudonymize person labels/IDs by default with a fresh salt so
+ * two files cannot casually correlate people by Constellation alias. Labeled mode
+ * is an explicit operator choice for controlled forensic workflows.
  */
 export async function exportInternalGraph(input: {
   format: InternalGraphExportFormat;
@@ -63,12 +64,30 @@ export async function exportInternalGraph(input: {
   const content = input.format === 'graphml'
     ? internalGraphToGraphML(payload, serialization)
     : internalGraphToNeo4jCypher(payload, serialization);
+  const bytes = new TextEncoder().encode(content).byteLength;
   const extension = input.format === 'graphml' ? 'graphml' : 'cypher';
   const cacheDirectory = FileSystem.cacheDirectory;
   if (!cacheDirectory) throw new Error('No writable cache directory is available for graph export.');
   const privacySuffix = personMode === 'pseudonymous' ? 'pseudo' : 'labeled';
   const uri = `${cacheDirectory}beacon_constellation_${safeScope(input.eventId)}_${privacySuffix}_${Date.now()}.${extension}`;
   await FileSystem.writeAsStringAsync(uri, content, { encoding: FileSystem.EncodingType.UTF8 });
+
+  let receiptId: number;
+  try {
+    receiptId = await recordInternalGraphExportReceipt({
+      eventId: input.eventId ?? null,
+      graphVersion: payload.graphVersion,
+      format: input.format,
+      personMode,
+      restricted,
+      nodeCount: payload.nodeCount,
+      edgeCount: payload.edgeCount,
+      bytes,
+    });
+  } catch (error) {
+    await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+    throw error;
+  }
 
   await Share.share({
     title: `Beacon Constellation ${input.format.toUpperCase()} export · ${personMode}`,
@@ -81,8 +100,9 @@ export async function exportInternalGraph(input: {
     personMode,
     restricted,
     graphVersion: payload.graphVersion,
+    receiptId,
     uri,
-    bytes: new TextEncoder().encode(content).byteLength,
+    bytes,
     nodeCount: payload.nodeCount,
     edgeCount: payload.edgeCount,
   };
