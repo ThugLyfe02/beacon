@@ -16,9 +16,10 @@ interface LabDefinition {
 }
 
 const LABS: LabDefinition[] = [
-  { route: 'InternalAdaptiveCommand', title: 'Operator Command', code: 'COMMAND', description: 'Adaptive command layer combining bounded attention, next-best analysis, Watchtower triage, evidence debt, calibrated decision admission, temporal coherence, diversified routing and health-calibrated agents.', capability: 'graph_manage', accent: 'accent' },
-  { route: 'InternalDecisionJournal', title: 'Decision Journal', code: 'HYPOTHESIS', description: 'Falsifiable operator hypotheses sealed against calibrated evidence authority, then resolved as supported, weakened or invalidated to improve future method calibration.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalAdaptiveCommand', title: 'Operator Command', code: 'COMMAND', description: 'Adaptive command layer combining bounded attention, next-best analysis, retrospective method debt, Watchtower triage, evidence debt, calibrated decision admission, temporal coherence and diversified routing.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalDecisionJournal', title: 'Decision Journal', code: 'HYPOTHESIS', description: 'Falsifiable operator hypotheses sealed against calibrated evidence authority plus bounded decision-time/resolution-time retrospective metrics.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalDecisionCalibration', title: 'Decision Calibration', code: 'METHOD', description: 'Shrinkage-aware memory of where analytical admission authority historically aligned with—or ran ahead of—later disconfirming evidence.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalDecisionRetrospective', title: 'Retrospective Lab', code: 'RETRO', description: 'Shrinkage-aware analysis of which decision-time conditions repeatedly co-occurred with supported, weakened, or invalidated hypotheses—association only, never causation.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalCollaborativeCaseMemory', title: 'Collaborative Case Memory', code: 'SHARED MEMORY', description: 'Durable Casebook chronology for assignment, verification checkpoints, falsifiable questions, decision notes, timeline findings and handoff continuity—canonical-version and evidence-digest bound.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalHandoffLab', title: 'Handoff Lab', code: 'HANDOFF', description: 'Bounded operator-to-operator investigation capsules carrying case, canonical graph version, Perspective, evidence digest and a falsifiable next question without duplicating graph payloads.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalAgenticTimeline', title: 'Agentic Timeline', code: 'TIMELINE', description: 'Evidence chronology, observation episodes, relationship ladders, chronology gaps and route temporal-coherence boundaries without causal inference.', capability: 'graph_read', accent: 'accent' },
@@ -73,7 +74,7 @@ export default function InternalOperatorHubScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · OPERATOR CONTROL DECK · ADAPTIVE OS" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
-              <NeonText variant="bodyMuted">Adaptive command · calibrated decision memory · collaborative Casebook memory · temporal coherence · Perspectives · pattern grammar · evidence debt · ontology drift · Watchtower · routing · forensic pivots · Machines · longitudinal memory</NeonText>
+              <NeonText variant="bodyMuted">Adaptive command · falsifiable decision memory · calibration + retrospectives · collaborative Casebook memory · temporal coherence · Perspectives · evidence debt · ontology drift · Watchtower · routing · forensic pivots · Machines · longitudinal memory</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -110,7 +111,7 @@ export default function InternalOperatorHubScreen() {
 
           <Surface padded style={styles.autonomyCard}>
             <Pill label="AUTONOMY BOUNDARY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation may detect, diff, route, recommend analytical Perspectives and structural pattern queries, rank graph-level evidence debt, observe ontology/schema drift, test temporal coherence, assess evidence health, checkpoint canonical topology, maintain bounded collaborative Casebook memory, monitor structural conditions, reconcile mission memory, replay private recipes, and calibrate its analytical method. Current evidence always sets the authority ceiling; calibration and timeline history may only reduce authority. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation may detect, diff, route, recommend analytical Perspectives and structural pattern queries, rank graph-level evidence debt, observe ontology/schema drift, test temporal coherence, maintain bounded collaborative Casebook memory, monitor structural conditions, reconcile mission memory, replay private recipes, calibrate its analytical method, and learn shrinkage-adjusted retrospective associations between decision-time conditions and later hypothesis outcomes. Current evidence always sets the authority ceiling; calibration and retrospective history may only increase scrutiny or reduce authority. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
           </Surface>
         </ScrollView>
       </SafeAreaView>
