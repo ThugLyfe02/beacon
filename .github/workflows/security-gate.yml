@@ -122,6 +122,27 @@ jobs:
         if: steps.privileged-surfaces.outcome == 'failure'
         run: exit 1
 
+      - name: Validate join discovery abuse boundary
+        id: join-discovery
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-join-discovery.mjs 2>&1 | tee join-discovery-validation.txt
+
+      - name: Upload join discovery diagnostics
+        if: steps.join-discovery.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: join-discovery-diagnostics
+          path: join-discovery-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on join discovery contract violations
+        if: steps.join-discovery.outcome == 'failure'
+        run: exit 1
+
       - name: Validate product preservation contract
         run: node scripts/validate-product-preservation.mjs
 
