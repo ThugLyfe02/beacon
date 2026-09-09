@@ -24,11 +24,16 @@ function forbidText(path, text, explanation) {
 const files = [
   'supabase/migrations/045_internal_intelligence_graph_core.sql',
   'supabase/migrations/046_internal_intelligence_graph_runtime.sql',
+  'supabase/migrations/047_internal_bridge_feedback_loop.sql',
+  'supabase/migrations/048_internal_bridge_feedback_hardening.sql',
+  'supabase/migrations/049_internal_graph_temporal_strategy_and_exports.sql',
+  'supabase/migrations/050_internal_graph_retention_guardrails.sql',
   'src/admin/InternalGraphEngine.ts',
   'src/admin/InternalGraphCanvas.tsx',
   'src/admin/internalGraph.service.ts',
   'src/admin/useInternalOperator.ts',
   'src/screens/InternalGraphScreen.tsx',
+  'src/screens/InternalBridgeLabScreen.tsx',
   'src/screens/ProfileScreen.tsx',
   'src/navigation/RootNavigator.tsx',
   'docs/internal-intelligence-graph.md',
@@ -47,13 +52,12 @@ for (const [text, explanation] of [
   ["'organization', 'domain', 'project', 'topic', 'venue', 'event', 'role'", 'manual assertions must stay restricted to non-sensitive business/event entity kinds'],
   ['source_uri', 'manual bridges must support explicit provenance'],
   ['graph_restricted', 'restricted safety topology must require a separate capability'],
-  ['prune_internal_graph_memory', 'graph memory must have a service-only bounded retention path'],
 ]) requireText('supabase/migrations/045_internal_intelligence_graph_core.sql', text, explanation);
 
 forbidText(
   'supabase/migrations/045_internal_intelligence_graph_core.sql',
   '@',
-  'operator bootstrap must not hardcode personal email addresses in the migration',
+  'operator bootstrap must not hardcode personal addresses in the migration',
 );
 
 for (const [text, explanation] of [
@@ -71,6 +75,33 @@ for (const [text, explanation] of [
   ['firstSeenAt', 'read payload must expose graph chronology'],
   ['lastSeenAt', 'read payload must expose graph chronology'],
 ]) requireText('supabase/migrations/046_internal_intelligence_graph_runtime.sql', text, explanation);
+
+for (const [text, explanation] of [
+  ['internal_graph_bridge_watches', 'bridge learning must remain explicit and bounded'],
+  ['observed_stage', 'bridge calibration needs monotonic downstream evidence'],
+  ['correlation', 'bridge feedback must preserve a non-causal attribution boundary'],
+]) requireText('supabase/migrations/047_internal_bridge_feedback_loop.sql', text, explanation);
+
+for (const [text, explanation] of [
+  ['get_internal_bridge_suppressions', 'block safety must be independent of restricted visualization mode'],
+  ['user_blocks', 'bridge suppressions must derive from authoritative block state'],
+  ['delete from public.internal_graph_bridge_watches', 'later blocks must invalidate watched introductions'],
+]) requireText('supabase/migrations/048_internal_bridge_feedback_hardening.sql', text, explanation);
+
+for (const [text, explanation] of [
+  ['get_internal_graph_event_sequence', 'event-to-event strategy needs an ordered evidence catalog'],
+  ['get_internal_bridge_pattern_calibration', 'historical bridge archetypes need sample-aware calibration'],
+  ['get_internal_graph_export_payload', 'bulk export must have a separate capability boundary'],
+  ['graph_export', 'export privilege must remain independent of graph management'],
+  ['not causal estimates', 'historical bridge calibration must remain explicitly non-causal'],
+]) requireText('supabase/migrations/049_internal_graph_temporal_strategy_and_exports.sql', text, explanation);
+
+for (const [text, explanation] of [
+  ['prune_internal_graph_memory', 'graph memory must have a service-only bounded retention path'],
+  ["auth.role() <> 'service_role'", 'retention pruning must be service-role-only'],
+  ["interval '365 days'", 'operator audit history must have a bounded retention window'],
+  ['internal_graph_bridge_watches', 'bridge calibration material must be covered by retention pruning'],
+]) requireText('supabase/migrations/050_internal_graph_retention_guardrails.sql', text, explanation);
 
 for (const [text, explanation] of [
   ['detectInternalGraphCommunities', 'deterministic community detection must remain available'],
@@ -93,6 +124,7 @@ for (const [text, explanation] of [
   ["rpc('get_internal_operator_context'", 'operator UI access must be server-backed'],
   ["rpc('get_internal_intelligence_graph'", 'graph loading must use the narrow RPC'],
   ["rpc('add_internal_graph_assertion'", 'Bridge Builder must commit evidence through the controlled RPC'],
+  ["rpc('get_internal_bridge_suppressions'", 'client bridge analysis must fail closed through server suppressions'],
 ]) requireText('src/admin/internalGraph.service.ts', text, explanation);
 forbidText('src/admin/internalGraph.service.ts', 'fetch(', 'internal graph client must not become an OSINT scraper');
 
@@ -111,9 +143,19 @@ for (const [text, explanation] of [
   ['RETENTION CONTRACT', 'operators need visible retention semantics'],
 ]) requireText('src/screens/InternalGraphScreen.tsx', text, explanation);
 
-forbidText('src/screens/InternalGraphScreen.tsx', 'email', 'operator graph UI must not expose person email data');
+// Ban actual direct PII field usage rather than explanatory privacy copy such as
+// "does not store addresses".
+forbidText('src/screens/InternalGraphScreen.tsx', '.email', 'operator graph UI must not access person address fields');
+forbidText('src/screens/InternalGraphScreen.tsx', "['email']", 'operator graph UI must not access person address fields');
 forbidText('src/screens/InternalGraphScreen.tsx', 'last_known_lat', 'operator graph UI must not expose raw peer latitude');
 forbidText('src/screens/InternalGraphScreen.tsx', 'last_known_lng', 'operator graph UI must not expose raw peer longitude');
+
+for (const [text, explanation] of [
+  ['ATTRIBUTION FIREWALL', 'Bridge Lab must make non-causal calibration semantics visible'],
+  ['SAFE STRUCTURAL HOLES', 'Bridge Lab must expose block-safe candidate gaps'],
+  ['getInternalBridgeSuppressions', 'Bridge Lab must fail closed on block suppression'],
+  ['Mark introduced', 'operators need an explicit intervention receipt rather than inferred action'],
+]) requireText('src/screens/InternalBridgeLabScreen.tsx', text, explanation);
 
 requireText('src/navigation/RootNavigator.tsx', 'name="InternalGraph"', 'Constellation route must remain registered');
 requireText('docs/internal-intelligence-graph.md', 'Graphify-inspired, not Graphify-copied', 'architecture docs must preserve provenance of the design approach');
