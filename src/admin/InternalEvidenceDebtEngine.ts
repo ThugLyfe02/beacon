@@ -11,7 +11,8 @@ export type InternalEvidenceDebtKind =
   | 'critical_bridge_weakness'
   | 'weak_context'
   | 'route_single_point'
-  | 'route_low_diversity';
+  | 'route_low_diversity'
+  | 'operator_confirmed_conflict';
 
 export type InternalEvidenceDebtSurface =
   | 'InternalForensicsLab'
@@ -19,7 +20,8 @@ export type InternalEvidenceDebtSurface =
   | 'InternalEntityResolutionLab'
   | 'InternalTargetRouting'
   | 'InternalPerspectiveLab'
-  | 'InternalDecisionJournal';
+  | 'InternalDecisionJournal'
+  | 'InternalEvidenceConflicts';
 
 export interface InternalEvidenceDebtItem {
   id: string;
@@ -43,6 +45,16 @@ export interface InternalEvidenceDebtReport {
   expectedRecoverableAuthority: number;
   items: InternalEvidenceDebtItem[];
   operatingRule: string;
+}
+
+export interface InternalEvidenceConflictDebtInput {
+  id: string;
+  status: 'open' | 'resolved' | 'dismissed';
+  reviewPriority: number;
+  leftEdgeId: string;
+  rightEdgeId: string;
+  kind: string;
+  rationale: string;
 }
 
 const CONTEXT_KINDS = new Set([
@@ -171,6 +183,7 @@ function edgeDebt(input: {
 export function analyzeInternalEvidenceDebt(input: {
   payload: InternalGraphPayload;
   routingPortfolio?: InternalTargetRoutingPortfolio | null;
+  evidenceConflicts?: readonly InternalEvidenceConflictDebtInput[] | null;
   now?: number;
 }): InternalEvidenceDebtReport {
   const now = input.now ?? Date.now();
@@ -178,9 +191,43 @@ export function analyzeInternalEvidenceDebt(input: {
   const forensics = analyzeInternalGraphForensics(input.payload);
   const criticalBridgeIds = new Set(forensics.bridgeEdgeIds);
   const items: InternalEvidenceDebtItem[] = [];
+  const edgeById = new Map(input.payload.edges.map((edge) => [edge.id, edge] as const));
 
   for (const edge of input.payload.edges) {
     items.push(...edgeDebt({ edge, criticalBridge: criticalBridgeIds.has(edge.id), now }));
+  }
+
+  for (const conflict of input.evidenceConflicts ?? []) {
+    if (conflict.status !== 'open') continue;
+    const left = edgeById.get(conflict.leftEdgeId);
+    const right = edgeById.get(conflict.rightEdgeId);
+    const involvedCriticalBridge = criticalBridgeIds.has(conflict.leftEdgeId) || criticalBridgeIds.has(conflict.rightEdgeId);
+    const basePriority = 5.6 + Math.max(0, conflict.reviewPriority - 1) * 0.75 + (involvedCriticalBridge ? 0.8 : 0);
+    items.push({
+      id: stableId('operator_confirmed_conflict', [conflict.id]),
+      kind: 'operator_confirmed_conflict',
+      title: 'Operator-confirmed evidence conflict remains unresolved',
+      summary: `${conflict.kind.replaceAll('_', ' ')} review is open between two retained evidence edges.`,
+      priority: Math.min(10, basePriority),
+      expectedAuthorityGain: clamp01(0.045 + conflict.reviewPriority * 0.012 + (involvedCriticalBridge ? 0.025 : 0)),
+      edgeIds: [conflict.leftEdgeId, conflict.rightEdgeId],
+      nodeIds: [...new Set([
+        ...(left ? [left.source, left.target] : []),
+        ...(right ? [right.source, right.target] : []),
+      ])],
+      reasons: [
+        conflict.rationale,
+        `operator review priority ${conflict.reviewPriority}/5`,
+        ...(involvedCriticalBridge ? ['At least one conflicted edge is graph-theoretically critical, so unresolved disagreement can affect several downstream conclusions.'] : []),
+        'Open conflict means reconciliation is incomplete; it does not mean either source edge is false.',
+      ],
+      remediation: [
+        'Open Conflict Review and inspect both first-party evidence edges side-by-side.',
+        'Resolve or dismiss the ledger conflict only after the evidence disagreement has been reviewed.',
+        'Until then, keep conclusions that materially depend on these edges in explicit caution/revalidation state.',
+      ],
+      recommendedSurface: 'InternalEvidenceConflicts',
+    });
   }
 
   const degree = new Map<string, number>(input.payload.nodes.map((node) => [node.id, 0]));
@@ -303,6 +350,6 @@ export function analyzeInternalEvidenceDebt(input: {
     highPriorityCount: ranked.filter((item) => item.priority >= 7).length,
     expectedRecoverableAuthority,
     items: ranked,
-    operatingRule: 'Evidence Debt ranks graph-level uncertainty obligations by expected analytical-authority gain. It never scores human worth, authorizes outreach, or permits external enrichment to manufacture certainty.',
+    operatingRule: 'Evidence Debt ranks graph-level uncertainty obligations—including unresolved operator-confirmed evidence conflicts—by expected analytical-authority gain. It never scores human worth, declares a conflicted edge false, authorizes outreach, or permits external enrichment to manufacture certainty.',
   };
 }
