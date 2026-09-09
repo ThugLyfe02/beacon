@@ -13,7 +13,7 @@ export type RequestStatus = 'pending' | 'withdrawn';
 export type LocationType = 'live' | 'fixed';
 export type ParticipantStatus = 'pending' | 'approved' | 'rejected';
 
-// ─── Row Interfaces ───────────────────────────────────────────────────────────
+// ─── Row Interfaces ────────────────────────────────────────────────────────────
 
 /**
  * users table
@@ -63,6 +63,7 @@ export interface EventRow {
   show_participant_count: boolean;
   starts_at: Timestamp | null;
   ends_at: Timestamp | null;
+  finalized_at: Timestamp | null;
   created_at: Timestamp;
 }
 
@@ -150,8 +151,8 @@ export type UserUpdate = Partial<
   >
 >;
 
-export type EventInsert = Omit<EventRow, 'id' | 'created_at' | 'join_code'>;
-export type EventUpdate = Partial<Omit<EventRow, 'id' | 'host_id' | 'created_at' | 'join_code'>>;
+export type EventInsert = Omit<EventRow, 'id' | 'created_at' | 'join_code' | 'finalized_at'>;
+export type EventUpdate = Partial<Omit<EventRow, 'id' | 'host_id' | 'created_at' | 'join_code' | 'finalized_at'>>;
 
 export type EventParticipantInsert = Pick<
   EventParticipantRow,
@@ -178,45 +179,36 @@ export interface MutualMatchResult {
 
 /** Flattened participant shown on the Discover screen */
 export interface DiscoverableParticipant {
-  participant_id: UUID;     // event_participants.id
+  participant_id: UUID;
   user_id: UUID;
   event_id: UUID;
   status: ParticipantStatus;
   joined_at: Timestamp;
-  // User profile fields (global scope)
-  email: string;
+  email: string | null;
   name: string | null;
   role: string | null;
   one_liner: string | null;
   is_premium: boolean;
 }
 
-/** Event with host user information */
-export interface EventWithHost {
-  event: EventRow;
-  host: UserRow;
-}
-
-/** Join request pending host approval */
+/** Flattened pending request shown on host management */
 export interface PendingJoinRequest {
   participant_id: UUID;
   user_id: UUID;
   event_id: UUID;
   joined_at: Timestamp;
-  // User info
   name: string | null;
-  email: string;
+  email: string | null;
   role: string | null;
   one_liner: string | null;
 }
 
-/** Returned after a user successfully joins an event */
-export interface ActiveEventContext {
+export interface EventWithHost {
   event: EventRow;
-  participant: EventParticipantRow;
+  host: UserRow | null;
 }
 
-// ─── Database Interface (for createClient<Database> generic) ─────────────────
+// ─── Database Shape (Supabase generic) ────────────────────────────────────────
 
 export interface Database {
   public: {
@@ -228,8 +220,8 @@ export interface Database {
       };
       events: {
         Row: EventRow;
-        Insert: EventInsert; // hosts can create events
-        Update: EventUpdate; // hosts can update their events
+        Insert: EventInsert;
+        Update: EventUpdate;
       };
       event_participants: {
         Row: EventParticipantRow;
@@ -248,67 +240,23 @@ export interface Database {
       };
       posts: {
         Row: PostRow;
-        Insert: Pick<PostRow, 'author_id' | 'body'> &
-          Partial<Pick<PostRow, 'event_id' | 'image_path'>>;
+        Insert: Pick<PostRow, 'author_id' | 'event_id' | 'body' | 'image_path'>;
         Update: Partial<Pick<PostRow, 'body' | 'image_path'>>;
       };
       follows: {
         Row: FollowRow;
-        Insert: Pick<FollowRow, 'follower_id' | 'followed_id'>;
+        Insert: FollowRow;
         Update: never;
       };
       post_likes: {
         Row: PostLikeRow;
-        Insert: never; // toggle via RPC
+        Insert: PostLikeRow;
         Update: never;
       };
     };
-    Functions: {
-      detect_mutual_match: {
-        Args: {
-          p_event_id: UUID;
-          p_requester_id: UUID;
-          p_recipient_id: UUID;
-        };
-        Returns: MutualMatchResult[];
-      };
-      approve_participant_with_code: {
-        Args: {
-          p_event_id: UUID;
-          p_user_id: UUID;
-          p_access_code: string;
-        };
-        Returns: boolean;
-      };
-      set_premium_dev: {
-        Args: { p_is_premium: boolean };
-        Returns: UserRow;
-      };
-      get_nearby_premium: {
-        Args: { p_event_id: UUID };
-        Returns: NearbyPremiumUser[];
-      };
-      get_home_feed: {
-        Args: { p_limit?: number; p_before?: Timestamp };
-        Returns: FeedPost[];
-      };
-      get_event_feed: {
-        Args: { p_event_id: UUID; p_limit?: number; p_before?: Timestamp };
-        Returns: FeedPost[];
-      };
-      get_user_posts: {
-        Args: { p_user_id: UUID; p_limit?: number; p_before?: Timestamp };
-        Returns: FeedPost[];
-      };
-      toggle_post_like: {
-        Args: { p_post_id: UUID };
-        Returns: { liked: boolean; like_count: number }[];
-      };
-    };
-    Enums: {
-      request_status: RequestStatus;
-      location_type: LocationType;
-      participant_status: ParticipantStatus;
-    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
