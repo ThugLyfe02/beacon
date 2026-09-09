@@ -22,8 +22,10 @@ const lineage = 'src/admin/InternalReasoningLineageEngine.ts';
 const journal = 'src/screens/InternalDecisionJournalScreen.tsx';
 const staleness = 'src/admin/InternalAssumptionStalenessEngine.ts';
 const screen = 'src/screens/InternalReasoningLineageScreen.tsx';
+const nav = 'src/navigation/RootNavigator.tsx';
+const hub = 'src/screens/InternalOperatorHubScreen.tsx';
 const pulse = 'src/components/NetworkPulseCard.tsx';
-[migrationRefs, migrationAtomic, service, dependency, lineage, journal, staleness, screen, pulse].forEach(read);
+[migrationRefs, migrationAtomic, service, dependency, lineage, journal, staleness, screen, nav, hub, pulse].forEach(read);
 
 for (const [text, why] of [
   ['internal_operator_decision_evidence_refs', 'exact decision→edge dependency table must exist'],
@@ -85,6 +87,9 @@ for (const [text, why] of [
   ["refKind: 'manual_review'", 'operator binding must be recorded as explicit manual review'],
 ]) requireText(screen, text, why);
 
+requireText(nav, 'name="InternalReasoningLineage"', 'Reasoning Lineage must remain registered in sealed navigation');
+requireText(hub, "route: 'InternalReasoningLineage'", 'Reasoning Lineage must remain available only in sealed Ops');
+requireText(hub, 'exact reasoning lineage', 'Ops narrative must preserve explicit analytical provenance semantics');
 forbidText(pulse, 'InternalReasoningLineage', 'normal-user Network Pulse must not expose reasoning lineage');
 forbidText(pulse, 'decision_evidence_refs', 'normal-user Network Pulse must not expose decision dependency internals');
 
