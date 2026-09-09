@@ -51,6 +51,8 @@ const protectedFiles = [
   'src/services/outcome-handshake.service.ts',
   'src/services/outcome-intelligence.service.ts',
   'src/services/vault.service.ts',
+  'supabase/functions/livekit-token/index.ts',
+  'supabase/functions/escort-notify/index.ts',
 ];
 
 for (const file of protectedFiles) read(file);
@@ -113,12 +115,31 @@ requireAll('src/services/match.service.ts', [
 
 requireAll('src/services/officeHours.service.ts', [
   'secure_create_office_hours_request',
-], 'Secure Office Hours regression');
+  'transition_office_hours_request',
+  'confirm_office_hours_completion',
+  'get_office_hours_completion_state',
+], 'Secure Office Hours state/evidence regression');
+forbidAll('src/services/officeHours.service.ts', [
+  ".from('office_hours_requests')\n    .update",
+], 'Direct Office Hours mutation regression');
+
+requireAll('src/screens/OfficeHoursCallScreen.tsx', [
+  'End & confirm my side',
+  'Leave without confirming',
+  'confirmOfficeHoursCompletion',
+], 'Office Hours call evidence regression');
+
+requireAll('src/screens/OfficeHoursInboxScreen.tsx', [
+  'TWO-PARTY COMPLETION SEALED',
+  'Your confirmation is sealed',
+  'Confirm my side',
+], 'Office Hours completion UX regression');
 
 requireAll('src/services/escort.service.ts', [
   'create_venue_room_secure',
   'get_host_escort_queue',
   'assign_escort_room_secure',
+  'body: { officeHoursRequestId }',
 ], 'Secure physical escort regression');
 
 requireAll('src/screens/EscortPanelScreen.tsx', [
@@ -127,6 +148,22 @@ requireAll('src/screens/EscortPanelScreen.tsx', [
   'timeWindowsOverlap',
   'TIME CONFLICT',
 ], 'Adaptive physical orchestration regression');
+
+requireAll('supabase/functions/livekit-token/index.ts', [
+  'get_office_hours_call_context',
+  'ttl: ttlSeconds',
+  "'cache-control': 'no-store'",
+], 'LiveKit authorization regression');
+
+requireAll('supabase/functions/escort-notify/index.ts', [
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'escort_notification_deliveries',
+  'request.room_id',
+  "claimError.code === '23505'",
+], 'Privileged escort notification regression');
+forbidAll('supabase/functions/escort-notify/index.ts', [
+  'body.roomId',
+], 'Client-supplied escort room trust regression');
 
 requireAll('src/services/outcome-handshake.service.ts', [
   'propose_outcome_handshake',
@@ -162,7 +199,7 @@ const migrations = fs.readdirSync(path.join(root, 'supabase/migrations'));
 const requiredMigrationPrefixes = [
   '019_', '020_', '021_', '022_', '023_', '024_', '025_', '026_',
   '027_', '028_', '029_', '030_', '031_', '032_', '033_', '034_', '035_',
-  '036_', '037_', '038_',
+  '036_', '037_', '038_', '039_', '040_', '041_', '042_',
 ];
 for (const prefix of requiredMigrationPrefixes) {
   if (!migrations.some((file) => file.startsWith(prefix))) {
