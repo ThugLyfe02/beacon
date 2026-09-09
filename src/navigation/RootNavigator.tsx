@@ -47,6 +47,7 @@ import InternalDecisionJournalScreen from '../screens/InternalDecisionJournalScr
 import InternalDecisionCalibrationScreen from '../screens/InternalDecisionCalibrationScreen';
 import InternalPerspectiveLabScreen from '../screens/InternalPerspectiveLabScreen';
 import InternalPatternQueryLabScreen from '../screens/InternalPatternQueryLabScreen';
+import InternalHandoffLabScreen from '../screens/InternalHandoffLabScreen';
 import InternalPrivateAccessScreen from '../screens/InternalPrivateAccessScreen';
 import InternalOperatorHubScreen from '../screens/InternalOperatorHubScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
@@ -123,6 +124,7 @@ export function RootNavigator() {
         <Stack.Screen name="InternalDecisionCalibration" component={InternalDecisionCalibrationScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPerspectiveLab" component={InternalPerspectiveLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPatternQueryLab" component={InternalPatternQueryLabScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalHandoffLab" component={InternalHandoffLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPrivateAccess" component={InternalPrivateAccessScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalGraph" component={InternalGraphScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalForensicsLab" component={InternalForensicsLabScreen} options={internalModalOptions} />
