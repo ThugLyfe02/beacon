@@ -90,6 +90,9 @@ jobs:
       - name: Evidence conflict contract
         run: node scripts/validate-constellation-evidence-conflicts.mjs
 
+      - name: Reasoning lineage contract
+        run: node scripts/validate-constellation-reasoning-lineage.mjs
+
       - name: Investigation handoff contract
         run: node scripts/validate-constellation-handoff.mjs
 
