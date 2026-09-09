@@ -52,7 +52,7 @@ for (const [text, why] of [
 
 for (const [text, why] of [
   ["rpc('sync_internal_agent_missions_v2'", 'client must use exact mission sync boundary'],
-  ["rpc('get_internal_agent_mission_ledger'", 'client must use narrow mission read RPC'],
+  ["rpc('get_internal_agent_mission_ledger'", 'mission history must use the narrow read RPC'],
   ["rpc('set_internal_agent_mission_status'", 'mission disposition must use controlled RPC'],
   ['persistenceSafeMission', 'client must sanitize mission persistence payloads'],
   ["mission.agent === 'Pathfinder' ? 'Explainable target-ecosystem route'", 'raw Pathfinder target query must not be embedded in persisted title'],
@@ -67,7 +67,7 @@ for (const [text, why] of [
   ['two consecutive misses', 'UI must explain disappearance damping semantics'],
   ['Raw target-objective text is not retained', 'operator UI must expose objective-retention semantics'],
   ['syncInternalAgentMissions', 'Mission Ledger must reconcile live agent analysis into bounded memory'],
-  ['every social action remains explicitly human-approved', 'Mission Ledger copy must not imply autonomous social intervention'],
+  ['any social action remains explicitly human-approved', 'Mission Ledger copy must not imply autonomous social intervention'],
 ]) requireText('src/screens/InternalMissionLedgerScreen.tsx', text, why);
 
 requireText('src/screens/InternalOperatorHubScreen.tsx', "route: 'InternalMissionLedger'", 'Mission Ledger must remain reachable from the sealed operator hub');
