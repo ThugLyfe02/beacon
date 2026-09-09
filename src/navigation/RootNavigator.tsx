@@ -45,6 +45,7 @@ import InternalGraphHealthScreen from '../screens/InternalGraphHealthScreen';
 import InternalEvidenceDebtScreen from '../screens/InternalEvidenceDebtScreen';
 import InternalOntologyObservatoryScreen from '../screens/InternalOntologyObservatoryScreen';
 import InternalAgenticTimelineScreen from '../screens/InternalAgenticTimelineScreen';
+import InternalCollaborativeCaseMemoryScreen from '../screens/InternalCollaborativeCaseMemoryScreen';
 import InternalAdaptiveCommandScreen from '../screens/InternalAdaptiveCommandScreen';
 import InternalDecisionJournalScreen from '../screens/InternalDecisionJournalScreen';
 import InternalDecisionCalibrationScreen from '../screens/InternalDecisionCalibrationScreen';
@@ -128,6 +129,7 @@ export function RootNavigator() {
         <Stack.Screen name="InternalPerspectiveLab" component={InternalPerspectiveLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPatternQueryLab" component={InternalPatternQueryLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalHandoffLab" component={InternalHandoffLabScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalCollaborativeCaseMemory" component={InternalCollaborativeCaseMemoryScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPrivateAccess" component={InternalPrivateAccessScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalGraph" component={InternalGraphScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalForensicsLab" component={InternalForensicsLabScreen} options={internalModalOptions} />
