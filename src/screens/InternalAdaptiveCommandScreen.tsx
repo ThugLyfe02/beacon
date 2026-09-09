@@ -21,6 +21,9 @@ import { evaluateInternalOperatorDecisionAdmission } from '../admin/InternalOper
 import { analyzeInternalEvidenceDebt } from '../admin/InternalEvidenceDebtEngine';
 import { analyzeInternalMethodDebt } from '../admin/InternalMethodDebtEngine';
 import { analyzeInternalDecisionRetrospectives } from '../admin/InternalAnalyticalRetrospectiveEngine';
+import { analyzeInternalReasoningLineage } from '../admin/InternalReasoningLineageEngine';
+import { augmentInternalNextAnalysisWithReasoningLineage } from '../admin/InternalReasoningAttentionEngine';
+import { augmentInternalNextAnalysisWithRevalidation } from '../admin/InternalRevalidationAttentionEngine';
 import {
   buildInternalNextBestAnalysisPlan,
   type InternalAnalysisCapability,
@@ -28,8 +31,24 @@ import {
 import { buildInternalAnalystAttentionBudget } from '../admin/InternalAnalystAttentionGovernor';
 import { loadInternalDecisionCalibrationReport } from '../admin/internalDecisionCalibration.service';
 import type { InternalDecisionCalibrationReport } from '../admin/InternalDecisionCalibrationEngine';
-import { loadInternalDecisionRetrospectives } from '../admin/internalDecisionJournal.service';
-import type { InternalDecisionRetrospectiveRow } from '../admin/internalDecisionJournal.service';
+import {
+  loadInternalDecisionJournal,
+  loadInternalDecisionRetrospectives,
+  type InternalDecisionJournalEntry,
+  type InternalDecisionRetrospectiveRow,
+} from '../admin/internalDecisionJournal.service';
+import {
+  loadInternalDecisionEvidenceRefs,
+  type InternalDecisionEvidenceRef,
+} from '../admin/internalDecisionEvidenceRefs.service';
+import {
+  loadInternalEvidenceConflicts,
+  type InternalEvidenceConflict,
+} from '../admin/internalEvidenceConflict.service';
+import {
+  loadInternalReasoningRevalidationQueue,
+  type InternalReasoningRevalidationObligation,
+} from '../admin/internalReasoningRevalidation.service';
 import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
@@ -63,6 +82,10 @@ export default function InternalAdaptiveCommandScreen() {
   const [watchtower, setWatchtower] = useState<InternalGraphWatchtowerState | null>(null);
   const [decisionCalibration, setDecisionCalibration] = useState<InternalDecisionCalibrationReport | null>(null);
   const [retrospectiveRows, setRetrospectiveRows] = useState<InternalDecisionRetrospectiveRow[]>([]);
+  const [journalEntries, setJournalEntries] = useState<InternalDecisionJournalEntry[]>([]);
+  const [decisionRefs, setDecisionRefs] = useState<InternalDecisionEvidenceRef[]>([]);
+  const [conflicts, setConflicts] = useState<InternalEvidenceConflict[]>([]);
+  const [revalidationObligations, setRevalidationObligations] = useState<InternalReasoningRevalidationObligation[]>([]);
   const [targetQuery, setTargetQuery] = useState('');
   const [sourceNodeId, setSourceNodeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,13 +94,28 @@ export default function InternalAdaptiveCommandScreen() {
     if (!operator.allowed || !operator.has('graph_manage')) return;
     setLoading(true);
     try {
-      const [graph, calibration, safeSuppressions, watchState, methodCalibration, retrospectiveHistory] = await Promise.all([
+      const [
+        graph,
+        calibration,
+        safeSuppressions,
+        watchState,
+        methodCalibration,
+        retrospectiveHistory,
+        journalState,
+        refs,
+        conflictState,
+        revalidationState,
+      ] = await Promise.all([
         loadInternalIntelligenceGraph({ eventId, includeRestricted: false, limit: 1600 }),
         loadInternalBridgePatternCalibration(),
         getInternalBridgeSuppressions(),
         loadInternalGraphWatchtower(),
         loadInternalDecisionCalibrationReport(eventId),
         loadInternalDecisionRetrospectives(eventId),
+        loadInternalDecisionJournal(eventId),
+        loadInternalDecisionEvidenceRefs({ eventId, openOnly: true, limit: 2400 }),
+        loadInternalEvidenceConflicts({ eventId, includeClosed: false, limit: 400 }),
+        loadInternalReasoningRevalidationQueue({ eventId, includeResolved: false, limit: 400 }),
       ]);
       setPayload(graph);
       setPatterns(calibration.patterns);
@@ -85,6 +123,10 @@ export default function InternalAdaptiveCommandScreen() {
       setWatchtower(watchState);
       setDecisionCalibration(methodCalibration);
       setRetrospectiveRows(retrospectiveHistory);
+      setJournalEntries(journalState.entries);
+      setDecisionRefs(refs);
+      setConflicts(conflictState.conflicts);
+      setRevalidationObligations(revalidationState.obligations);
       const analysis = analyzeInternalGraph(graph);
       setSourceNodeId((current) => current && graph.nodes.some((node) => node.id === current)
         ? current
@@ -93,6 +135,10 @@ export default function InternalAdaptiveCommandScreen() {
       setSuppressions(null);
       setDecisionCalibration(null);
       setRetrospectiveRows([]);
+      setJournalEntries([]);
+      setDecisionRefs([]);
+      setConflicts([]);
+      setRevalidationObligations([]);
       Alert.alert('Adaptive Command unavailable', error instanceof Error ? error.message : 'Unable to assemble operator intelligence.');
     } finally {
       setLoading(false);
@@ -168,9 +214,13 @@ export default function InternalAdaptiveCommandScreen() {
 
   const evidenceDebt = useMemo(
     () => payload && adaptiveRun
-      ? analyzeInternalEvidenceDebt({ payload, routingPortfolio: adaptiveRun.routingPortfolio })
+      ? analyzeInternalEvidenceDebt({
+          payload,
+          routingPortfolio: adaptiveRun.routingPortfolio,
+          openConflicts: conflicts,
+        })
       : null,
-    [payload, adaptiveRun],
+    [payload, adaptiveRun, conflicts],
   );
 
   const methodDebt = useMemo(
@@ -186,6 +236,18 @@ export default function InternalAdaptiveCommandScreen() {
     [decisionCalibration, evidenceDebt, timeline, adaptiveRun, retrospectiveReport],
   );
 
+  const lineage = useMemo(
+    () => payload
+      ? analyzeInternalReasoningLineage({
+          graph: payload,
+          journal: journalEntries,
+          refs: decisionRefs,
+          conflicts,
+        })
+      : null,
+    [payload, journalEntries, decisionRefs, conflicts],
+  );
+
   const analysisCapabilities = useMemo(() => {
     const result = new Set<InternalAnalysisCapability>();
     if (operator.read) result.add('graph_read');
@@ -195,7 +257,7 @@ export default function InternalAdaptiveCommandScreen() {
     return result;
   }, [operator.read, operator.manage, operator.restricted, operator.export]);
 
-  const nextAnalysis = useMemo(
+  const baseNextAnalysis = useMemo(
     () => adaptiveRun && evidenceDebt && methodDebt
       ? buildInternalNextBestAnalysisPlan({
           epistemicHealth: adaptiveRun.epistemicHealth,
@@ -207,6 +269,28 @@ export default function InternalAdaptiveCommandScreen() {
         })
       : null,
     [adaptiveRun, evidenceDebt, methodDebt, watchtowerTriage, analysisCapabilities],
+  );
+
+  const lineageNextAnalysis = useMemo(
+    () => baseNextAnalysis && lineage
+      ? augmentInternalNextAnalysisWithReasoningLineage({
+          plan: baseNextAnalysis,
+          lineage,
+          graphManageAvailable: operator.manage,
+        })
+      : baseNextAnalysis,
+    [baseNextAnalysis, lineage, operator.manage],
+  );
+
+  const nextAnalysis = useMemo(
+    () => lineageNextAnalysis
+      ? augmentInternalNextAnalysisWithRevalidation({
+          plan: lineageNextAnalysis,
+          obligations: revalidationObligations,
+          graphManageAvailable: operator.manage,
+        })
+      : null,
+    [lineageNextAnalysis, revalidationObligations, operator.manage],
   );
 
   const attentionBudget = useMemo(
@@ -229,10 +313,11 @@ export default function InternalAdaptiveCommandScreen() {
     return <View style={styles.centered}><GridBackground /><Surface padded style={styles.lockedCard}><Pill label="ADAPTIVE COMMAND · SEALED" tone="neutral" dot /><NeonText variant="h1" style={{ marginTop: spacing.md }}>Graph management capability required.</NeonText><NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>This surface composes Watchtower, calibrated routing and private strategy state and therefore requires exact server-side graph_manage.</NeonText></Surface></View>;
   }
 
-  if (!payload || !suppressions || !adaptiveRun || !decisionAdmission || !decisionCalibration || !timeline || !evidenceDebt || !methodDebt || !nextAnalysis || !attentionBudget) return null;
+  if (!payload || !suppressions || !adaptiveRun || !decisionAdmission || !decisionCalibration || !timeline || !evidenceDebt || !methodDebt || !lineage || !nextAnalysis || !attentionBudget) return null;
   const health = adaptiveRun.epistemicHealth;
   const routing = adaptiveRun.routingPortfolio;
   const bestTemporal = routing?.routes[0] ? analyzeInternalRouteTemporalCoherence(routing.routes[0]) : null;
+  const criticalRevalidation = revalidationObligations.filter((item) => item.status !== 'resolved' && item.priority >= 4);
 
   return (
     <View style={styles.container}>
@@ -243,7 +328,7 @@ export default function InternalAdaptiveCommandScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · ADAPTIVE NETWORK COMMAND" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Operator Command</NeonText>
-              <NeonText variant="bodyMuted">Attention budget · next-best analysis · retrospective method debt · Watchtower · evidence debt · calibrated admission · temporal coherence · diversified routing</NeonText>
+              <NeonText variant="bodyMuted">Attention budget · exact reasoning lineage · durable revalidation · Watchtower · evidence/method debt · calibrated admission · temporal coherence · diversified routing</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -251,12 +336,16 @@ export default function InternalAdaptiveCommandScreen() {
           <View style={styles.metricRow}>
             <Metric label="GRAPH HEALTH" value={`${Math.round(health.score * 100)}%`} />
             <Metric label="EVIDENCE DEBT" value={`${evidenceDebt.highPriorityCount} HIGH`} />
-            <Metric label="METHOD DEBT" value={`${methodDebt.items.length} ITEMS`} />
-            <Metric label="RETROSPECTIVE N" value={`${retrospectiveReport.resolvedCount}`} />
+            <Metric label="LINEAGE CONFLICTS" value={`${lineage.conflictedDecisionCount}`} />
+            <Metric label="P4/P5 REVALIDATION" value={`${criticalRevalidation.length}`} />
+            <Metric label="OPEN INCIDENTS" value={`${watchtowerTriage?.openIncidentCount ?? 0}`} />
+            <Metric label="CRITICAL" value={`${watchtowerTriage?.criticalIncidentCount ?? 0}`} />
+            <Metric label="ADMISSION BLOCKS" value={`${decisionAdmission.blockedCount}`} />
+            <Metric label="METHOD VERDICTS" value={`${retrospectiveReport.resolvedCount}`} />
             <Metric label="CHRONOLOGY GAPS" value={`${timeline.chronologyGapCount}`} />
           </View>
 
-          <Section title="ATTENTION BUDGET · NEXT BEST ANALYSIS" subtitle="One primary analytical thread, at most two supporting threads; evidence, method, safety, temporal, and retrospective debt may preempt generic exploration">
+          <Section title="ATTENTION BUDGET · NEXT BEST ANALYSIS" subtitle="One primary analytical thread, at most two supporting threads; exact provenance/revalidation debt, evidence, method, safety, temporal, and retrospective debt may preempt generic exploration">
             {attentionBudget.primary ? (
               <Surface elevated padded style={[styles.nextActionCard, styles.topActionBorder]}>
                 <View style={styles.rowBetween}><View style={{ flex: 1 }}><Pill label={`FOCUS NOW · ${attentionBudget.primary.source.replaceAll('_', ' ').toUpperCase()}`} tone="accent" dot /><NeonText variant="h1" style={{ marginTop: spacing.sm }}>{attentionBudget.primary.title}</NeonText></View><NeonText variant="mono" tone="accent">P{attentionBudget.primary.priority.toFixed(1)}</NeonText></View>
@@ -274,6 +363,19 @@ export default function InternalAdaptiveCommandScreen() {
             {attentionBudget.later.length > 0 ? <Surface padded style={styles.laterCard}><Pill label={`LATER QUEUE · ${attentionBudget.later.length}${attentionBudget.suppressedCount > 0 ? ` + ${attentionBudget.suppressedCount} SUPPRESSED` : ''}`} tone="neutral" />{attentionBudget.later.slice(0, 5).map((thread) => <NeonText key={thread.id} variant="bodyMuted" style={{ marginTop: 3 }}>• {thread.title}</NeonText>)}</Surface> : null}
             <NeonText variant="bodyMuted">{attentionBudget.operatingRule}</NeonText>
           </Section>
+
+          {(lineage.conflictedDecisionCount > 0 || lineage.orphanedDecisionCount > 0 || criticalRevalidation.length > 0) ? (
+            <Surface elevated padded style={[styles.boundaryCard, styles.warningBorder]}>
+              <Pill label="REASONING INTEGRITY · REVIEW REQUIRED" tone="accent" dot />
+              <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{lineage.conflictedDecisionCount} conflicted · {lineage.orphanedDecisionCount} orphaned · {criticalRevalidation.length} P4/P5 durable obligation{criticalRevalidation.length === 1 ? '' : 's'}</NeonText>
+              <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>These conditions attach to analytical artifacts through explicit recorded evidence dependencies. They do not imply the represented people, edges, or hypotheses are false.</NeonText>
+              <View style={styles.actionRow}>
+                <GlowButton label="Reasoning Lineage" variant="ghost" onPress={() => navigation.navigate('InternalReasoningLineage', { eventId: eventId ?? undefined })} />
+                <GlowButton label="Revalidation Queue" variant="ghost" onPress={() => navigation.navigate('InternalReasoningRevalidation', { eventId: eventId ?? undefined })} />
+                <GlowButton label="Conflict Review" variant="ghost" onPress={() => navigation.navigate('InternalEvidenceConflicts', { eventId: eventId ?? undefined })} />
+              </View>
+            </Surface>
+          ) : null}
 
           <Surface elevated padded style={[styles.healthCard, health.band === 'degraded' || health.band === 'fragile' ? styles.warningBorder : null]}>
             <Pill label={`EPISTEMIC HEALTH · ${health.band.toUpperCase()}`} tone={health.band === 'strong' || health.band === 'usable' ? 'accent' : 'neutral'} dot />
@@ -297,6 +399,8 @@ export default function InternalAdaptiveCommandScreen() {
           </Surface>
 
           <View style={styles.actionRow}>
+            <GlowButton label="Reasoning Lineage" variant="ghost" onPress={() => navigation.navigate('InternalReasoningLineage', { eventId: eventId ?? undefined })} />
+            <GlowButton label="Revalidation Queue" variant="ghost" onPress={() => navigation.navigate('InternalReasoningRevalidation', { eventId: eventId ?? undefined })} />
             <GlowButton label="Evidence Debt" variant="ghost" onPress={() => navigation.navigate('InternalEvidenceDebt', { eventId: eventId ?? undefined })} />
             <GlowButton label="Timeline" variant="ghost" onPress={() => navigation.navigate('InternalAgenticTimeline', { eventId: eventId ?? undefined })} />
             <GlowButton label="Retrospective" variant="ghost" onPress={() => navigation.navigate('InternalDecisionRetrospective', { eventId: eventId ?? undefined })} />
