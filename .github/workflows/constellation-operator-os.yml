@@ -84,6 +84,9 @@ jobs:
       - name: Retrospective decision-learning contract
         run: node scripts/validate-constellation-retrospective-loop.mjs
 
+      - name: Assumption staleness contract
+        run: node scripts/validate-constellation-assumption-staleness.mjs
+
       - name: Investigation handoff contract
         run: node scripts/validate-constellation-handoff.mjs
 
