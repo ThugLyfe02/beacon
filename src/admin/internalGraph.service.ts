@@ -3,6 +3,7 @@ import type {
   InternalGraphConfidence,
   InternalGraphPayload,
 } from './InternalGraphEngine';
+import type { InternalBridgePattern } from './InternalGraphStrategyEngine';
 
 export type InternalGraphCapability =
   | 'graph_read'
@@ -67,6 +68,30 @@ export interface InternalBridgeWatchSummary {
   attributionNote: string;
 }
 
+export interface InternalGraphEventSummary {
+  eventId: string;
+  name: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  finalizedAt: string | null;
+  venueKey: string | null;
+  participantCount: number;
+  mutualCount: number;
+  officeHoursCompleted: number;
+  outcomeCompleted: number;
+}
+
+export interface InternalGraphEventSequence {
+  generatedAt: string;
+  events: InternalGraphEventSummary[];
+}
+
+export interface InternalBridgePatternCalibration {
+  generatedAt: string;
+  patterns: InternalBridgePattern[];
+  attributionNote: string;
+}
+
 function normalizeOperatorContext(value: unknown): InternalOperatorContext {
   if (!value || typeof value !== 'object') {
     return { allowed: false, capabilities: [], expiresAt: null };
@@ -87,6 +112,19 @@ function normalizeOperatorContext(value: unknown): InternalOperatorContext {
 function toFiniteNumber(value: unknown): number {
   const number = Number(value ?? 0);
   return Number.isFinite(number) ? number : 0;
+}
+
+function normalizeGraphPayload(data: unknown): InternalGraphPayload {
+  const payload = (data && typeof data === 'object' ? data : {}) as Partial<InternalGraphPayload>;
+  return {
+    generatedAt: typeof payload.generatedAt === 'string' ? payload.generatedAt : new Date().toISOString(),
+    eventId: typeof payload.eventId === 'string' ? payload.eventId : null,
+    graphVersion: typeof payload.graphVersion === 'string' ? payload.graphVersion : 'unknown',
+    nodeCount: Number(payload.nodeCount ?? payload.nodes?.length ?? 0),
+    edgeCount: Number(payload.edgeCount ?? payload.edges?.length ?? 0),
+    nodes: Array.isArray(payload.nodes) ? payload.nodes : [],
+    edges: Array.isArray(payload.edges) ? payload.edges : [],
+  };
 }
 
 export async function getInternalOperatorContext(): Promise<InternalOperatorContext> {
@@ -113,17 +151,91 @@ export async function loadInternalIntelligenceGraph(input: {
     console.error('[internalGraph.service] graph load:', error);
     throw new Error(error?.message ?? 'Unable to load internal intelligence graph.');
   }
+  return normalizeGraphPayload(data);
+}
 
-  const payload = data as InternalGraphPayload;
+export async function loadInternalGraphEventSequence(limit = 36): Promise<InternalGraphEventSequence> {
+  const { data, error } = await supabase.rpc('get_internal_graph_event_sequence', {
+    p_limit: Math.max(2, Math.min(limit, 120)),
+  });
+  if (error || !data || typeof data !== 'object') {
+    console.error('[internalGraph.service] event sequence:', error);
+    throw new Error(error?.message ?? 'Unable to load graph event sequence.');
+  }
+  const raw = data as Record<string, unknown>;
+  const rows = Array.isArray(raw.events) ? raw.events : [];
   return {
-    generatedAt: payload.generatedAt,
-    eventId: payload.eventId ?? null,
-    graphVersion: payload.graphVersion,
-    nodeCount: Number(payload.nodeCount ?? payload.nodes?.length ?? 0),
-    edgeCount: Number(payload.edgeCount ?? payload.edges?.length ?? 0),
-    nodes: Array.isArray(payload.nodes) ? payload.nodes : [],
-    edges: Array.isArray(payload.edges) ? payload.edges : [],
+    generatedAt: typeof raw.generatedAt === 'string' ? raw.generatedAt : new Date().toISOString(),
+    events: rows.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const row = item as Record<string, unknown>;
+      const eventId = typeof row.eventId === 'string' ? row.eventId : null;
+      if (!eventId) return [];
+      return [{
+        eventId,
+        name: typeof row.name === 'string' ? row.name : 'Unnamed event',
+        startsAt: typeof row.startsAt === 'string' ? row.startsAt : null,
+        endsAt: typeof row.endsAt === 'string' ? row.endsAt : null,
+        finalizedAt: typeof row.finalizedAt === 'string' ? row.finalizedAt : null,
+        venueKey: typeof row.venueKey === 'string' ? row.venueKey : null,
+        participantCount: toFiniteNumber(row.participantCount),
+        mutualCount: toFiniteNumber(row.mutualCount),
+        officeHoursCompleted: toFiniteNumber(row.officeHoursCompleted),
+        outcomeCompleted: toFiniteNumber(row.outcomeCompleted),
+      }];
+    }),
   };
+}
+
+export async function loadInternalBridgePatternCalibration(): Promise<InternalBridgePatternCalibration> {
+  const { data, error } = await supabase.rpc('get_internal_bridge_pattern_calibration');
+  if (error || !data || typeof data !== 'object') {
+    console.error('[internalGraph.service] bridge patterns:', error);
+    throw new Error(error?.message ?? 'Unable to load historical bridge patterns.');
+  }
+  const raw = data as Record<string, unknown>;
+  const rows = Array.isArray(raw.patterns) ? raw.patterns : [];
+  return {
+    generatedAt: typeof raw.generatedAt === 'string' ? raw.generatedAt : new Date().toISOString(),
+    attributionNote: typeof raw.attributionNote === 'string'
+      ? raw.attributionNote
+      : 'Pattern rates describe chronology, not causal estimates.',
+    patterns: rows.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const row = item as Record<string, unknown>;
+      const connectorKind = typeof row.connectorKind === 'string' ? row.connectorKind : null;
+      if (!connectorKind) return [];
+      return [{
+        connectorKind,
+        sampleSize: toFiniteNumber(row.sampleSize),
+        introducedRate: toFiniteNumber(row.introducedRate),
+        mutualRate: toFiniteNumber(row.mutualRate),
+        officeHoursRate: toFiniteNumber(row.officeHoursRate),
+        outcomeRate: toFiniteNumber(row.outcomeRate),
+        completedRate: toFiniteNumber(row.completedRate),
+        averageInitialScore: toFiniteNumber(row.averageInitialScore),
+        confidence: Math.max(0, Math.min(1, toFiniteNumber(row.confidence))),
+        lastObservedAt: typeof row.lastObservedAt === 'string' ? row.lastObservedAt : null,
+      }];
+    }),
+  };
+}
+
+export async function loadInternalGraphExportPayload(input: {
+  eventId?: string | null;
+  includeRestricted?: boolean;
+  limit?: number;
+} = {}): Promise<InternalGraphPayload> {
+  const { data, error } = await supabase.rpc('get_internal_graph_export_payload', {
+    p_event_id: input.eventId ?? null,
+    p_include_restricted: input.includeRestricted ?? false,
+    p_limit: Math.max(20, Math.min(input.limit ?? 1800, 2000)),
+  });
+  if (error || !data) {
+    console.error('[internalGraph.service] export payload:', error);
+    throw new Error(error?.message ?? 'Unable to load graph export payload.');
+  }
+  return normalizeGraphPayload(data);
 }
 
 export async function getInternalBridgeSuppressions(): Promise<Set<string>> {
