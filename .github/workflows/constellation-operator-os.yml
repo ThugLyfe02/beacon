@@ -62,5 +62,8 @@ jobs:
       - name: Portable export privacy and receipt contract
         run: node scripts/validate-constellation-export-boundary.mjs
 
+      - name: Adaptive command and JIT access contract
+        run: node scripts/validate-constellation-adaptive-command.mjs
+
       - name: Strategy/privacy boundary
         run: node scripts/validate-constellation-strategy.mjs
