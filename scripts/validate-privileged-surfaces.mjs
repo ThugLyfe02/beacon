@@ -134,8 +134,8 @@ forbidText(
 
 for (const [text, explanation] of [
   ['roomConflicts', 'escort UI must derive overlapping room occupancy'],
-  ['LIVE WORLD SEALED', 'physical orchestration must visibly seal at event end'],
-  ['setInterval(load, 5_000)', 'host physical world should adapt to live room/queue changes'],
+  ['ESCORT SEALED', 'physical orchestration must visibly seal at event end'],
+  ['setInterval(refresh, 5000)', 'host physical world should adapt to live room/queue changes'],
 ]) requireText('src/screens/EscortPanelScreen.tsx', text, explanation);
 
 for (const [text, explanation] of [
