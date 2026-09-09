@@ -40,6 +40,7 @@ const protectedFiles = [
   'src/screens/InternalGraphScreen.tsx',
   'src/screens/InternalForensicsLabScreen.tsx',
   'src/screens/InternalMissionLedgerScreen.tsx',
+  'src/screens/InternalMachineLabScreen.tsx',
   'src/screens/InternalBridgeLabScreen.tsx',
   'src/screens/InternalStrategyLabScreen.tsx',
   'src/screens/InternalSimulationLabScreen.tsx',
@@ -57,6 +58,8 @@ const protectedFiles = [
   'src/admin/InternalGraphStrategyEngine.ts',
   'src/admin/InternalGraphSimulationEngine.ts',
   'src/admin/InternalGraphForensicsEngine.ts',
+  'src/admin/InternalGraphImpactEngine.ts',
+  'src/admin/InternalGraphMachineEngine.ts',
   'src/admin/InternalGraphMotifEngine.ts',
   'src/admin/InternalGraphEpochEngine.ts',
   'src/admin/InternalGraphCalibrationEngine.ts',
@@ -130,6 +133,14 @@ requireAll('src/admin/InternalGraphEngine.ts', ['detectInternalGraphCommunities'
 requireAll('src/admin/InternalGraphStrategyEngine.ts', ['analyzeInternalGraphDrift', 'runInternalGraphAgentOrchestrator', "autonomy: 'analysis_only'", 'requiresHumanApproval: true'], 'Constellation temporal/agent strategy regression');
 requireAll('src/admin/InternalGraphSimulationEngine.ts', ['simulateInternalBridge', 'simulateInternalNodeRemoval', 'rankInternalGraphResilienceRisks'], 'Constellation counterfactual simulation regression');
 requireAll('src/admin/InternalGraphForensicsEngine.ts', ['criticalStructure', 'participationCoefficient', 'effectiveSize', 'edgeSurprisal', 'articulation', 'not a human-value score'], 'Constellation forensic brokerage regression');
+requireAll('src/admin/InternalGraphImpactEngine.ts', ['analyzeInternalGraphImpact', 'confidenceFloor', 'bottlenecks', 'does not predict consent, behavior, compatibility, causation, or human importance'], 'Constellation structural impact regression');
+forbidAll('src/admin/InternalGraphImpactEngine.ts', ['supabase', 'fetch('], 'Structural impact must remain pure first-party graph analysis');
+requireAll('src/admin/InternalGraphMachineEngine.ts', [
+  'INTERNAL_GRAPH_MACHINES', "id: 'broker-xray'", "id: 'ecosystem-entry'", "id: 'bridge-emergence'",
+  "id: 'community-drift'", "id: 'outcome-ladder'", 'runInternalGraphMachine', 'traceQuestions',
+  'cannot fetch external identity data, message users, create relationships, bypass blocks, or write hypothetical results as evidence',
+], 'Constellation composable Machine regression');
+forbidAll('src/admin/InternalGraphMachineEngine.ts', ['supabase', 'fetch('], 'Machine engine must remain non-mutating and non-enriching');
 requireAll('src/admin/InternalGraphMotifEngine.ts', ['triadic_closure', 'cross_community_context_bridge', 'relationship_outcome_ladder', 'multi_community_broker'], 'Constellation motif-memory regression');
 requireAll('src/admin/InternalGraphEpochEngine.ts', ['analyzeInternalEpochTransition', 'brokerTrajectories', 'motifTrajectories', 'split_fragment'], 'Constellation longitudinal lineage regression');
 requireAll('src/admin/InternalGraphCalibrationEngine.ts', ['calibrateInternalBridgePatterns', 'posteriorOutcomeMean', 'outcomeLowerBound90', 'priorStrength'], 'Constellation Bayesian bridge calibration regression');
@@ -137,10 +148,11 @@ requireAll('src/admin/InternalGraphCasebookEngine.ts', ['evaluateInternalGraphCa
 requireAll('src/admin/InternalGraphExportEngine.ts', ['internalGraphToGraphML', 'internalGraphToNeo4jCypher', 'PRIVATE_ATTRIBUTE_KEYS'], 'Constellation export regression');
 requireAll('src/admin/internalAgentMission.service.ts', ["rpc('sync_internal_agent_missions_v2'", "rpc('get_internal_agent_mission_ledger'", 'persistenceSafeMission', 'newlyResolvedCount'], 'Persistent agent Mission Ledger service regression');
 
-requireAll('src/screens/InternalOperatorHubScreen.tsx', ['OPERATOR CONTROL DECK', 'CAPABILITY ENVELOPE', 'AUTONOMY BOUNDARY', 'InternalForensicsLab', 'InternalCasebook', 'InternalMissionLedger'], 'Operator Hub regression');
+requireAll('src/screens/InternalOperatorHubScreen.tsx', ['OPERATOR CONTROL DECK', 'CAPABILITY ENVELOPE', 'AUTONOMY BOUNDARY', 'InternalForensicsLab', 'InternalMachineLab', 'InternalCasebook', 'InternalMissionLedger'], 'Operator Hub regression');
 requireAll('src/screens/InternalGraphScreen.tsx', ['Constellation', 'STRUCTURAL-HOLE BRIDGES', 'SURPRISING CONNECTIONS', 'BRIDGE BUILDER', 'RETENTION CONTRACT'], 'Exclusive operator workbench regression');
 requireAll('src/screens/InternalForensicsLabScreen.tsx', ['STRUCTURAL FORENSICS', 'GENUINE BROKERS', 'CRITICAL / UNEXPECTED EDGES', 'participation'], 'Forensics Lab regression');
 requireAll('src/screens/InternalMissionLedgerScreen.tsx', ['PERSISTENT AGENT MEMORY', 'MISSION AUTONOMY CONTRACT', 'PERSISTENT MISSION MEMORY', 'syncInternalAgentMissions'], 'Mission Ledger regression');
+requireAll('src/screens/InternalMachineLabScreen.tsx', ['COMPOSABLE GRAPH MACHINES', 'MACHINE AUTONOMY CONTRACT', 'MACHINE TRACE', 'MACHINE QUESTIONS', 'setInterval(() => load(true), 30_000)'], 'Machine Lab regression');
 requireAll('src/screens/InternalBridgeLabScreen.tsx', ['ATTRIBUTION FIREWALL', 'SAFE STRUCTURAL HOLES', 'Mark introduced'], 'Bridge Lab regression');
 requireAll('src/screens/InternalStrategyLabScreen.tsx', ['AGENT MISSION QUEUE', 'EVENT-TO-EVENT GRAPH DRIFT', 'TARGET ECOSYSTEM PATHFINDER', 'OPERATOR INTERVENTION FRONTIER'], 'Strategy Lab regression');
 requireAll('src/screens/InternalSimulationLabScreen.tsx', ['COUNTERFACTUAL CONTRACT', 'HYPOTHETICAL BRIDGE IMPACT', 'NETWORK RESILIENCE / SINGLE-POINT DEPENDENCE', 'FOCUSED RESILIENCE SCENARIO'], 'Simulation Lab regression');
@@ -171,8 +183,8 @@ forbidAll('src/components/NetworkPulseCard.tsx', ['brokerScore', 'bridgeCandidat
 requireAll('src/screens/ProfileScreen.tsx', ['CONSTELLATION', 'InternalOperatorHub', 'NetworkPulseCard', "internalOperator.has('graph_read')", "internalOperator.has('graph_manage')"], 'Operator/private-preview entry regression');
 
 for (const route of [
-  'InternalOperatorHub', 'InternalGraph', 'InternalForensicsLab', 'InternalMissionLedger', 'InternalBridgeLab',
-  'InternalStrategyLab', 'InternalSimulationLab', 'InternalTransformLab', 'InternalEpochLab',
+  'InternalOperatorHub', 'InternalGraph', 'InternalForensicsLab', 'InternalMissionLedger', 'InternalMachineLab',
+  'InternalBridgeLab', 'InternalStrategyLab', 'InternalSimulationLab', 'InternalTransformLab', 'InternalEpochLab',
   'InternalCasebook', 'InternalPatternLab',
 ]) {
   requireAll('src/navigation/RootNavigator.tsx', [`name="${route}"`], `${route} route regression`);
