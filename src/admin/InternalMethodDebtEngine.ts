@@ -1,6 +1,6 @@
 import type { InternalDecisionCalibrationReport } from './InternalDecisionCalibrationEngine';
 import type { InternalEvidenceDebtReport } from './InternalEvidenceDebtEngine';
-import type { InternalAgenticTimeline } from './InternalAgenticTimelineEngine';
+import type { InternalAgenticTimelineReport } from './InternalAgenticTimelineEngine';
 import type { InternalTargetRoutingPortfolio } from './InternalTargetRoutingEngine';
 
 export type InternalMethodDebtKind =
@@ -71,7 +71,7 @@ function calibrationOverconfidence(
 export function analyzeInternalMethodDebt(input: {
   calibration: InternalDecisionCalibrationReport;
   evidenceDebt: InternalEvidenceDebtReport;
-  timeline: InternalAgenticTimeline;
+  timeline: InternalAgenticTimelineReport;
   routingPortfolio?: InternalTargetRoutingPortfolio | null;
 }): InternalMethodDebtReport {
   const items: InternalMethodDebtItem[] = [...calibrationOverconfidence(input.calibration)];
