@@ -1,6 +1,12 @@
 import { supabase } from '../lib/supabase';
 import type { InternalGraphEntityAlias } from './InternalGraphCanonicalizationEngine';
 
+export interface InternalGraphEntityAliasState {
+  generatedAt: string;
+  canonicalizationVersion: string;
+  aliases: InternalGraphEntityAlias[];
+}
+
 function toNumber(value: unknown): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -27,19 +33,28 @@ function parseAlias(value: unknown): InternalGraphEntityAlias | null {
   };
 }
 
-export async function loadInternalGraphEntityAliases(): Promise<InternalGraphEntityAlias[]> {
+export async function loadInternalGraphEntityAliasState(): Promise<InternalGraphEntityAliasState> {
   const { data, error } = await supabase.rpc('get_internal_graph_entity_aliases');
   if (error || !data || typeof data !== 'object') {
     console.error('[internalGraphEntityResolution.service] alias load:', error);
     throw new Error(error?.message ?? 'Unable to load approved entity canonicalization map.');
   }
-  const rows = Array.isArray((data as Record<string, unknown>).aliases)
-    ? (data as Record<string, unknown>).aliases as unknown[]
-    : [];
-  return rows.flatMap((row) => {
-    const parsed = parseAlias(row);
-    return parsed ? [parsed] : [];
-  });
+  const raw = data as Record<string, unknown>;
+  const rows = Array.isArray(raw.aliases) ? raw.aliases as unknown[] : [];
+  return {
+    generatedAt: typeof raw.generatedAt === 'string' ? raw.generatedAt : new Date().toISOString(),
+    canonicalizationVersion: typeof raw.canonicalizationVersion === 'string'
+      ? raw.canonicalizationVersion
+      : '',
+    aliases: rows.flatMap((row) => {
+      const parsed = parseAlias(row);
+      return parsed ? [parsed] : [];
+    }),
+  };
+}
+
+export async function loadInternalGraphEntityAliases(): Promise<InternalGraphEntityAlias[]> {
+  return (await loadInternalGraphEntityAliasState()).aliases;
 }
 
 export async function approveInternalGraphEntityAlias(input: {
