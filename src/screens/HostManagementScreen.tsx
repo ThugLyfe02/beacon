@@ -36,7 +36,7 @@ interface HostManagementScreenProps {
   onEventEnded: () => void;
 }
 
-function isEndedEvent(event: EventRow): boolean {
+function hasLiveWindowEnded(event: EventRow): boolean {
   if (!event.ends_at) return false;
   const endsAt = Date.parse(event.ends_at);
   return Number.isFinite(endsAt) && endsAt <= Date.now();
@@ -60,12 +60,12 @@ export default function HostManagementScreen({
       const { showAlert = false } = opts;
       setIsLoading(true);
 
-      // Step 1: hosted event lookup. Preserved historical events are intentionally
-      // not treated as active host sessions after their declared end time.
+      // getHostedEvent intentionally returns the newest *unfinalized* hosted
+      // event. A scheduled window may already have ended while the host still
+      // needs the control deck to seal verified outcomes and venue memory.
       let hostedEvent: EventRow | null = null;
       try {
         hostedEvent = await getHostedEvent(userId);
-        if (hostedEvent && isEndedEvent(hostedEvent)) hostedEvent = null;
         setEvent(hostedEvent);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -85,7 +85,6 @@ export default function HostManagementScreen({
         return;
       }
 
-      // Step 2: pending requests
       try {
         const pending = await getPendingJoinRequests(hostedEvent.id);
         setRequests(pending);
@@ -98,25 +97,23 @@ export default function HostManagementScreen({
         if (showAlert) Alert.alert('Pending requests lookup failed', display);
       }
 
-      if (hostedEvent.location_type === 'live') setIsBroadcasting(true);
+      const liveWindowOpen = !hasLiveWindowEnded(hostedEvent);
+      setIsBroadcasting(hostedEvent.location_type === 'live' && liveWindowOpen);
       setIsLoading(false);
     },
     [userId]
   );
 
-  // Initial mount — show alert if first load fails so the user sees the cause.
   useEffect(() => {
     loadEventData({ showAlert: true });
   }, [loadEventData]);
 
-  // Refresh whenever the Host tab regains focus. Silent — don't spam alerts.
   useFocusEffect(
     useCallback(() => {
       loadEventData({ showAlert: false });
     }, [loadEventData])
   );
 
-  // Auto-poll every 10s while the screen is mounted. Silent on errors.
   useEffect(() => {
     const id = setInterval(() => loadEventData({ showAlert: false }), 10000);
     return () => clearInterval(id);
@@ -130,7 +127,14 @@ export default function HostManagementScreen({
         setLocationSubscription(null);
       }
     };
-    if (event?.location_type === 'live' && isBroadcasting && !isFinalizing) {
+
+    const liveWindowOpen = event ? !hasLiveWindowEnded(event) : false;
+    if (
+      event?.location_type === 'live'
+      && liveWindowOpen
+      && isBroadcasting
+      && !isFinalizing
+    ) {
       (async () => {
         const sub = await watchLocation(async (coords) => {
           try {
@@ -145,17 +149,19 @@ export default function HostManagementScreen({
     } else {
       stop();
     }
+
     return () => {
       active = false;
       stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBroadcasting, isFinalizing, event?.location_type, event?.id, userId]);
+  }, [isBroadcasting, isFinalizing, event?.location_type, event?.id, event?.ends_at, userId]);
 
   const handleApprove = async (participantId: string) => {
+    if (!event || hasLiveWindowEnded(event)) return;
     try {
       await approveJoinRequest(participantId);
-      setRequests((prev) => prev.filter((r) => r.participant_id !== participantId));
+      setRequests((prev) => prev.filter((request) => request.participant_id !== participantId));
     } catch (error) {
       console.error('Failed to approve request:', error);
       const msg = error instanceof Error ? error.message : 'Could not approve.';
@@ -164,9 +170,10 @@ export default function HostManagementScreen({
   };
 
   const handleReject = async (participantId: string) => {
+    if (!event || hasLiveWindowEnded(event)) return;
     try {
       await rejectJoinRequest(participantId);
-      setRequests((prev) => prev.filter((r) => r.participant_id !== participantId));
+      setRequests((prev) => prev.filter((request) => request.participant_id !== participantId));
     } catch (error) {
       console.error('Failed to reject request:', error);
       const msg = error instanceof Error ? error.message : 'Could not reject.';
@@ -178,7 +185,7 @@ export default function HostManagementScreen({
     if (!event || isFinalizing) return;
     Alert.alert(
       'Finalize beacon?',
-      'This closes the live room, preserves matches, Vault and outcome history, and captures the final organizer intelligence snapshot. Event history is not deleted.',
+      'This closes the live room, preserves matches, Vault and outcome history, and atomically seals the organizer snapshot and venue-learning record. Event history is not deleted.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -202,7 +209,9 @@ export default function HostManagementScreen({
               console.error('Failed to finalize event:', error);
               const message = error instanceof Error ? error.message : 'Could not finalize the event safely.';
               Alert.alert('Finalization failed', message);
-              setIsBroadcasting(event.location_type === 'live');
+              setIsBroadcasting(
+                event.location_type === 'live' && !hasLiveWindowEnded(event),
+              );
             } finally {
               setIsFinalizing(false);
             }
@@ -229,15 +238,17 @@ export default function HostManagementScreen({
       <View style={styles.centered}>
         <GridBackground />
         <Surface elevated padded glow style={styles.emptyCard}>
-          <Pill label="No active event" tone="neutral" dot />
+          <Pill label="No unfinalized event" tone="neutral" dot />
           <NeonText variant="h1" style={{ marginTop: spacing.md }}>Dark room.</NeonText>
           <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
-            Create an event to start broadcasting. Finalized event history remains preserved for outcomes and world memory.
+            Create an event to start broadcasting. Finalized history remains preserved for Vault, outcomes and venue memory.
           </NeonText>
         </Surface>
       </View>
     );
   }
+
+  const liveWindowEnded = hasLiveWindowEnded(event);
 
   return (
     <ScrollView
@@ -245,52 +256,80 @@ export default function HostManagementScreen({
       contentContainerStyle={{ paddingBottom: spacing.xxxl }}
       showsVerticalScrollIndicator={false}
     >
-      <GridBackground intensity={0.4} />
+      <GridBackground intensity={liveWindowEnded ? 0.22 : 0.4} />
       <View style={styles.section}>
-        <Pill label="Live · hosting" tone="accent" dot />
-        <NeonText variant="display" tone="text" glow style={{ marginTop: spacing.sm }}>
+        <Pill
+          label={liveWindowEnded ? 'Window ended · outcomes unsealed' : 'Live · hosting'}
+          tone={liveWindowEnded ? 'neutral' : 'accent'}
+          dot
+        />
+        <NeonText variant="display" tone="text" glow={!liveWindowEnded} style={{ marginTop: spacing.sm }}>
           {event.name}
         </NeonText>
-        <View style={styles.codeRow}>
-          <Surface padded style={styles.codeCard}>
-            <NeonText variant="label" tone="muted">JOIN CODE</NeonText>
-            <NeonText variant="mono" tone="accent" glow style={styles.codeValue}>
-              {event.join_code}
-            </NeonText>
-          </Surface>
-          {event.access_code ? (
+        {!liveWindowEnded ? (
+          <View style={styles.codeRow}>
             <Surface padded style={styles.codeCard}>
-              <NeonText variant="label" tone="muted">ACCESS</NeonText>
-              <NeonText variant="mono" tone="text" style={styles.codeValue}>
-                {event.access_code}
+              <NeonText variant="label" tone="muted">JOIN CODE</NeonText>
+              <NeonText variant="mono" tone="accent" glow style={styles.codeValue}>
+                {event.join_code}
               </NeonText>
             </Surface>
-          ) : null}
-        </View>
+            {event.access_code ? (
+              <Surface padded style={styles.codeCard}>
+                <NeonText variant="label" tone="muted">ACCESS</NeonText>
+                <NeonText variant="mono" tone="text" style={styles.codeValue}>
+                  {event.access_code}
+                </NeonText>
+              </Surface>
+            ) : null}
+          </View>
+        ) : null}
       </View>
+
+      {liveWindowEnded ? (
+        <View style={styles.section}>
+          <Surface elevated padded glow style={styles.reflectionCard}>
+            <Pill label="REFLECTION MODE" tone="accent" dot />
+            <NeonText variant="h1" style={{ marginTop: spacing.sm }}>
+              The live world is sealed.
+            </NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 20 }}>
+              New joins, connection signals, proximity reveals and live access mutations are now blocked by the database. Finalize when you are ready to atomically preserve the outcome snapshot and feed privacy-gated venue memory.
+            </NeonText>
+          </Surface>
+        </View>
+      ) : null}
 
       {event.location_type === 'live' ? (
         <View style={styles.section}>
           <Surface elevated padded style={styles.row}>
             <View>
               <NeonText variant="h2">Live location</NeonText>
-              <NeonText variant="label" tone={isBroadcasting ? 'success' : 'muted'} style={{ marginTop: 4 }}>
-                {isBroadcasting ? '● BROADCASTING' : '○ PAUSED'}
+              <NeonText
+                variant="label"
+                tone={isBroadcasting && !liveWindowEnded ? 'success' : 'muted'}
+                style={{ marginTop: 4 }}
+              >
+                {liveWindowEnded
+                  ? '○ SEALED'
+                  : isBroadcasting
+                    ? '● BROADCASTING'
+                    : '○ PAUSED'}
               </NeonText>
             </View>
             <Switch
-              value={isBroadcasting}
+              value={isBroadcasting && !liveWindowEnded}
               onValueChange={setIsBroadcasting}
-              disabled={isFinalizing}
+              disabled={isFinalizing || liveWindowEnded}
               trackColor={{ false: palette.hairlineStrong, true: palette.accentDim }}
-              thumbColor={isBroadcasting ? palette.accent : palette.textMuted}
+              thumbColor={isBroadcasting && !liveWindowEnded ? palette.accent : palette.textMuted}
               ios_backgroundColor={palette.hairlineStrong}
             />
           </Surface>
         </View>
       ) : null}
 
-      {event ? (
+      {!liveWindowEnded ? (
         <View style={styles.section}>
           <Pressable
             onPress={() => navigation.navigate('EscortPanel', { eventId: event.id })}
@@ -303,17 +342,21 @@ export default function HostManagementScreen({
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <NeonText variant="label" tone="accent">PENDING REQUESTS</NeonText>
+          <NeonText variant="label" tone={liveWindowEnded ? 'muted' : 'accent'}>
+            {liveWindowEnded ? 'SEALED REQUEST STATE' : 'PENDING REQUESTS'}
+          </NeonText>
           <View style={styles.sectionHeaderRight}>
-            <Pill label={`${requests.length}`} tone={requests.length ? 'accent' : 'neutral'} />
-            <Pressable
-              onPress={() => loadEventData({ showAlert: true })}
-              hitSlop={12}
-              style={({ pressed }) => [styles.refreshBtn, pressed && { opacity: 0.7 }]}
-              accessibilityLabel="Refresh pending requests"
-            >
-              <NeonText variant="h2" tone="accent" glow style={styles.refreshGlyph}>↻</NeonText>
-            </Pressable>
+            <Pill label={`${requests.length}`} tone={requests.length && !liveWindowEnded ? 'accent' : 'neutral'} />
+            {!liveWindowEnded ? (
+              <Pressable
+                onPress={() => loadEventData({ showAlert: true })}
+                hitSlop={12}
+                style={({ pressed }) => [styles.refreshBtn, pressed && { opacity: 0.7 }]}
+                accessibilityLabel="Refresh pending requests"
+              >
+                <NeonText variant="h2" tone="accent" glow style={styles.refreshGlyph}>↻</NeonText>
+              </Pressable>
+            ) : null}
           </View>
         </View>
 
@@ -328,7 +371,9 @@ export default function HostManagementScreen({
 
         {requests.length === 0 ? (
           <Surface padded style={{ marginTop: spacing.md }}>
-            <NeonText variant="bodyMuted">No requests right now.</NeonText>
+            <NeonText variant="bodyMuted">
+              {liveWindowEnded ? 'No unresolved join requests remain in the sealed state.' : 'No requests right now.'}
+            </NeonText>
           </Surface>
         ) : (
           requests.map((request) => (
@@ -342,20 +387,24 @@ export default function HostManagementScreen({
                   <NeonText variant="bodyMuted">{request.one_liner}</NeonText>
                 ) : null}
               </View>
-              <View style={styles.requestActions}>
-                <GlowButton
-                  label="✓"
-                  onPress={() => handleApprove(request.participant_id)}
-                  size="sm"
-                  variant="primary"
-                />
-                <GlowButton
-                  label="✕"
-                  onPress={() => handleReject(request.participant_id)}
-                  size="sm"
-                  variant="ghost"
-                />
-              </View>
+              {liveWindowEnded ? (
+                <Pill label="SEALED" tone="neutral" />
+              ) : (
+                <View style={styles.requestActions}>
+                  <GlowButton
+                    label="✓"
+                    onPress={() => handleApprove(request.participant_id)}
+                    size="sm"
+                    variant="primary"
+                  />
+                  <GlowButton
+                    label="✕"
+                    onPress={() => handleReject(request.participant_id)}
+                    size="sm"
+                    variant="ghost"
+                  />
+                </View>
+              )}
             </Surface>
           ))
         )}
@@ -363,12 +412,12 @@ export default function HostManagementScreen({
 
       <View style={styles.section}>
         <GlowButton
-          label={isFinalizing ? "Finalizing…" : "Finalize event"}
+          label={isFinalizing ? 'Finalizing…' : liveWindowEnded ? 'Seal outcomes & memory' : 'Finalize event'}
           onPress={handleEndEvent}
           disabled={isFinalizing}
-          variant="ghost"
+          variant={liveWindowEnded ? 'primary' : 'ghost'}
           fullWidth
-          style={styles.dangerBtn}
+          style={liveWindowEnded ? undefined : styles.dangerBtn}
         />
       </View>
     </ScrollView>
@@ -411,6 +460,11 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderColor: palette.danger,
     backgroundColor: palette.dangerSoft,
+  },
+  reflectionCard: {
+    borderRadius: radii.xl,
+    borderColor: palette.accent,
+    backgroundColor: palette.accentSoft,
   },
   codeRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   codeCard: { flex: 1, borderRadius: radii.lg, gap: 4 },
