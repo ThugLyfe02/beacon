@@ -132,13 +132,13 @@ export default function InternalOperatorHubScreen() {
           <Surface padded style={styles.capabilityCard}>
             <Pill label="CAPABILITY ENVELOPE" tone="neutral" dot />
             <View style={styles.capabilityRow}>
-              {operator.context.capabilities.map((capability) => (
+              {operator.capabilities.map((capability) => (
                 <Pill key={capability} label={capability.replaceAll('_', ' ').toUpperCase()} tone="accent" />
               ))}
             </View>
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
-              {operator.context.expiresAt
-                ? `Access expires ${new Date(operator.context.expiresAt).toLocaleString()}.`
+              {operator.expiresAt
+                ? `Access expires ${new Date(operator.expiresAt).toLocaleString()}.`
                 : 'No client-side privilege escalation path exists; every lab rechecks its required capability server-side.'}
             </NeonText>
           </Surface>
