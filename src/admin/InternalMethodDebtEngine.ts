@@ -2,13 +2,15 @@ import type { InternalDecisionCalibrationReport } from './InternalDecisionCalibr
 import type { InternalEvidenceDebtReport } from './InternalEvidenceDebtEngine';
 import type { InternalAgenticTimelineReport } from './InternalAgenticTimelineEngine';
 import type { InternalTargetRoutingPortfolio } from './InternalTargetRoutingEngine';
+import type { InternalAnalyticalRetrospectiveReport } from './InternalAnalyticalRetrospectiveEngine';
 
 export type InternalMethodDebtKind =
   | 'historical_overconfidence'
   | 'temporal_blindness'
   | 'verification_discipline'
   | 'route_independence'
-  | 'escalation_discipline';
+  | 'escalation_discipline'
+  | 'retrospective_failure_signature';
 
 export interface InternalMethodDebtItem {
   id: string;
@@ -20,6 +22,7 @@ export interface InternalMethodDebtItem {
   remediation: string[];
   recommendedSurface:
     | 'InternalDecisionCalibration'
+    | 'InternalDecisionRetrospective'
     | 'InternalAgenticTimeline'
     | 'InternalEvidenceDebt'
     | 'InternalTargetRouting'
@@ -73,11 +76,32 @@ export function analyzeInternalMethodDebt(input: {
   evidenceDebt: InternalEvidenceDebtReport;
   timeline: InternalAgenticTimelineReport;
   routingPortfolio?: InternalTargetRoutingPortfolio | null;
+  retrospectives?: InternalAnalyticalRetrospectiveReport | null;
 }): InternalMethodDebtReport {
   const items: InternalMethodDebtItem[] = [...calibrationOverconfidence(input.calibration)];
   const routingCalibration = input.calibration.byDecisionKind.find((item) => item.key === 'target_route_review');
   const interventionCalibration = input.calibration.byDecisionKind.find((item) => item.key === 'intervention_review');
   const routing = input.routingPortfolio ?? null;
+
+  for (const signature of input.retrospectives?.strongestAssociations ?? []) {
+    if (signature.sampleSize < 3 || signature.maturity === 'nascent' || signature.priority < 6) continue;
+    items.push({
+      id: `retrospective:${signature.key}`,
+      kind: 'retrospective_failure_signature',
+      title: `Retrospective method signal: ${signature.label}`,
+      priority: clampPriority(signature.priority + signature.conservativeAdverseFloor * 0.9),
+      maturity: signature.maturity,
+      reasons: [
+        ...signature.reasons.slice(0, 4),
+        'This condition repeatedly co-occurred with later weakened/invalidated hypotheses and deserves explicit scrutiny before similar decisions.',
+      ],
+      remediation: [
+        'Review the retrospective sample and its disconfirming evidence before a similar decision class advances.',
+        'Use the recommended evidence surface to test whether the same condition is present now.',
+      ],
+      recommendedSurface: 'InternalDecisionRetrospective',
+    });
+  }
 
   if (
     input.timeline.chronologyGapCount > 0
@@ -180,6 +204,6 @@ export function analyzeInternalMethodDebt(input: {
     generatedAt: new Date().toISOString(),
     items: items.slice(0, 20),
     topPriority: items[0]?.priority ?? 0,
-    operatingRule: 'Method Debt ranks weaknesses in analytical process and calibration, never people or organizations. It changes what deserves scrutiny next, not canonical evidence or social authority.',
+    operatingRule: 'Method Debt ranks weaknesses in analytical process, calibration, and retrospective decision conditions—never people or organizations. It changes what deserves scrutiny next, not canonical evidence or social authority.',
   };
 }
