@@ -81,6 +81,9 @@ jobs:
       - name: Value-of-information contract
         run: node scripts/validate-constellation-value-of-information.mjs
 
+      - name: Retrospective decision-learning contract
+        run: node scripts/validate-constellation-retrospective-loop.mjs
+
       - name: Investigation handoff contract
         run: node scripts/validate-constellation-handoff.mjs
 
