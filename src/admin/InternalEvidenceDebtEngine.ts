@@ -183,7 +183,7 @@ export function analyzeInternalEvidenceDebt(input: {
     items.push(...edgeDebt({ edge, criticalBridge: criticalBridgeIds.has(edge.id), now }));
   }
 
-  const degree = new Map(input.payload.nodes.map((node) => [node.id, 0] as const));
+  const degree = new Map<string, number>(input.payload.nodes.map((node) => [node.id, 0]));
   for (const edge of input.payload.edges) {
     degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
     degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
