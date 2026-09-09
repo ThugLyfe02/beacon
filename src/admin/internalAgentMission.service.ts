@@ -50,6 +50,25 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
+function persistenceSafeMission(mission: InternalAgentMission) {
+  // Pathfinder's UI title contains the operator's raw target query. The Mission
+  // Ledger stores only an objective digest, so canonicalize that title before
+  // persistence. The explainable path remains available via graph-validated
+  // node ids and evidence text.
+  return {
+    id: mission.id,
+    agent: mission.agent,
+    priority: mission.priority,
+    title: mission.agent === 'Pathfinder' ? 'Explainable target-ecosystem route' : mission.title,
+    thesis: mission.thesis,
+    evidence: mission.evidence,
+    nodeIds: mission.nodeIds,
+    recommendedAction: mission.recommendedAction,
+    autonomy: mission.autonomy,
+    requiresHumanApproval: mission.requiresHumanApproval,
+  };
+}
+
 export async function syncInternalAgentMissions(input: {
   eventId?: string | null;
   objective?: string | null;
@@ -60,18 +79,7 @@ export async function syncInternalAgentMissions(input: {
     p_event_id: input.eventId ?? null,
     p_objective: input.objective?.trim() || null,
     p_graph_version: input.graphVersion,
-    p_missions: input.missions.map((mission) => ({
-      id: mission.id,
-      agent: mission.agent,
-      priority: mission.priority,
-      title: mission.title,
-      thesis: mission.thesis,
-      evidence: mission.evidence,
-      nodeIds: mission.nodeIds,
-      recommendedAction: mission.recommendedAction,
-      autonomy: mission.autonomy,
-      requiresHumanApproval: mission.requiresHumanApproval,
-    })),
+    p_missions: input.missions.map(persistenceSafeMission),
   });
 
   if (error || !data || typeof data !== 'object') {
