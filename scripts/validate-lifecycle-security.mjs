@@ -27,8 +27,11 @@ const requiredFiles = [
   'supabase/migrations/032_event_lifecycle_security_lockdown.sql',
   'supabase/migrations/033_security_definer_audit_closure.sql',
   'supabase/migrations/034_user_write_and_location_boundary.sql',
+  'supabase/migrations/035_two_party_outcome_commit.sql',
   'src/services/proximity.service.ts',
   'src/services/premium.service.ts',
+  'src/services/outcome-handshake.service.ts',
+  'src/components/OutcomeHandshakeCard.tsx',
   'src/screens/HostManagementScreen.tsx',
   'src/screens/MapScreen.tsx',
   'src/screens/RadarScreen.tsx',
@@ -73,6 +76,16 @@ for (const [text, explanation] of [
   ['revoke update (is_premium, premium_since)', 'premium columns must remain server owned'],
 ]) requireText('supabase/migrations/034_user_write_and_location_boundary.sql', text, explanation);
 
+for (const [text, explanation] of [
+  ['outcome_handshake_confirmations', 'shared outcome completion must persist independent party receipts'],
+  ['guard_aligned_outcome_intent_mutation', 'aligned private intent must not be unilaterally rewritten'],
+  ['guard_outcome_handshake_transition', 'shared outcome state transitions must remain monotonic'],
+  ['get_outcome_handshake_commit_state', 'clients must read confirmation-aware outcome state'],
+  ['confirm_outcome_handshake', 'completion must use the two-party confirmation RPC'],
+  ['v_count >= 2', 'shared completion must require both participant confirmations'],
+  ['revoke execute on function public.complete_outcome_handshake', 'legacy one-party completion must remain retired'],
+]) requireText('supabase/migrations/035_two_party_outcome_commit.sql', text, explanation);
+
 requireText(
   'supabase/migrations/031_atomic_event_finalization.sql',
   "set_config('beacon.finalization_event_id'",
@@ -105,6 +118,24 @@ forbidText(
   'last_known_lat:',
   'the mobile service must not write precise location columns directly',
 );
+
+for (const [text, explanation] of [
+  ["rpc('get_outcome_handshake_commit_state'", 'outcome state must include independent confirmation evidence'],
+  ["rpc('confirm_outcome_handshake'", 'mobile completion must use two-party confirmation'],
+  ['two_party_real_world_outcome_confirmed', 'provenance must distinguish two-party completion from one-party confirmation'],
+]) requireText('src/services/outcome-handshake.service.ts', text, explanation);
+forbidText(
+  'src/services/outcome-handshake.service.ts',
+  "rpc('complete_outcome_handshake'",
+  'legacy single-party completion RPC must not return to the client',
+);
+
+for (const [text, explanation] of [
+  ['Confirm my side', 'outcome UI must frame completion as independent confirmation'],
+  ['Your confirmation is sealed', 'the first confirmer needs an explicit waiting state'],
+  ['Two-party outcome confirmed', 'the UI must distinguish shared completion backed by both receipts'],
+  ['does not retroactively invent them', 'legacy completion must not be mislabeled as two-party evidence'],
+]) requireText('src/components/OutcomeHandshakeCard.tsx', text, explanation);
 
 for (const [text, explanation] of [
   ['Window ended · outcomes unsealed', 'hosts need an explicit post-window/pre-finalization state'],
