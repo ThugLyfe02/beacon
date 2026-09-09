@@ -41,6 +41,14 @@ const LABS: LabDefinition[] = [
     accent: 'accent',
   },
   {
+    route: 'InternalMachineLab',
+    title: 'Machine Lab',
+    code: 'MACHINES',
+    description: 'Composable deterministic playbooks combining transforms, blast-radius traversal, forensics, motifs, drift and target-path analysis.',
+    capability: 'graph_read',
+    accent: 'accent',
+  },
+  {
     route: 'InternalStrategyLab',
     title: 'Strategy Lab',
     code: 'ORCHESTRATE',
@@ -129,7 +137,7 @@ export default function InternalOperatorHubScreen() {
               <Pill label="INTERNAL · OPERATOR CONTROL DECK" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
               <NeonText variant="bodyMuted">
-                Evidence graph · forensic pivots · longitudinal memory · calibrated strategy · human-approved intervention
+                Evidence graph · forensic pivots · composable machines · longitudinal memory · calibrated strategy · human-approved intervention
               </NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
@@ -188,7 +196,7 @@ export default function InternalOperatorHubScreen() {
           <Surface padded style={styles.autonomyCard}>
             <Pill label="AUTONOMY BOUNDARY" tone="neutral" dot />
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>
-              Constellation agents may analyze, diff, checkpoint finalized topology, reconcile bounded mission memory and refresh internal findings. They cannot message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.
+              Constellation agents and Machines may analyze, diff, checkpoint finalized topology, reconcile bounded mission memory and refresh internal findings. They cannot message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.
             </NeonText>
           </Surface>
         </ScrollView>
