@@ -169,13 +169,13 @@ export default function InternalTransformLabScreen() {
             </ScrollView>
           </View>
 
-          <Section title="TRANSFORM PALETTE" subtitle="Each transform expands evidence Beacon already holds; results remain provenance-aware">
+          <Section title="MALTEGO-STYLE TRANSFORMS" subtitle="Each transform expands evidence Beacon already holds; results remain provenance-aware">
             {transforms.map((transform) => (
               <TransformCard key={transform.id} transform={transform} payload={payload} />
             ))}
           </Section>
 
-          <Section title="MULTI-HOP EXPANSION" subtitle="Bounded graph expansion for investigative context, not hidden contact discovery">
+          <Section title="RELATIONSHIP LADDER" subtitle="Bounded multi-hop expansion for investigative context, not hidden contact discovery">
             <View style={styles.depthRow}>
               {[1, 2, 3, 4].map((value) => (
                 <Pressable key={value} onPress={() => setDepth(value)} style={[styles.depthChip, depth === value && styles.depthChipActive]}>
@@ -191,7 +191,7 @@ export default function InternalTransformLabScreen() {
             </Surface>
           </Section>
 
-          <Section title="EVIDENCE TIMELINE" subtitle="First/last seen chronology avoids inventing a biography from graph structure">
+          <Section title="PROVENANCE TIMELINE" subtitle="First/last seen chronology avoids inventing a biography from graph structure">
             {timeline.slice(0, 30).map((item) => (
               <Surface key={item.edgeId} padded style={styles.timelineCard}>
                 <View style={styles.rowBetween}>
