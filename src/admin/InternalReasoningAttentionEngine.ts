@@ -29,7 +29,7 @@ export function augmentInternalNextAnalysisWithReasoningLineage(input: {
       category: 'verification',
       priority: 9.7,
       expectedInformationGain: Math.min(0.52, 0.18 + input.lineage.conflictedDecisionCount * 0.07),
-      destination: 'InternalReasoningLineage' as never,
+      destination: 'InternalReasoningLineage',
       requiredCapability: 'graph_manage',
       rationale: [
         `${input.lineage.conflictedDecisionCount} open hypothesis${input.lineage.conflictedDecisionCount === 1 ? '' : 'es'} have exact evidence refs intersecting unresolved conflicts`,
@@ -46,7 +46,7 @@ export function augmentInternalNextAnalysisWithReasoningLineage(input: {
       category: 'memory',
       priority: 8.8,
       expectedInformationGain: Math.min(0.4, 0.14 + input.lineage.orphanedDecisionCount * 0.06),
-      destination: 'InternalReasoningLineage' as never,
+      destination: 'InternalReasoningLineage',
       requiredCapability: 'graph_manage',
       rationale: [
         `${input.lineage.orphanedDecisionCount} open hypothesis${input.lineage.orphanedDecisionCount === 1 ? '' : 'es'} retain edge refs that no longer resolve in the current canonical graph`,
@@ -63,7 +63,7 @@ export function augmentInternalNextAnalysisWithReasoningLineage(input: {
       category: 'memory',
       priority: 5.9,
       expectedInformationGain: Math.min(0.24, 0.08 + input.lineage.unboundDecisionCount * 0.025),
-      destination: 'InternalReasoningLineage' as never,
+      destination: 'InternalReasoningLineage',
       requiredCapability: 'graph_manage',
       rationale: [
         `${input.lineage.unboundDecisionCount} open legacy hypothesis${input.lineage.unboundDecisionCount === 1 ? '' : 'es'} have no explicit edge dependencies`,
