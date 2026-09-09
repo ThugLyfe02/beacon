@@ -27,7 +27,9 @@ const files = [
   'src/admin/InternalEvidenceDebtEngine.ts',
   'src/admin/InternalNextBestAnalysisEngine.ts',
   'src/admin/InternalAnalystAttentionGovernor.ts',
+  'src/admin/InternalOntologyObservatoryEngine.ts',
   'src/screens/InternalEvidenceDebtScreen.tsx',
+  'src/screens/InternalOntologyObservatoryScreen.tsx',
   'src/screens/InternalAdaptiveCommandScreen.tsx',
   'src/screens/InternalOperatorHubScreen.tsx',
   'src/navigation/RootNavigator.tsx',
@@ -144,12 +146,34 @@ forbidText('src/admin/InternalAnalystAttentionGovernor.ts', 'supabase', 'attenti
 forbidText('src/admin/InternalAnalystAttentionGovernor.ts', 'fetch(', 'attention governor must not perform enrichment');
 
 for (const [text, why] of [
+  ['analyzeInternalOntologyObservatory', 'Ontology Observatory entrypoint must remain available'],
+  ['newNodeKinds', 'event-to-event entity-kind drift must remain explicit'],
+  ['newRelationSignatures', 'event-to-event relation-signature drift must remain explicit'],
+  ['schemaStability', 'ontology stability must remain measurable'],
+  ['schemaNovelty', 'ontology novelty must remain measurable'],
+  ['verifiedRatio', 'relation signatures must retain verification coverage'],
+  ['repeatedEvidenceRatio', 'relation signatures must retain repetition coverage'],
+  ['freshRatio', 'relation signatures must retain freshness coverage'],
+  ['Novel or missing schema signatures are not evidence', 'schema drift must never become hidden-relationship inference'],
+]) requireText('src/admin/InternalOntologyObservatoryEngine.ts', text, why);
+forbidText('src/admin/InternalOntologyObservatoryEngine.ts', 'supabase', 'Ontology Observatory must remain replayable in-memory analysis');
+forbidText('src/admin/InternalOntologyObservatoryEngine.ts', 'fetch(', 'Ontology Observatory must not perform enrichment');
+
+for (const [text, why] of [
   ['INTERNAL · VERIFICATION QUEUE', 'Evidence Debt workbench must be explicit'],
   ['SELF-HEALING CONTRACT', 'verification semantics must be visible'],
   ['VERIFICATION PRIORITY QUEUE', 'ranked uncertainty obligations must be inspectable'],
   ['RECOVERABLE AUTHORITY', 'graph-level recoverable authority must be visible'],
   ['No people are scored', 'operator UI must preserve non-person-scoring semantics'],
 ]) requireText('src/screens/InternalEvidenceDebtScreen.tsx', text, why);
+
+for (const [text, why] of [
+  ['INTERNAL · META-GRAPH / DATA MODEL', 'Ontology Observatory workbench must be explicit'],
+  ['ONTOLOGY DRIFT', 'event-to-event schema drift must be inspectable'],
+  ['RELATION SIGNATURES', 'graph grammar signatures must be inspectable'],
+  ['SCHEMA BLIND SPOTS', 'data-model evidence debt must be visible'],
+  ['Novel or missing schema signatures', 'Observatory UI must preserve non-inference semantics'],
+]) requireText('src/screens/InternalOntologyObservatoryScreen.tsx', text, why);
 
 for (const [text, why] of [
   ['ATTENTION BUDGET · NEXT BEST ANALYSIS', 'Operator Command must make bounded cognitive focus the primary analytical surface'],
@@ -162,13 +186,14 @@ for (const [text, why] of [
   ['LATER QUEUE', 'non-primary work must be deferred rather than competing for attention'],
 ]) requireText('src/screens/InternalAdaptiveCommandScreen.tsx', text, why);
 
-for (const route of ['InternalDecisionJournal', 'InternalDecisionCalibration', 'InternalPerspectiveLab', 'InternalPatternQueryLab', 'InternalEvidenceDebt']) {
+for (const route of ['InternalDecisionJournal', 'InternalDecisionCalibration', 'InternalPerspectiveLab', 'InternalPatternQueryLab', 'InternalEvidenceDebt', 'InternalOntologyObservatory']) {
   requireText('src/navigation/RootNavigator.tsx', `name="${route}"`, `${route} must remain registered in sealed navigation`);
   requireText('src/screens/InternalOperatorHubScreen.tsx', `route: '${route}'`, `${route} must remain reachable only through operator Ops`);
   forbidText('src/components/NetworkPulseCard.tsx', route, `normal-user Network Pulse must not expose ${route}`);
 }
 forbidText('src/components/NetworkPulseCard.tsx', 'InternalNextBestAnalysisEngine', 'normal-user Network Pulse must not expose cognitive routing');
 forbidText('src/components/NetworkPulseCard.tsx', 'InternalAnalystAttentionGovernor', 'normal-user Network Pulse must not expose operator attention policy');
+forbidText('src/components/NetworkPulseCard.tsx', 'InternalOntologyObservatoryEngine', 'normal-user Network Pulse must not expose operator schema introspection');
 forbidText('src/components/NetworkPulseCard.tsx', 'Evidence Debt', 'normal-user Network Pulse must not expose operator verification debt');
 
 if (failures.length) {
@@ -176,4 +201,4 @@ if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
-console.log('Constellation Perspective, Pattern Grammar, Decision Journal/Calibration, Evidence Debt, cognitive routing, bounded attention, and public-boundary contract passed.');
+console.log('Constellation Perspective, Pattern Grammar, Decision Journal/Calibration, Evidence Debt, ontology drift, cognitive routing, bounded attention, and public-boundary contract passed.');
