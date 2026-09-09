@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { analyzeInternalGraph, type InternalGraphPayload } from '../admin/InternalGraphEngine';
 import { runAdaptiveInternalGraphAgentOrchestrator } from '../admin/InternalAdaptiveAgentOrchestrator';
+import { triageInternalWatchtower } from '../admin/InternalWatchtowerTriageEngine';
 import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
@@ -92,13 +93,21 @@ export default function InternalAdaptiveCommandScreen() {
     [payload, patterns, suppressions, targetQuery, sourceNodeId],
   );
 
-  const openAlerts = useMemo(
-    () => watchtower?.events.filter((event) => !event.acknowledgedAt) ?? [],
-    [watchtower],
-  );
   const activeRules = useMemo(
     () => watchtower?.rules.filter((rule) => rule.enabled) ?? [],
     [watchtower],
+  );
+
+  const watchtowerTriage = useMemo(
+    () => watchtower && adaptiveRun
+      ? triageInternalWatchtower({ state: watchtower, epistemicHealth: adaptiveRun.epistemicHealth })
+      : null,
+    [watchtower, adaptiveRun],
+  );
+
+  const openIncidents = useMemo(
+    () => watchtowerTriage?.incidents.filter((incident) => incident.openEventCount > 0) ?? [],
+    [watchtowerTriage],
   );
 
   if (operator.loading || loading) {
@@ -137,7 +146,7 @@ export default function InternalAdaptiveCommandScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · ADAPTIVE NETWORK COMMAND" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Operator Command</NeonText>
-              <NeonText variant="bodyMuted">Watchtower triage · epistemic authority · diversified target routing · adaptive mission queue · human approval boundary</NeonText>
+              <NeonText variant="bodyMuted">Watchtower incident triage · epistemic authority · diversified target routing · adaptive mission queue · human approval boundary</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -145,7 +154,8 @@ export default function InternalAdaptiveCommandScreen() {
           <View style={styles.metricRow}>
             <Metric label="GRAPH HEALTH" value={`${Math.round(health.score * 100)}%`} />
             <Metric label="POSTURE" value={adaptiveRun.decisionPosture.replaceAll('_', ' ').toUpperCase()} />
-            <Metric label="WATCH ALERTS" value={`${openAlerts.length}`} />
+            <Metric label="OPEN INCIDENTS" value={`${watchtowerTriage?.openIncidentCount ?? 0}`} />
+            <Metric label="CRITICAL" value={`${watchtowerTriage?.criticalIncidentCount ?? 0}`} />
             <Metric label="MISSIONS" value={`${adaptiveRun.missionCount}`} />
           </View>
 
@@ -172,17 +182,35 @@ export default function InternalAdaptiveCommandScreen() {
             <GlowButton label="Target Routing" variant="ghost" onPress={() => navigation.navigate('InternalTargetRouting', { eventId: eventId ?? undefined })} />
             <GlowButton label="Evidence Health" variant="ghost" onPress={() => navigation.navigate('InternalGraphHealth', { eventId: eventId ?? undefined })} />
             <GlowButton label="Mission Ledger" variant="ghost" onPress={() => navigation.navigate('InternalMissionLedger', { eventId: eventId ?? undefined })} />
+            <GlowButton label="Private Access" variant="ghost" onPress={() => navigation.navigate('InternalPrivateAccess')} />
           </View>
 
-          <Section title="WATCHTOWER TRIAGE" subtitle={`${activeRules.length} active structural watches; alerts are evidence-review requests, never automatic actions`}>
-            {openAlerts.slice(0, 8).map((event) => (
-              <Surface key={event.id} padded style={styles.smallCard}>
-                <Pill label="UNACKNOWLEDGED STRUCTURAL SIGNAL" tone="accent" dot />
-                <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{event.conditionKey.replaceAll('_', ' ')}</NeonText>
-                <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{new Date(event.createdAt).toLocaleString()} · evidence {event.evidenceDigest.slice(0, 12)}…</NeonText>
+          <Section title="WATCHTOWER INCIDENT TRIAGE" subtitle={`${activeRules.length} active structural watches; incidents are replayable review-urgency groupings, never person/org risk scores or automatic actions`}>
+            {openIncidents.slice(0, 8).map((incident) => (
+              <Surface key={incident.id} elevated padded style={[styles.incidentCard, incident.severity === 'critical' || incident.severity === 'high' ? styles.warningBorder : null]}>
+                <View style={styles.rowBetween}>
+                  <View style={{ flex: 1 }}>
+                    <Pill label={`${incident.severity.toUpperCase()} · ${incident.family.replaceAll('_', ' ').toUpperCase()}`} tone={incident.severity === 'critical' || incident.severity === 'high' ? 'accent' : 'neutral'} dot />
+                    <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{incident.title}</NeonText>
+                    <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{incident.summary}</NeonText>
+                  </View>
+                  <NeonText variant="mono" tone="accent">S{incident.score.toFixed(1)}</NeonText>
+                </View>
+                {incident.reasons.slice(0, 5).map((reason, index) => <NeonText key={`${incident.id}-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
+                <NeonText variant="label" tone="muted" style={{ marginTop: spacing.sm }}>
+                  {incident.eventCount} SIGNALS · {incident.openEventCount} OPEN · LAST {new Date(incident.lastSeenAt).toLocaleString()}
+                </NeonText>
+                <View style={styles.actionRow}>
+                  <GlowButton
+                    label="Open evidence"
+                    variant="ghost"
+                    onPress={() => navigation.navigate(incident.recommendedReviewSurface, { eventId: incident.eventId ?? eventId ?? undefined })}
+                  />
+                </View>
               </Surface>
             ))}
-            {openAlerts.length === 0 ? <NeonText variant="bodyMuted">No unacknowledged Watchtower signals.</NeonText> : null}
+            {openIncidents.length === 0 ? <NeonText variant="bodyMuted">No open correlated Watchtower incidents.</NeonText> : null}
+            {watchtowerTriage ? <NeonText variant="bodyMuted">{watchtowerTriage.operatingRule}</NeonText> : null}
           </Section>
 
           <Section title="TARGET ROUTING OBJECTIVE" subtitle="Routing changes mission evidence only; it never authorizes outreach, predicts consent or bypasses blocks">
@@ -261,6 +289,7 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   section: { gap: spacing.sm },
   smallCard: { borderRadius: radii.lg, borderColor: palette.hairline },
+  incidentCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   missionCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
   input: { borderWidth: 1, borderColor: palette.hairlineStrong, borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: palette.text, backgroundColor: 'rgba(15,23,42,0.72)' },
