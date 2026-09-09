@@ -49,6 +49,14 @@ const LABS: LabDefinition[] = [
     accent: 'accent',
   },
   {
+    route: 'InternalMachineRegistry',
+    title: 'Machine Registry',
+    code: 'RECIPES',
+    description: 'Private ordered Machine pipelines, deterministic replay and digest-only run manifests for graph-version comparison.',
+    capability: 'graph_manage',
+    accent: 'accent',
+  },
+  {
     route: 'InternalStrategyLab',
     title: 'Strategy Lab',
     code: 'ORCHESTRATE',
@@ -137,7 +145,7 @@ export default function InternalOperatorHubScreen() {
               <Pill label="INTERNAL · OPERATOR CONTROL DECK" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
               <NeonText variant="bodyMuted">
-                Evidence graph · forensic pivots · composable machines · longitudinal memory · calibrated strategy · human-approved intervention
+                Evidence graph · forensic pivots · composable machines · reproducible private recipes · longitudinal memory · calibrated strategy · human-approved intervention
               </NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
@@ -196,7 +204,7 @@ export default function InternalOperatorHubScreen() {
           <Surface padded style={styles.autonomyCard}>
             <Pill label="AUTONOMY BOUNDARY" tone="neutral" dot />
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>
-              Constellation agents and Machines may analyze, diff, checkpoint finalized topology, reconcile bounded mission memory and refresh internal findings. They cannot message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.
+              Constellation agents and Machines may analyze, diff, checkpoint finalized topology, reconcile bounded mission memory, replay private recipes and refresh internal findings. They cannot message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.
             </NeonText>
           </Surface>
         </ScrollView>
