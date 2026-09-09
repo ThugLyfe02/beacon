@@ -23,7 +23,7 @@ import { palette, radii, spacing } from '../theme';
 import type { InternalGraphPayload } from '../admin/InternalGraphEngine';
 
 type SimulationRoute = {
-  InternalSimulationLab: { eventId?: string } | undefined;
+  InternalSimulationLab: { eventId?: string; nodeId?: string } | undefined;
 };
 
 function nodeLabel(payload: InternalGraphPayload, nodeId: string): string {
@@ -34,6 +34,7 @@ export default function InternalSimulationLabScreen() {
   const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const route = useRoute<RouteProp<SimulationRoute, 'InternalSimulationLab'>>();
   const eventId = route.params?.eventId ?? null;
+  const requestedNodeId = route.params?.nodeId ?? null;
   const operator = useInternalOperator();
   const [payload, setPayload] = useState<InternalGraphPayload | null>(null);
   const [suppressions, setSuppressions] = useState<Set<string> | null>(null);
@@ -68,8 +69,12 @@ export default function InternalSimulationLabScreen() {
     [payload, suppressions, operator],
   );
   const resilience = useMemo(
-    () => payload ? rankInternalGraphResilienceRisks(payload, 16) : [],
+    () => payload ? rankInternalGraphResilienceRisks(payload, 24) : [],
     [payload],
+  );
+  const focusedRisk = useMemo(
+    () => requestedNodeId ? resilience.find((risk) => risk.nodeId === requestedNodeId) ?? null : null,
+    [requestedNodeId, resilience],
   );
 
   if (operator.loading || loading) {
@@ -126,7 +131,34 @@ export default function InternalSimulationLabScreen() {
           <View style={styles.actionRow}>
             <GlowButton label="Strategy Lab" variant="ghost" onPress={() => navigation.navigate('InternalStrategyLab', { eventId: eventId ?? undefined })} />
             <GlowButton label="Constellation" variant="ghost" onPress={() => navigation.navigate('InternalGraph', { eventId: eventId ?? undefined })} />
+            {requestedNodeId ? <GlowButton label="Transform focus" variant="ghost" onPress={() => navigation.navigate('InternalTransformLab', { eventId: eventId ?? undefined, nodeId: requestedNodeId })} /> : null}
           </View>
+
+          {focusedRisk ? (
+            <Surface elevated padded glow style={styles.focusCard}>
+              <Pill label="FOCUSED RESILIENCE SCENARIO" tone="accent" dot />
+              <NeonText variant="h1" style={{ marginTop: spacing.sm }}>{nodeLabel(payload, focusedRisk.nodeId)}</NeonText>
+              <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>
+                Direct forensic deep-link · risk {focusedRisk.riskScore.toFixed(2)} · this models structural absence only.
+              </NeonText>
+              <View style={styles.metricRow}>
+                <Metric label="COMPONENT +" value={`${Math.max(0, focusedRisk.componentIncrease)}`} />
+                <Metric label="REACH LOSS" value={`${Math.round(focusedRisk.largestComponentLoss * 100)}%`} />
+                <Metric label="EDGES" value={`${focusedRisk.removedEdgeCount}`} />
+                <Metric label="BROKER" value={focusedRisk.brokerScore.toFixed(1)} />
+              </View>
+              {focusedRisk.interpretation.map((line, index) => (
+                <NeonText key={`focus-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {line}</NeonText>
+              ))}
+            </Surface>
+          ) : requestedNodeId ? (
+            <Surface padded style={styles.focusCard}>
+              <Pill label="FOCUSED NODE" tone="neutral" dot />
+              <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
+                The requested node does not rank among the current top resilience risks in this graph scope.
+              </NeonText>
+            </Surface>
+          ) : null}
 
           {operator.has('graph_manage') ? (
             <Section title="HYPOTHETICAL BRIDGE IMPACT" subtitle="Which safe structural holes would change topology most if a relationship eventually formed?">
@@ -162,8 +194,8 @@ export default function InternalSimulationLabScreen() {
           ) : null}
 
           <Section title="NETWORK RESILIENCE / SINGLE-POINT DEPENDENCE" subtitle="Topology brittleness if a hub or broker is absent; this is not a ranking of people">
-            {resilience.map((risk, index) => (
-              <Surface key={risk.nodeId} padded style={styles.riskCard}>
+            {resilience.slice(0, 16).map((risk, index) => (
+              <Surface key={risk.nodeId} padded style={[styles.riskCard, requestedNodeId === risk.nodeId && styles.riskCardFocused]}>
                 <View style={styles.rowBetween}>
                   <View style={{ flex: 1 }}>
                     <NeonText variant="label" tone="accent">#{index + 1} · RISK {risk.riskScore.toFixed(2)}</NeonText>
@@ -218,10 +250,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   title: { marginTop: spacing.sm, fontSize: 38 },
   contractCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
+  focusCard: { borderRadius: radii.xl, borderColor: palette.accent },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   section: { gap: spacing.sm },
   simCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   riskCard: { borderRadius: radii.xl, borderColor: palette.hairline },
+  riskCardFocused: { borderColor: palette.accent },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
   metricRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
   metric: { flex: 1, minWidth: 78, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radii.md, backgroundColor: 'rgba(15,23,42,0.68)' },
