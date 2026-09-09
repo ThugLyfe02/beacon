@@ -129,20 +129,30 @@ export function analyzeInternalMethodDebt(input: {
   const criticalVerificationDebt = input.evidenceDebt.items.filter((item) =>
     item.kind === 'critical_bridge_weakness'
     || item.kind === 'ambiguous_evidence'
-    || item.kind === 'derived_critical_evidence');
+    || item.kind === 'derived_critical_evidence'
+    || item.kind === 'operator_confirmed_conflict');
   if (criticalVerificationDebt.length >= 2) {
+    const conflictCount = criticalVerificationDebt.filter((item) => item.kind === 'operator_confirmed_conflict').length;
     items.push({
       id: 'method:verification-discipline',
       kind: 'verification_discipline',
-      title: 'Critical conclusions are repeatedly leaning on weak evidence',
-      priority: clampPriority(7 + criticalVerificationDebt.slice(0, 6).reduce((sum, item) => sum + item.expectedAuthorityGain, 0) * 8),
-      maturity: 'emerging',
+      title: conflictCount > 0
+        ? 'Critical conclusions repeatedly accumulate weak or conflicting evidence'
+        : 'Critical conclusions are repeatedly leaning on weak evidence',
+      priority: clampPriority(
+        7
+        + criticalVerificationDebt.slice(0, 6).reduce((sum, item) => sum + item.expectedAuthorityGain, 0) * 8
+        + Math.min(1, conflictCount * 0.25),
+      ),
+      maturity: conflictCount >= 3 ? 'maturing' : 'emerging',
       reasons: [
-        `${criticalVerificationDebt.length} high-leverage verification obligations remain in the current graph`,
-        'weak evidence sits on structures that influence several downstream conclusions',
+        `${criticalVerificationDebt.length} high-leverage verification/reconciliation obligations remain in the current graph`,
+        ...(conflictCount > 0 ? [`${conflictCount} operator-confirmed evidence conflict${conflictCount === 1 ? '' : 's'} remain unresolved`] : []),
+        'weak or unresolved evidence sits on structures that influence several downstream conclusions',
       ],
       remediation: [
         'Clear critical Evidence Debt before adding new exploratory breadth.',
+        ...(conflictCount > 0 ? ['Reconcile operator-confirmed conflicts without deleting either source edge or forcing a synthetic winner.'] : []),
         'Prefer verified/repeated first-party evidence to additional external context.',
       ],
       recommendedSurface: 'InternalEvidenceDebt',
@@ -204,6 +214,6 @@ export function analyzeInternalMethodDebt(input: {
     generatedAt: new Date().toISOString(),
     items: items.slice(0, 20),
     topPriority: items[0]?.priority ?? 0,
-    operatingRule: 'Method Debt ranks weaknesses in analytical process, calibration, and retrospective decision conditions—never people or organizations. It changes what deserves scrutiny next, not canonical evidence or social authority.',
+    operatingRule: 'Method Debt ranks weaknesses in analytical process, calibration, retrospective decision conditions, and unresolved evidence-reconciliation discipline—never people or organizations. It changes what deserves scrutiny next, not canonical evidence or social authority.',
   };
 }
