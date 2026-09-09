@@ -18,6 +18,7 @@ interface LabDefinition {
 const LABS: LabDefinition[] = [
   { route: 'InternalWatchtower', title: 'Watchtower', code: 'WATCH', description: 'Event-driven monitoring of canonical topology, motifs, broker emergence and private Machine result changes.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalTargetRouting', title: 'Target Routing', code: 'ROUTE', description: 'Diverse block-safe routes into target ecosystems with confidence floors, provenance, bottleneck risk and route redundancy.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalGraphHealth', title: 'Evidence Health', code: 'HEALTH', description: 'Epistemic quality of the canonical graph: verified/ambiguous mix, freshness, repetition, weak contexts and canonicalization hygiene.', capability: 'graph_read', accent: 'accent' },
   { route: 'InternalGraph', title: 'Constellation', code: 'GRAPH', description: '3D evidence graph, communities, explainable paths, structural holes, surprising edges and Bridge Builder.', capability: 'graph_read', accent: 'accent' },
   { route: 'InternalForensicsLab', title: 'Forensics Lab', code: 'FORENSICS', description: 'Articulation points, graph bridges, effective size, participation coefficient and unexpected-edge surprisal.', capability: 'graph_read', accent: 'accent' },
   { route: 'InternalTransformLab', title: 'Transform Lab', code: 'PIVOT', description: 'Maltego-style first-party transforms, reverse pivots, provenance timelines and bounded multi-hop expansion.', capability: 'graph_read', accent: 'accent' },
@@ -61,7 +62,7 @@ export default function InternalOperatorHubScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · ADAPTIVE OPERATOR OS" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
-              <NeonText variant="bodyMuted">Watchtower · explainable routing · evidence graph · entity-quality control · forensic pivots · composable Machines · reproducible recipes · longitudinal memory · calibrated strategy</NeonText>
+              <NeonText variant="bodyMuted">Watchtower · explainable routing · epistemic health · evidence graph · entity-quality control · forensic pivots · composable Machines · reproducible recipes · longitudinal memory · calibrated strategy</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -97,7 +98,7 @@ export default function InternalOperatorHubScreen() {
 
           <Surface padded style={styles.autonomyCard}>
             <Pill label="AUTONOMY BOUNDARY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation may detect, diff, route, checkpoint canonical topology, monitor structural conditions, reconcile bounded mission memory, replay private recipes and refresh internal findings. Entity canonicalization is limited to non-person context nodes and requires explicit operator approval. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation may detect, diff, route, assess its own evidence health, checkpoint canonical topology, monitor structural conditions, reconcile bounded mission memory, replay private recipes and refresh internal findings. Entity canonicalization is limited to non-person context nodes and requires explicit operator approval. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
           </Surface>
         </ScrollView>
       </SafeAreaView>
