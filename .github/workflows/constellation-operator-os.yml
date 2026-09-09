@@ -90,5 +90,8 @@ jobs:
       - name: Collaborative case-memory contract
         run: node scripts/validate-constellation-collaborative-case-memory.mjs
 
+      - name: Case rehydration contract
+        run: node scripts/validate-constellation-case-rehydration.mjs
+
       - name: Strategy/privacy boundary
         run: node scripts/validate-constellation-strategy.mjs
