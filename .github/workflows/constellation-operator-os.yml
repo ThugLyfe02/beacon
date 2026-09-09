@@ -72,6 +72,9 @@ jobs:
       - name: Cognitive workbench contract
         run: node scripts/validate-constellation-cognitive-workbench.mjs
 
+      - name: Value-of-information contract
+        run: node scripts/validate-constellation-value-of-information.mjs
+
       - name: Investigation handoff contract
         run: node scripts/validate-constellation-handoff.mjs
 
