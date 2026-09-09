@@ -50,7 +50,8 @@ export interface NearbyPremiumUser {
 
 export interface EventRow {
   id: UUID;
-  host_id: UUID;
+  /** Nullable only for preserved historical events after host account erasure. */
+  host_id: UUID | null;
   name: string;
   description: string | null;
   join_code: string;
@@ -195,10 +196,10 @@ export interface DiscoverableParticipant {
   is_premium: boolean;
 }
 
-/** Event with host user information */
+/** Event with host user information. Historical events may outlive host accounts. */
 export interface EventWithHost {
   event: EventRow;
-  host: UserRow;
+  host: UserRow | null;
 }
 
 /** Join request pending host approval */
