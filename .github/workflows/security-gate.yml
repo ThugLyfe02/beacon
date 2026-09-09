@@ -143,6 +143,27 @@ jobs:
         if: steps.join-discovery.outcome == 'failure'
         run: exit 1
 
+      - name: Validate exclusive intelligence graph
+        id: internal-intelligence
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-internal-intelligence-graph.mjs 2>&1 | tee internal-intelligence-validation.txt
+
+      - name: Upload intelligence graph diagnostics
+        if: steps.internal-intelligence.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: internal-intelligence-diagnostics
+          path: internal-intelligence-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on intelligence graph contract violations
+        if: steps.internal-intelligence.outcome == 'failure'
+        run: exit 1
+
       - name: Validate product preservation contract
         run: node scripts/validate-product-preservation.mjs
 
