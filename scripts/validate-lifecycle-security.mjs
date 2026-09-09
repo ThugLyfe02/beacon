@@ -30,13 +30,16 @@ const requiredFiles = [
   'supabase/migrations/035_two_party_outcome_commit.sql',
   'supabase/migrations/036_atomic_event_creation_and_access_secrets.sql',
   'supabase/migrations/037_event_column_and_membership_oracle_lockdown.sql',
+  'supabase/migrations/038_secure_escort_orchestration.sql',
   'src/services/proximity.service.ts',
   'src/services/premium.service.ts',
   'src/services/outcome-handshake.service.ts',
   'src/services/event.service.ts',
+  'src/services/escort.service.ts',
   'src/types/database.ts',
   'src/components/OutcomeHandshakeCard.tsx',
   'src/screens/HostManagementScreen.tsx',
+  'src/screens/EscortPanelScreen.tsx',
   'src/screens/MapScreen.tsx',
   'src/screens/RadarScreen.tsx',
 ];
@@ -111,6 +114,16 @@ for (const [text, explanation] of [
   ['Caller-scoped approved-membership predicate', 'membership oracle lockdown must remain documented'],
 ]) requireText('supabase/migrations/037_event_column_and_membership_oracle_lockdown.sql', text, explanation);
 
+for (const [text, explanation] of [
+  ["add value if not exists 'escort_assignment'", 'physical handoff must be part of the security control plane'],
+  ['revoke insert, update, delete on table public.venue_rooms from authenticated', 'venue rooms must not retain broad direct host mutation'],
+  ['create_venue_room_secure', 'room creation must be host and live-window scoped'],
+  ['get_host_escort_queue', 'host queue identity disclosure must use a narrow RPC'],
+  ['assign_escort_room_secure', 'room assignment must be an atomic secure RPC'],
+  ['authorize_sensitive_action', 'escort assignment must retain replay/security-mode authorization'],
+  ['existing.proposed_start < v_request.proposed_end', 'overlapping room commitments must be rejected server-side'],
+]) requireText('supabase/migrations/038_secure_escort_orchestration.sql', text, explanation);
+
 requireText(
   'supabase/migrations/031_atomic_event_finalization.sql',
   "set_config('beacon.finalization_event_id'",
@@ -122,38 +135,18 @@ requireText(
   "rpc('get_event_proximity_vectors'",
   'the spatial client must consume vector-only proximity',
 );
-forbidText(
-  'src/services/proximity.service.ts',
-  'last_known_lat',
-  'raw peer latitude must not re-enter the immersive spatial client',
-);
-forbidText(
-  'src/services/proximity.service.ts',
-  'last_known_lng',
-  'raw peer longitude must not re-enter the immersive spatial client',
-);
+forbidText('src/services/proximity.service.ts', 'last_known_lat', 'raw peer latitude must not re-enter the immersive spatial client');
+forbidText('src/services/proximity.service.ts', 'last_known_lng', 'raw peer longitude must not re-enter the immersive spatial client');
 
-requireText(
-  'src/services/premium.service.ts',
-  "rpc('publish_event_location'",
-  'self location must publish through the event-scoped database RPC',
-);
-forbidText(
-  'src/services/premium.service.ts',
-  'last_known_lat:',
-  'the mobile service must not write precise location columns directly',
-);
+requireText('src/services/premium.service.ts', "rpc('publish_event_location'", 'self location must publish through the event-scoped database RPC');
+forbidText('src/services/premium.service.ts', 'last_known_lat:', 'the mobile service must not write precise location columns directly');
 
 for (const [text, explanation] of [
   ["rpc('get_outcome_handshake_commit_state'", 'outcome state must include independent confirmation evidence'],
   ["rpc('confirm_outcome_handshake'", 'mobile completion must use two-party confirmation'],
   ['two_party_real_world_outcome_confirmed', 'provenance must distinguish two-party completion from one-party confirmation'],
 ]) requireText('src/services/outcome-handshake.service.ts', text, explanation);
-forbidText(
-  'src/services/outcome-handshake.service.ts',
-  "rpc('complete_outcome_handshake'",
-  'legacy single-party completion RPC must not return to the client',
-);
+forbidText('src/services/outcome-handshake.service.ts', "rpc('complete_outcome_handshake'", 'legacy single-party completion RPC must not return to the client');
 
 for (const [text, explanation] of [
   ["rpc('create_hosted_event'", 'mobile event creation must use the atomic server transaction'],
@@ -161,6 +154,15 @@ for (const [text, explanation] of [
 ]) requireText('src/services/event.service.ts', text, explanation);
 forbidText('src/services/event.service.ts', ".from('events')\n      .insert", 'direct client event inserts must remain retired');
 forbidText('src/services/event.service.ts', ".from('event_participants')\n      .insert", 'host membership must remain part of the atomic creation RPC');
+
+for (const [text, explanation] of [
+  ["rpc('create_venue_room_secure'", 'room creation must use the lifecycle-aware secure RPC'],
+  ["rpc('get_host_escort_queue'", 'escort queue must use host-scoped identity disclosure'],
+  ["rpc('assign_escort_room_secure'", 'escort assignment must use replay-protected server orchestration'],
+  ['assignment truth is already committed', 'push notification must remain a side effect after authoritative assignment'],
+]) requireText('src/services/escort.service.ts', text, explanation);
+forbidText('src/services/escort.service.ts', ".from('venue_rooms')\n    .insert", 'direct venue-room inserts must remain retired');
+forbidText('src/services/escort.service.ts', ".from('office_hours_requests')\n    .update", 'direct host room assignment must remain retired');
 
 for (const [text, explanation] of [
   ['export type EventInsert = never', 'domain types must forbid direct event inserts'],
@@ -181,12 +183,18 @@ for (const [text, explanation] of [
   ['REFLECTION MODE', 'host UX must visibly transition with database lifecycle truth'],
   ['The live world is sealed.', 'post-window UI must explain that live mutation has stopped'],
   ['Seal outcomes & memory', 'finalization must remain the primary post-window action'],
+  ['one-way protected', 'host UI must not imply that plaintext access secrets are retrievable'],
 ]) requireText('src/screens/HostManagementScreen.tsx', text, explanation);
-forbidText(
-  'src/screens/HostManagementScreen.tsx',
-  'deleteEvent(',
-  'host lifecycle must never return to destructive event deletion',
-);
+forbidText('src/screens/HostManagementScreen.tsx', 'event.access_code', 'host UI must never read the legacy plaintext access-code column');
+forbidText('src/screens/HostManagementScreen.tsx', 'deleteEvent(', 'host lifecycle must never return to destructive event deletion');
+
+for (const [text, explanation] of [
+  ['LIVE ORCHESTRATION', 'escort panel must expose a live physical-world state'],
+  ['ESCORT SEALED', 'escort panel must transition when the event lifecycle closes'],
+  ['timeWindowsOverlap', 'room availability must adapt to scheduled physical overlap'],
+  ['TIME CONFLICT', 'conflicting room choices must be visibly unavailable'],
+  ['setInterval(refresh, 5000)', 'physical orchestration must refresh while the panel remains open'],
+]) requireText('src/screens/EscortPanelScreen.tsx', text, explanation);
 
 for (const [text, explanation] of [
   ['eventWindowState', 'map behavior must distinguish live, upcoming, and historical events'],
