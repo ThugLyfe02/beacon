@@ -13,7 +13,7 @@ export type RequestStatus = 'pending' | 'withdrawn';
 export type LocationType = 'live' | 'fixed';
 export type ParticipantStatus = 'pending' | 'approved' | 'rejected';
 
-// ─── Row Interfaces ───────────────────────────────────────────────────────────
+// ─── Row Interfaces ────────────────────────────────────────────────────────────
 
 /**
  * users table
@@ -35,7 +35,7 @@ export interface UserRow {
   updated_at: Timestamp;
 }
 
-/** Returned by get_nearby_premium RPC */
+/** Returned by the reduced-precision premium radar RPC. */
 export interface NearbyPremiumUser {
   user_id: UUID;
   name: string | null;
@@ -59,6 +59,7 @@ export interface EventRow {
   longitude: number | null;
   address: string | null;
   requires_approval: boolean;
+  /** Legacy compatibility column. Plaintext access secrets are never returned or stored here. */
   access_code: string | null;
   show_participant_count: boolean;
   starts_at: Timestamp | null;
@@ -139,36 +140,39 @@ export interface FeedPost {
 
 export type UserInsert = Omit<UserRow, 'created_at' | 'updated_at'>;
 export type UserUpdate = Partial<
+  Pick<UserRow, 'name' | 'role' | 'one_liner' | 'is_discoverable'>
+>;
+
+/** Events are created only through create_hosted_event(). */
+export type EventInsert = never;
+/** Only host-owned, non-secret, non-lifecycle columns are directly mutable. */
+export type EventUpdate = Partial<
   Pick<
-    UserRow,
+    EventRow,
     | 'name'
-    | 'role'
-    | 'one_liner'
-    | 'is_discoverable'
-    | 'last_known_lat'
-    | 'last_known_lng'
-    | 'last_location_at'
+    | 'description'
+    | 'location_type'
+    | 'latitude'
+    | 'longitude'
+    | 'address'
+    | 'requires_approval'
+    | 'show_participant_count'
+    | 'starts_at'
+    | 'ends_at'
   >
 >;
 
-export type EventInsert = Omit<EventRow, 'id' | 'created_at' | 'join_code' | 'finalized_at'>;
-export type EventUpdate = Partial<Omit<EventRow, 'id' | 'host_id' | 'created_at' | 'join_code' | 'finalized_at'>>;
-
-export type EventParticipantInsert = Pick<
-  EventParticipantRow,
-  'event_id' | 'user_id'
->;
+/** Join creation is RPC-only so a client can never choose its own approval status. */
+export type EventParticipantInsert = never;
 export type EventParticipantUpdate = Pick<EventParticipantRow, 'status'>;
 
-export type ConnectionRequestInsert = Pick<
-  ConnectionRequestRow,
-  'event_id' | 'requester_id' | 'recipient_id'
->;
+/** High-intent connection creation is RPC-only and nonce protected. */
+export type ConnectionRequestInsert = never;
 export type ConnectionRequestUpdate = Pick<ConnectionRequestRow, 'status'>;
 
 // ─── Composite / View Types ───────────────────────────────────────────────────
 
-/** Returned by detect_mutual_match RPC */
+/** Historical shape returned by the internal mutual detector. */
 export interface MutualMatchResult {
   id: UUID;
   event_id: UUID;
@@ -179,12 +183,11 @@ export interface MutualMatchResult {
 
 /** Flattened participant shown on the Discover screen */
 export interface DiscoverableParticipant {
-  participant_id: UUID;     // event_participants.id
+  participant_id: UUID;
   user_id: UUID;
   event_id: UUID;
   status: ParticipantStatus;
   joined_at: Timestamp;
-  // User profile fields (global scope)
   email: string | null;
   name: string | null;
   role: string | null;
@@ -204,7 +207,6 @@ export interface PendingJoinRequest {
   user_id: UUID;
   event_id: UUID;
   joined_at: Timestamp;
-  // User info
   name: string | null;
   email: string | null;
   role: string | null;
@@ -217,7 +219,7 @@ export interface ActiveEventContext {
   participant: EventParticipantRow;
 }
 
-// ─── Database Interface (for createClient<Database> generic) ─────────────────
+// ─── Database Interface (documentation for eventual generated client schema) ──
 
 export interface Database {
   public: {
@@ -229,22 +231,22 @@ export interface Database {
       };
       events: {
         Row: EventRow;
-        Insert: EventInsert; // hosts can create events
-        Update: EventUpdate; // hosts can update their events
+        Insert: never;
+        Update: EventUpdate;
       };
       event_participants: {
         Row: EventParticipantRow;
-        Insert: EventParticipantInsert;
+        Insert: never;
         Update: EventParticipantUpdate;
       };
       connection_requests: {
         Row: ConnectionRequestRow;
-        Insert: ConnectionRequestInsert;
+        Insert: never;
         Update: ConnectionRequestUpdate;
       };
       matches: {
         Row: MatchRow;
-        Insert: never; // SECURITY DEFINER function only
+        Insert: never;
         Update: never;
       };
       posts: {
@@ -260,7 +262,7 @@ export interface Database {
       };
       post_likes: {
         Row: PostLikeRow;
-        Insert: never; // toggle via RPC
+        Insert: never;
         Update: never;
       };
     };
