@@ -87,6 +87,9 @@ jobs:
       - name: Assumption staleness contract
         run: node scripts/validate-constellation-assumption-staleness.mjs
 
+      - name: Evidence conflict contract
+        run: node scripts/validate-constellation-evidence-conflicts.mjs
+
       - name: Investigation handoff contract
         run: node scripts/validate-constellation-handoff.mjs
 
