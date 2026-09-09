@@ -26,6 +26,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import EventFeedScreen from '../screens/EventFeedScreen';
 import EventLobbyScreen from '../screens/EventLobbyScreen';
+import InternalGraphScreen from '../screens/InternalGraphScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
 import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
@@ -215,6 +216,17 @@ export function RootNavigator() {
           name="Profile"
           component={ProfileScreen}
           options={{ animation: 'slide_from_right' }}
+        />
+
+        <Stack.Screen
+          name="InternalGraph"
+          component={InternalGraphScreen}
+          options={{
+            presentation: 'fullScreenModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: '#040711' },
+            headerShown: false,
+          }}
         />
 
         <Stack.Screen
