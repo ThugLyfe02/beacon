@@ -24,6 +24,10 @@ const files = [
   'src/admin/InternalDecisionCalibrationEngine.ts',
   'src/screens/InternalDecisionCalibrationScreen.tsx',
   'src/screens/InternalDecisionJournalScreen.tsx',
+  'src/admin/InternalEvidenceDebtEngine.ts',
+  'src/admin/InternalNextBestAnalysisEngine.ts',
+  'src/screens/InternalEvidenceDebtScreen.tsx',
+  'src/screens/InternalAdaptiveCommandScreen.tsx',
   'src/screens/InternalOperatorHubScreen.tsx',
   'src/navigation/RootNavigator.tsx',
   'src/components/NetworkPulseCard.tsx',
@@ -102,15 +106,58 @@ for (const [text, why] of [
   ['BY ADMISSION STATE', 'admission-state calibration must be inspectable'],
 ]) requireText('src/screens/InternalDecisionCalibrationScreen.tsx', text, why);
 
-for (const route of ['InternalDecisionJournal', 'InternalDecisionCalibration', 'InternalPerspectiveLab', 'InternalPatternQueryLab']) {
+for (const [text, why] of [
+  ['analyzeInternalEvidenceDebt', 'Evidence Debt analysis entrypoint must remain available'],
+  ['ambiguous_evidence', 'ambiguous relationship debt must remain explicit'],
+  ['stale_evidence', 'stale evidence debt must remain explicit'],
+  ['single_observation', 'one-shot evidence debt must remain explicit'],
+  ['route_single_point', 'route bottleneck debt must remain explicit'],
+  ['critical_bridge_weakness', 'structurally critical weak evidence must be prioritized'],
+  ['expectedAuthorityGain', 'evidence obligations must expose analytical-authority gain rather than person scores'],
+  ['Evidence Debt ranks graph-level uncertainty obligations', 'Evidence Debt operating semantics must remain graph scoped'],
+  ['never a score of a person', 'Evidence Debt must explicitly reject person scoring'],
+]) requireText('src/admin/InternalEvidenceDebtEngine.ts', text, why);
+forbidText('src/admin/InternalEvidenceDebtEngine.ts', 'supabase', 'Evidence Debt must remain replayable in-memory analysis');
+forbidText('src/admin/InternalEvidenceDebtEngine.ts', 'fetch(', 'Evidence Debt must not perform enrichment');
+
+for (const [text, why] of [
+  ['buildInternalNextBestAnalysisPlan', 'cognitive router entrypoint must remain available'],
+  ['expectedInformationGain', 'next-analysis ranking must use information gain'],
+  ['workbench transitions only', 'cognitive router must remain analytical rather than social'],
+  ['never recommends social action', 'cognitive router must preserve the no-social-action boundary'],
+  ['InternalEvidenceDebt', 'self-healing verification queue must be a first-class analytical destination'],
+  ['InternalPatternQueryLab', 'bounded structural exploration must remain a cognitive fallback'],
+]) requireText('src/admin/InternalNextBestAnalysisEngine.ts', text, why);
+forbidText('src/admin/InternalNextBestAnalysisEngine.ts', 'supabase', 'cognitive router must remain pure in-memory analysis');
+forbidText('src/admin/InternalNextBestAnalysisEngine.ts', 'fetch(', 'cognitive router must not perform enrichment');
+
+for (const [text, why] of [
+  ['INTERNAL · VERIFICATION QUEUE', 'Evidence Debt workbench must be explicit'],
+  ['SELF-HEALING CONTRACT', 'verification semantics must be visible'],
+  ['VERIFICATION PRIORITY QUEUE', 'ranked uncertainty obligations must be inspectable'],
+  ['RECOVERABLE AUTHORITY', 'graph-level recoverable authority must be visible'],
+  ['No people are scored', 'operator UI must preserve non-person-scoring semantics'],
+]) requireText('src/screens/InternalEvidenceDebtScreen.tsx', text, why);
+
+for (const [text, why] of [
+  ['NEXT BEST ANALYSIS', 'Operator Command must surface the cognitive router before deeper telemetry'],
+  ['buildInternalNextBestAnalysisPlan', 'Operator Command must consume next-best-analysis planning'],
+  ['analyzeInternalEvidenceDebt', 'Operator Command must consume evidence-debt state'],
+  ['Run next analysis', 'operator must be able to deep-link from ranked analysis suggestions'],
+  ['workbench transitions, never social actions', 'Command must state the cognitive router action boundary'],
+]) requireText('src/screens/InternalAdaptiveCommandScreen.tsx', text, why);
+
+for (const route of ['InternalDecisionJournal', 'InternalDecisionCalibration', 'InternalPerspectiveLab', 'InternalPatternQueryLab', 'InternalEvidenceDebt']) {
   requireText('src/navigation/RootNavigator.tsx', `name="${route}"`, `${route} must remain registered in sealed navigation`);
   requireText('src/screens/InternalOperatorHubScreen.tsx', `route: '${route}'`, `${route} must remain reachable only through operator Ops`);
   forbidText('src/components/NetworkPulseCard.tsx', route, `normal-user Network Pulse must not expose ${route}`);
 }
+forbidText('src/components/NetworkPulseCard.tsx', 'InternalNextBestAnalysisEngine', 'normal-user Network Pulse must not expose cognitive routing');
+forbidText('src/components/NetworkPulseCard.tsx', 'Evidence Debt', 'normal-user Network Pulse must not expose operator verification debt');
 
 if (failures.length) {
   console.error('\nConstellation cognitive workbench validation failed:\n');
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
-console.log('Constellation Perspective, Pattern Grammar, Decision Journal/Calibration, and public-boundary contract passed.');
+console.log('Constellation Perspective, Pattern Grammar, Decision Journal/Calibration, Evidence Debt, cognitive routing, and public-boundary contract passed.');
