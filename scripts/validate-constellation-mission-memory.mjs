@@ -67,7 +67,7 @@ for (const [text, why] of [
   ['two consecutive misses', 'UI must explain disappearance damping semantics'],
   ['Raw target-objective text is not retained', 'operator UI must expose objective-retention semantics'],
   ['syncInternalAgentMissions', 'Mission Ledger must reconcile live agent analysis into bounded memory'],
-  ['requires operator approval', 'Mission Ledger copy must not imply autonomous social intervention'],
+  ['every social action remains explicitly human-approved', 'Mission Ledger copy must not imply autonomous social intervention'],
 ]) requireText('src/screens/InternalMissionLedgerScreen.tsx', text, why);
 
 requireText('src/screens/InternalOperatorHubScreen.tsx', "route: 'InternalMissionLedger'", 'Mission Ledger must remain reachable from the sealed operator hub');
