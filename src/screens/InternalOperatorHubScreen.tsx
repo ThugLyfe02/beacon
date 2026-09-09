@@ -60,7 +60,7 @@ export default function InternalOperatorHubScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <Pill label="INTERNAL · ADAPTIVE OPERATOR OS" tone="accent" dot />
+              <Pill label="INTERNAL · OPERATOR CONTROL DECK · ADAPTIVE OS" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
               <NeonText variant="bodyMuted">Watchtower · explainable routing · epistemic health · evidence graph · entity-quality control · forensic pivots · composable Machines · reproducible recipes · longitudinal memory · calibrated strategy</NeonText>
             </View>
@@ -68,7 +68,7 @@ export default function InternalOperatorHubScreen() {
           </View>
 
           <Surface padded style={styles.capabilityCard}>
-            <Pill label="SERVER SECURITY ENVELOPE" tone="neutral" dot />
+            <Pill label="CAPABILITY ENVELOPE · SERVER VERIFIED" tone="neutral" dot />
             <View style={styles.capabilityRow}>{operator.capabilities.map((capability) => <Pill key={capability} label={capability.replaceAll('_', ' ').toUpperCase()} tone="accent" />)}</View>
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{operator.expiresAt ? `Access expires ${new Date(operator.expiresAt).toLocaleString()}.` : 'Access has no configured expiry.'}</NeonText>
             <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{operator.leastPrivilegeRule}</NeonText>
