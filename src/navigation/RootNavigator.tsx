@@ -42,6 +42,7 @@ import InternalEntityResolutionLabScreen from '../screens/InternalEntityResoluti
 import InternalWatchtowerScreen from '../screens/InternalWatchtowerScreen';
 import InternalTargetRoutingScreen from '../screens/InternalTargetRoutingScreen';
 import InternalGraphHealthScreen from '../screens/InternalGraphHealthScreen';
+import InternalAdaptiveCommandScreen from '../screens/InternalAdaptiveCommandScreen';
 import InternalOperatorHubScreen from '../screens/InternalOperatorHubScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
@@ -112,6 +113,7 @@ export function RootNavigator() {
         <Stack.Screen name="MainTabs">{() => <MainTabs userId={user.id} isHost={isHost} onEventEnded={handleEventEnded} />}</Stack.Screen>
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="InternalOperatorHub" component={InternalOperatorHubScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalAdaptiveCommand" component={InternalAdaptiveCommandScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalGraph" component={InternalGraphScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalForensicsLab" component={InternalForensicsLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalMissionLedger" component={InternalMissionLedgerScreen} options={internalModalOptions} />
