@@ -123,6 +123,7 @@ function clonePayload(payload: InternalGraphPayload, edges: InternalGraphEdge[],
 
 function hypotheticalBridgeEdge(candidate: InternalBridgeCandidate): InternalGraphEdge {
   const [source, target] = [candidate.source, candidate.target].sort();
+  const now = new Date().toISOString();
   return {
     id: `counterfactual:${source}:${target}`,
     scopeKey: 'counterfactual:operator_simulation',
@@ -133,22 +134,13 @@ function hypotheticalBridgeEdge(candidate: InternalBridgeCandidate): InternalGra
     confidence: 'AMBIGUOUS',
     sensitivity: 'standard',
     strength: Math.max(0.35, Math.min(2.5, candidate.score / 2)),
-    firstSeenAt: new Date().toISOString(),
-    lastSeenAt: new Date().toISOString(),
+    firstSeenAt: now,
+    lastSeenAt: now,
     evidenceCount: 1,
-    evidence: {
-      source: 'counterfactual_simulation',
-      viaNodeId: candidate.via,
-      notObserved: true,
-    },
+    evidence: { source: 'counterfactual_simulation', viaNodeId: candidate.via, notObserved: true },
   };
 }
 
-/**
- * Counterfactual only: adds an in-memory hypothetical relationship edge and
- * re-runs the same deterministic graph analysis. Nothing is persisted and the
- * result never claims the introduction would actually produce this topology.
- */
 export function simulateInternalBridge(
   payload: InternalGraphPayload,
   candidate: InternalBridgeCandidate,
@@ -178,19 +170,6 @@ export function simulateInternalBridge(
     + pathGain
     + newBrokerIds.length * 0.5;
 
-  const interpretation = [
-    'Counterfactual only; no relationship or outcome is predicted.',
-    componentDelta < 0
-      ? `could connect ${Math.abs(componentDelta)} currently separate graph component${Math.abs(componentDelta) === 1 ? '' : 's'}`
-      : 'does not merge currently separate graph components',
-    largestComponentDelta > 0.01
-      ? `largest connected component increases by ${Math.round(largestComponentDelta * 100)} percentage points`
-      : 'largest-component reach is materially unchanged',
-    bridgeCandidateDelta < 0
-      ? `${Math.abs(bridgeCandidateDelta)} structural-hole candidate${Math.abs(bridgeCandidateDelta) === 1 ? '' : 's'} disappear after the hypothetical edge`
-      : `${Math.max(0, bridgeCandidateDelta)} new structural-hole candidates emerge after re-partitioning`,
-  ];
-
   return {
     candidate,
     baseline,
@@ -204,7 +183,18 @@ export function simulateInternalBridge(
     sourceTargetCostBefore: beforeCost,
     sourceTargetCostAfter: afterCost,
     impactScore,
-    interpretation,
+    interpretation: [
+      'Counterfactual only; no relationship or outcome is predicted.',
+      componentDelta < 0
+        ? `could connect ${Math.abs(componentDelta)} currently separate graph component${Math.abs(componentDelta) === 1 ? '' : 's'}`
+        : 'does not merge currently separate graph components',
+      largestComponentDelta > 0.01
+        ? `largest connected component increases by ${Math.round(largestComponentDelta * 100)} percentage points`
+        : 'largest-component reach is materially unchanged',
+      bridgeCandidateDelta < 0
+        ? `${Math.abs(bridgeCandidateDelta)} structural-hole candidate${Math.abs(bridgeCandidateDelta) === 1 ? '' : 's'} disappear after the hypothetical edge`
+        : `${Math.max(0, bridgeCandidateDelta)} new structural-hole candidates emerge after re-partitioning`,
+    ],
   };
 }
 
@@ -233,17 +223,6 @@ export function simulateInternalNodeRemoval(
     + Math.log2(1 + metric.brokerScore) * 1.8
     + Math.log2(1 + metric.weightedDegree);
 
-  const interpretation = [
-    'Resilience simulation only; it measures topology dependence, not personal importance.',
-    componentIncrease > 0
-      ? `removal increases connected components by ${componentIncrease}`
-      : 'removal does not split the graph into additional components',
-    largestComponentLoss > 0.02
-      ? `largest connected component loses ${Math.round(largestComponentLoss * 100)}% of its remaining reach`
-      : 'largest-component reach is relatively resilient to this removal',
-    `${removedEdgeCount} evidence edge${removedEdgeCount === 1 ? '' : 's'} depend directly on this node`,
-  ];
-
   return {
     nodeId,
     baseline,
@@ -254,13 +233,22 @@ export function simulateInternalNodeRemoval(
     brokerScore: metric.brokerScore,
     weightedDegree: metric.weightedDegree,
     riskScore,
-    interpretation,
+    interpretation: [
+      'Resilience simulation only; topology dependence is not a ranking of human worth, trust, or personal importance.',
+      componentIncrease > 0
+        ? `removal increases connected components by ${componentIncrease}`
+        : 'removal does not split the graph into additional components',
+      largestComponentLoss > 0.02
+        ? `largest connected component loses ${Math.round(largestComponentLoss * 100)}% of its remaining reach`
+        : 'largest-component reach is relatively resilient to this removal',
+      `${removedEdgeCount} evidence edge${removedEdgeCount === 1 ? '' : 's'} depend directly on this node`,
+    ],
   };
 }
 
 /**
- * Ranks topology concentration risk over existing hubs/brokers. This is not a
- * ranking of human worth or trust; it identifies where the graph itself is brittle.
+ * Ranks topology concentration risk over existing hubs/brokers. This is not a ranking of human worth or trust;
+ * it identifies where the graph itself is brittle.
  */
 export function rankInternalGraphResilienceRisks(
   payload: InternalGraphPayload,
