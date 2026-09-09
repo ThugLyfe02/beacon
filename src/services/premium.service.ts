@@ -1,6 +1,6 @@
 // =============================================================================
 // premium.service.ts
-// Premium tier + GPS proximity. Wraps the migration 006 fields and RPCs.
+// Premium state, discoverability, and event-scoped proximity publication.
 // =============================================================================
 
 import { supabase } from '../lib/supabase';
@@ -28,19 +28,11 @@ export async function getPremiumStatus(userId: string): Promise<{
 }
 
 /**
- * DEV STUB: toggle current user's premium status without payments.
- * Replace with payment-webhook-driven flow before launch.
+ * Legacy development entry point retained only so older dev UI fails explicitly.
+ * The database permanently denies self-service premium mutation.
  */
-export async function setPremiumDev(isPremium: boolean): Promise<UserRow> {
-  const { data, error } = await supabase.rpc('set_premium_dev', {
-    p_is_premium: isPremium,
-  });
-  if (error) {
-    console.error('[premium.service] set_premium_dev error:', error);
-    throw new Error('Could not update premium status');
-  }
-  // The Postgres function returns SETOF users; Supabase wraps as array of one.
-  return Array.isArray(data) ? data[0] : (data as UserRow);
+export async function setPremiumDev(_isPremium: boolean): Promise<UserRow> {
+  throw new Error('Self-service premium mutation is disabled. Premium must come from a trusted server workflow.');
 }
 
 export async function setDiscoverable(
@@ -57,22 +49,25 @@ export async function setDiscoverable(
   }
 }
 
+/**
+ * Publishes a precise self-location only through the database's event-scoped
+ * privacy boundary. The caller's user ID is derived from auth.uid() server-side.
+ */
 export async function pushMyLocation(
-  userId: string,
+  eventId: string,
   lat: number,
   lng: number
-): Promise<void> {
-  const { error } = await supabase
-    .from('users')
-    .update({
-      last_known_lat: lat,
-      last_known_lng: lng,
-      last_location_at: new Date().toISOString(),
-    })
-    .eq('id', userId);
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('publish_event_location', {
+    p_event_id: eventId,
+    p_latitude: lat,
+    p_longitude: lng,
+  });
   if (error) {
-    console.error('[premium.service] pushMyLocation error:', error);
+    console.warn('[premium.service] event location publication rejected:', error.message);
+    return false;
   }
+  return Boolean(data);
 }
 
 export async function getNearbyPremium(
