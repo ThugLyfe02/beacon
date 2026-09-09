@@ -102,7 +102,7 @@ export interface PostRow {
   id: UUID;
   author_id: UUID;
   event_id: UUID | null;
-  body: TEXT;
+  body: string;
   image_path: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
