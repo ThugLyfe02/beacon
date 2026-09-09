@@ -11,12 +11,8 @@ const read = (path) => {
   }
   return readFileSync(absolute, 'utf8');
 };
-const requireText = (path, text, why) => {
-  if (!read(path).includes(text)) failures.push(`${path}: ${why}`);
-};
-const forbidText = (path, text, why) => {
-  if (read(path).includes(text)) failures.push(`${path}: ${why}`);
-};
+const requireText = (path, text, why) => { if (!read(path).includes(text)) failures.push(`${path}: ${why}`); };
+const forbidText = (path, text, why) => { if (read(path).includes(text)) failures.push(`${path}: ${why}`); };
 
 const files = [
   'supabase/migrations/049_internal_graph_temporal_strategy_and_exports.sql',
@@ -27,8 +23,10 @@ const files = [
   'src/admin/InternalGraphExportService.ts',
   'src/admin/InternalGraphStrategyEngine.ts',
   'src/admin/InternalGraphSimulationEngine.ts',
+  'src/admin/InternalGraphTransformEngine.ts',
   'src/screens/InternalStrategyLabScreen.tsx',
   'src/screens/InternalSimulationLabScreen.tsx',
+  'src/screens/InternalTransformLabScreen.tsx',
   'src/services/networkPulse.service.ts',
   'src/components/NetworkPulseCard.tsx',
   'src/screens/ProfileScreen.tsx',
@@ -103,6 +101,19 @@ for (const [text, why] of [
 forbidText('src/admin/InternalGraphSimulationEngine.ts', 'supabase', 'counterfactual simulation must remain in-memory and non-persistent');
 
 for (const [text, why] of [
+  ['runInternalNodeTransforms', 'Maltego-style transforms must remain available'],
+  ['relationship_ladder', 'relationship-depth pivot must remain available'],
+  ['shared_context', 'context pivot must remain available'],
+  ['entity_pivot', 'reverse entity-to-people pivot must remain available'],
+  ['bridge_pivot', 'cross-community pivot must remain available'],
+  ['temporal_evidence', 'time-aware transform must remain available'],
+  ['buildInternalEvidenceTimeline', 'provenance timeline must remain available'],
+  ['expandInternalTransformNeighborhood', 'bounded multi-hop transform expansion must remain available'],
+]) requireText('src/admin/InternalGraphTransformEngine.ts', text, why);
+forbidText('src/admin/InternalGraphTransformEngine.ts', 'fetch(', 'transforms must not become external identity lookup');
+forbidText('src/admin/InternalGraphTransformEngine.ts', 'supabase', 'transform engine must remain a pure analysis layer');
+
+for (const [text, why] of [
   ['AGENT MISSION QUEUE', 'operator strategy cockpit must expose orchestrated missions'],
   ['EVENT-TO-EVENT GRAPH DRIFT', 'drift must be inspectable by operators'],
   ['TARGET ECOSYSTEM PATHFINDER', 'target ecosystem paths must be inspectable'],
@@ -118,10 +129,15 @@ for (const [text, why] of [
 ]) requireText('src/screens/InternalSimulationLabScreen.tsx', text, why);
 
 for (const [text, why] of [
-  ["rpc('get_my_network_pulse'", 'normal preview must use only the self-scoped RPC'],
-]) requireText('src/services/networkPulse.service.ts', text, why);
-forbidText('src/services/networkPulse.service.ts', '../admin/', 'normal Network Pulse service must not import operator intelligence');
+  ['TRANSFORM ENGINE', 'Transform Lab must be explicit operator tooling'],
+  ['Maltego-style pivots over first-party Beacon evidence', 'Transform Lab must preserve its non-scraping boundary'],
+  ['TRANSFORM PALETTE', 'transform results must be surfaced'],
+  ['MULTI-HOP EXPANSION', 'bounded transform expansion must be surfaced'],
+  ['EVIDENCE TIMELINE', 'first/last seen provenance must be surfaced'],
+]) requireText('src/screens/InternalTransformLabScreen.tsx', text, why);
 
+requireText('src/services/networkPulse.service.ts', "rpc('get_my_network_pulse'", 'normal preview must use only the self-scoped RPC');
+forbidText('src/services/networkPulse.service.ts', '../admin/', 'normal Network Pulse service must not import operator intelligence');
 for (const [text, why] of [
   ['NETWORK PULSE · YOUR VIEW', 'normal users must receive a clearly self-scoped preview'],
   ['The deeper Constellation system is not exposed here', 'preview boundary must be transparent'],
@@ -130,7 +146,7 @@ forbidText('src/components/NetworkPulseCard.tsx', 'brokerScore', 'normal preview
 forbidText('src/components/NetworkPulseCard.tsx', 'bridgeCandidates', 'normal preview must not expose structural-hole recommendations');
 forbidText('src/components/NetworkPulseCard.tsx', 'InternalGraph', 'normal preview component must not import/render operator graph data');
 
-for (const route of ['InternalGraph', 'InternalBridgeLab', 'InternalStrategyLab', 'InternalSimulationLab']) {
+for (const route of ['InternalGraph', 'InternalBridgeLab', 'InternalStrategyLab', 'InternalSimulationLab', 'InternalTransformLab']) {
   requireText('src/navigation/RootNavigator.tsx', `name="${route}"`, `${route} must remain registered`);
 }
 requireText('src/screens/ProfileScreen.tsx', '{isSelf ? <NetworkPulseCard /> : null}', 'Network Pulse must remain self-profile-only');
@@ -142,4 +158,4 @@ if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
-console.log('Constellation strategy, simulation, export, agent, and Network Pulse boundary passed.');
+console.log('Constellation strategy, simulation, transform, export, agent, and Network Pulse boundary passed.');
