@@ -34,6 +34,8 @@ import InternalTransformLabScreen from '../screens/InternalTransformLabScreen';
 import InternalEpochLabScreen from '../screens/InternalEpochLabScreen';
 import InternalCasebookScreen from '../screens/InternalCasebookScreen';
 import InternalPatternLabScreen from '../screens/InternalPatternLabScreen';
+import InternalForensicsLabScreen from '../screens/InternalForensicsLabScreen';
+import InternalOperatorHubScreen from '../screens/InternalOperatorHubScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
 import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
@@ -191,7 +193,9 @@ export function RootNavigator() {
         </Stack.Screen>
 
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="InternalOperatorHub" component={InternalOperatorHubScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalGraph" component={InternalGraphScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalForensicsLab" component={InternalForensicsLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalBridgeLab" component={InternalBridgeLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalStrategyLab" component={InternalStrategyLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalSimulationLab" component={InternalSimulationLabScreen} options={internalModalOptions} />
