@@ -68,5 +68,8 @@ jobs:
       - name: Decision admission contract
         run: node scripts/validate-constellation-decision-admission.mjs
 
+      - name: Cognitive workbench contract
+        run: node scripts/validate-constellation-cognitive-workbench.mjs
+
       - name: Strategy/privacy boundary
         run: node scripts/validate-constellation-strategy.mjs
