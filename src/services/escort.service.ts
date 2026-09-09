@@ -103,10 +103,11 @@ export async function assignRoom(
   if (error) throw new Error(error.message);
 
   // Push notification remains best effort; assignment truth is already committed
-  // atomically in Postgres before this side effect is attempted.
+  // atomically in Postgres. The edge function derives the room from that database
+  // assignment and never trusts client-supplied room metadata.
   try {
     await supabase.functions.invoke('escort-notify', {
-      body: { officeHoursRequestId, roomId },
+      body: { officeHoursRequestId },
     });
   } catch (error) {
     console.warn('[escort.service] escort-notify failed:', error);
