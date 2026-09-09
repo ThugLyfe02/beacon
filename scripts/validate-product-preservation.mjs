@@ -42,6 +42,7 @@ const protectedFiles = [
   'src/spatial/SpatialFieldScreen.tsx',
   'src/spatial/ARFieldScreen.tsx',
   'src/screens/ChooseAvatarScreen.tsx',
+  'src/components/OutcomeHandshakeCard.tsx',
   'src/services/event.service.ts',
   'src/services/match.service.ts',
   'src/services/officeHours.service.ts',
@@ -109,9 +110,19 @@ requireAll('src/services/officeHours.service.ts', [
 
 requireAll('src/services/outcome-handshake.service.ts', [
   'propose_outcome_handshake',
-  'complete_outcome_handshake',
+  'get_outcome_handshake_commit_state',
+  'confirm_outcome_handshake',
   'recordDecisionProvenance',
-], 'Outcome privacy and provenance regression');
+], 'Outcome privacy, two-party confirmation, and provenance regression');
+forbidAll('src/services/outcome-handshake.service.ts', [
+  "rpc('complete_outcome_handshake'",
+], 'Legacy one-party outcome completion regression');
+
+requireAll('src/components/OutcomeHandshakeCard.tsx', [
+  'Confirm my side',
+  'Your confirmation is sealed',
+  'Two-party outcome confirmed',
+], 'Two-party outcome UX regression');
 
 requireAll('src/config/featureFlags.ts', [
   'vault: true',
@@ -124,7 +135,7 @@ requireAll('src/config/featureFlags.ts', [
 const migrations = fs.readdirSync(path.join(root, 'supabase/migrations'));
 const requiredMigrationPrefixes = [
   '019_', '020_', '021_', '022_', '023_', '024_', '025_', '026_',
-  '027_', '028_', '029_', '030_', '031_', '032_', '033_', '034_',
+  '027_', '028_', '029_', '030_', '031_', '032_', '033_', '034_', '035_',
 ];
 for (const prefix of requiredMigrationPrefixes) {
   if (!migrations.some((file) => file.startsWith(prefix))) {
