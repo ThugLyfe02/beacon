@@ -77,17 +77,21 @@ requireAll('src/screens/EventLobbyScreen.tsx', [
 
 requireAll('src/services/event.service.ts', [
   'export async function createEvent',
+  "rpc('create_hosted_event'",
   'export async function updateEvent',
+  'export async function setEventAccessCode',
   'export async function getEventByCode',
   'export async function getUserEvents',
   'export async function getHostedEvent',
   'eventPriority',
-  'latitude: eventData.latitude ?? null',
+  'p_latitude: eventData.latitude ?? null',
   ".is('finalized_at', null)",
 ], 'Event lifecycle regression');
 forbidAll('src/services/event.service.ts', [
   'export async function deleteEvent',
-], 'Destructive event lifecycle regression');
+  ".from('events')\n      .insert",
+  ".from('event_participants')\n      .insert",
+], 'Destructive or non-atomic event lifecycle regression');
 
 requireAll('src/services/outcome-intelligence.service.ts', [
   'export async function finalizeHostedEvent',
@@ -124,6 +128,12 @@ requireAll('src/components/OutcomeHandshakeCard.tsx', [
   'Two-party outcome confirmed',
 ], 'Two-party outcome UX regression');
 
+requireAll('src/types/database.ts', [
+  'export type EventInsert = never',
+  'export type EventParticipantInsert = never',
+  'export type ConnectionRequestInsert = never',
+], 'RPC-only mutation type contract regression');
+
 requireAll('src/config/featureFlags.ts', [
   'vault: true',
   'signalScarcity: true',
@@ -136,6 +146,7 @@ const migrations = fs.readdirSync(path.join(root, 'supabase/migrations'));
 const requiredMigrationPrefixes = [
   '019_', '020_', '021_', '022_', '023_', '024_', '025_', '026_',
   '027_', '028_', '029_', '030_', '031_', '032_', '033_', '034_', '035_',
+  '036_', '037_',
 ];
 for (const prefix of requiredMigrationPrefixes) {
   if (!migrations.some((file) => file.startsWith(prefix))) {
