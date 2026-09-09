@@ -40,10 +40,15 @@ const protectedFiles = [
   'src/screens/OfficeHoursCallScreen.tsx',
   'src/screens/HostManagementScreen.tsx',
   'src/screens/EscortPanelScreen.tsx',
+  'src/screens/InternalGraphScreen.tsx',
   'src/spatial/SpatialFieldScreen.tsx',
   'src/spatial/ARFieldScreen.tsx',
   'src/screens/ChooseAvatarScreen.tsx',
   'src/components/OutcomeHandshakeCard.tsx',
+  'src/admin/InternalGraphEngine.ts',
+  'src/admin/InternalGraphCanvas.tsx',
+  'src/admin/internalGraph.service.ts',
+  'src/admin/useInternalOperator.ts',
   'src/services/event.service.ts',
   'src/services/match.service.ts',
   'src/services/officeHours.service.ts',
@@ -181,6 +186,33 @@ requireAll('src/components/OutcomeHandshakeCard.tsx', [
   'Two-party outcome confirmed',
 ], 'Two-party outcome UX regression');
 
+requireAll('src/admin/internalGraph.service.ts', [
+  "rpc('get_internal_operator_context'",
+  "rpc('get_internal_intelligence_graph'",
+  "rpc('add_internal_graph_assertion'",
+], 'Exclusive intelligence service regression');
+
+requireAll('src/admin/InternalGraphEngine.ts', [
+  'detectInternalGraphCommunities',
+  'findInternalGraphPath',
+  'diffInternalGraphs',
+  'brokerScore',
+  'bridgeCandidates',
+], 'Constellation graph-analysis regression');
+
+requireAll('src/screens/InternalGraphScreen.tsx', [
+  'Constellation',
+  'STRUCTURAL-HOLE BRIDGES',
+  'SURPRISING CONNECTIONS',
+  'BRIDGE BUILDER',
+  'RETENTION CONTRACT',
+], 'Exclusive operator workbench regression');
+
+requireAll('src/screens/ProfileScreen.tsx', [
+  'CONSTELLATION',
+  "internalOperator.has('graph_read')",
+], 'Operator-only Constellation entry regression');
+
 requireAll('src/types/database.ts', [
   'export type EventInsert = never',
   'export type EventParticipantInsert = never',
@@ -199,7 +231,8 @@ const migrations = fs.readdirSync(path.join(root, 'supabase/migrations'));
 const requiredMigrationPrefixes = [
   '019_', '020_', '021_', '022_', '023_', '024_', '025_', '026_',
   '027_', '028_', '029_', '030_', '031_', '032_', '033_', '034_', '035_',
-  '036_', '037_', '038_', '039_', '040_', '041_', '042_', '043_',
+  '036_', '037_', '038_', '039_', '040_', '041_', '042_', '043_', '044_',
+  '045_', '046_',
 ];
 for (const prefix of requiredMigrationPrefixes) {
   if (!migrations.some((file) => file.startsWith(prefix))) {
