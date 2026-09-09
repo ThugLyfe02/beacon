@@ -54,11 +54,7 @@ for (const [text, explanation] of [
   ['graph_restricted', 'restricted safety topology must require a separate capability'],
 ]) requireText('supabase/migrations/045_internal_intelligence_graph_core.sql', text, explanation);
 
-forbidText(
-  'supabase/migrations/045_internal_intelligence_graph_core.sql',
-  '@',
-  'operator bootstrap must not hardcode personal addresses in the migration',
-);
+forbidText('supabase/migrations/045_internal_intelligence_graph_core.sql', '@', 'operator bootstrap must not hardcode personal addresses in the migration');
 
 for (const [text, explanation] of [
   ['refresh_internal_intelligence_graph', 'the graph must adapt from current Beacon source tables'],
@@ -80,12 +76,15 @@ for (const [text, explanation] of [
   ['internal_graph_bridge_watches', 'bridge learning must remain explicit and bounded'],
   ['observed_stage', 'bridge calibration needs monotonic downstream evidence'],
   ['correlation', 'bridge feedback must preserve a non-causal attribution boundary'],
+  ['get_internal_bridge_suppressions', 'block safety must be independent of restricted visualization mode'],
+  ['user_blocks', 'bridge suppressions must derive from authoritative block state'],
+  ['A block is a hard bridge-suppression boundary', 'watch creation itself must reject blocked pairs'],
 ]) requireText('supabase/migrations/047_internal_bridge_feedback_loop.sql', text, explanation);
 
 for (const [text, explanation] of [
-  ['get_internal_bridge_suppressions', 'block safety must be independent of restricted visualization mode'],
-  ['user_blocks', 'bridge suppressions must derive from authoritative block state'],
   ['delete from public.internal_graph_bridge_watches', 'later blocks must invalidate watched introductions'],
+  ['blocked-pair watches are purged', 'hardening must document post-watch block invalidation'],
+  ['event_scope', 'global watches must remain idempotent despite NULL event ids'],
 ]) requireText('supabase/migrations/048_internal_bridge_feedback_hardening.sql', text, explanation);
 
 for (const [text, explanation] of [
@@ -143,8 +142,6 @@ for (const [text, explanation] of [
   ['RETENTION CONTRACT', 'operators need visible retention semantics'],
 ]) requireText('src/screens/InternalGraphScreen.tsx', text, explanation);
 
-// Ban actual direct PII field usage rather than explanatory privacy copy such as
-// "does not store addresses".
 forbidText('src/screens/InternalGraphScreen.tsx', '.email', 'operator graph UI must not access person address fields');
 forbidText('src/screens/InternalGraphScreen.tsx', "['email']", 'operator graph UI must not access person address fields');
 forbidText('src/screens/InternalGraphScreen.tsx', 'last_known_lat', 'operator graph UI must not expose raw peer latitude');
