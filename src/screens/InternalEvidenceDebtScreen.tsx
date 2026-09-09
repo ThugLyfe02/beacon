@@ -13,6 +13,7 @@ import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@r
 import { analyzeInternalGraph } from '../admin/InternalGraphEngine';
 import { analyzeInternalEvidenceDebt } from '../admin/InternalEvidenceDebtEngine';
 import { buildInternalTargetRoutingPortfolio } from '../admin/InternalTargetRoutingEngine';
+import { simulateInternalValueOfInformation } from '../admin/InternalValueOfInformationEngine';
 import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
@@ -40,6 +41,7 @@ export default function InternalEvidenceDebtScreen() {
   const [suppressions, setSuppressions] = useState<Set<string> | null>(null);
   const [targetQuery, setTargetQuery] = useState('');
   const [sourceNodeId, setSourceNodeId] = useState<string | null>(null);
+  const [selectedDebtId, setSelectedDebtId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -92,6 +94,25 @@ export default function InternalEvidenceDebtScreen() {
     [payload, routing],
   );
 
+  const selectedDebt = useMemo(
+    () => report?.items.find((item) => item.id === selectedDebtId) ?? null,
+    [report, selectedDebtId],
+  );
+
+  const informationValue = useMemo(
+    () => payload && suppressions && selectedDebt
+      ? simulateInternalValueOfInformation({
+          payload,
+          debt: selectedDebt,
+          sourceNodeId,
+          targetQuery: targetQuery.trim() || null,
+          patterns,
+          suppressions,
+        })
+      : null,
+    [payload, suppressions, selectedDebt, sourceNodeId, targetQuery, patterns],
+  );
+
   if (operator.loading || loading) {
     return <View style={styles.centered}><GridBackground /><ActivityIndicator color={palette.accent} size="large" /><NeonText variant="label" tone="accent" style={{ marginTop: spacing.md }}>CALCULATING EVIDENCE DEBT</NeonText></View>;
   }
@@ -109,7 +130,7 @@ export default function InternalEvidenceDebtScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · VERIFICATION QUEUE" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Evidence Debt</NeonText>
-              <NeonText variant="bodyMuted">Rank the uncertainty whose resolution would most improve graph-level analytical authority. No people are scored; no external enrichment is required.</NeonText>
+              <NeonText variant="bodyMuted">Rank uncertainty by analytical leverage, then bracket confirm-vs-disconfirm scenarios before spending analyst time. No people are scored; no external enrichment is required.</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -139,6 +160,37 @@ export default function InternalEvidenceDebtScreen() {
             {routing ? <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{routing.routes.length} routes · {Math.round(routing.routeDiversity * 100)}% diversity · {routing.structuralSinglePointNodeIds.length} shared bottlenecks</NeonText> : null}
           </Surface>
 
+          {selectedDebt && informationValue ? (
+            <Surface elevated padded style={styles.voiCard}>
+              <View style={styles.rowBetween}>
+                <View style={{ flex: 1 }}>
+                  <Pill label="COUNTERFACTUAL · VALUE OF INFORMATION" tone="accent" dot />
+                  <NeonText variant="h1" style={{ marginTop: spacing.sm }}>{selectedDebt.title}</NeonText>
+                </View>
+                <Pressable onPress={() => setSelectedDebtId(null)}><NeonText variant="label" tone="muted">CLEAR</NeonText></Pressable>
+              </View>
+              <View style={styles.metricRow}>
+                <Metric label="INFO VALUE" value={`${Math.round(informationValue.informationValue * 100)}%`} />
+                <Metric label="SENSITIVITY" value={`${Math.round(informationValue.sensitivitySpan * 100)}%`} />
+                <Metric label="SIMULATABLE" value={informationValue.simulatable ? 'YES' : 'NO'} />
+              </View>
+              {informationValue.conclusionSensitivity.map((line, index) => <NeonText key={`voi-s-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {line}</NeonText>)}
+              {informationValue.confirmation ? (
+                <Surface padded style={styles.scenarioCard}>
+                  <Pill label="IF FIRST-PARTY EVIDENCE CONFIRMS IT" tone="accent" />
+                  {informationValue.confirmation.summary.map((line, index) => <NeonText key={`confirm-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {line}</NeonText>)}
+                </Surface>
+              ) : null}
+              {informationValue.disconfirmation ? (
+                <Surface padded style={styles.scenarioCard}>
+                  <Pill label="IF THE WEAK EVIDENCE IS DISPROVED / REMOVED" tone="neutral" />
+                  {informationValue.disconfirmation.summary.map((line, index) => <NeonText key={`disconfirm-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {line}</NeonText>)}
+                </Surface>
+              ) : null}
+              <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{informationValue.operatingRule}</NeonText>
+            </Surface>
+          ) : null}
+
           <View style={styles.actionRow}>
             <GlowButton label="Forensics" variant="ghost" onPress={() => navigation.navigate('InternalForensicsLab', { eventId: eventId ?? undefined })} />
             <GlowButton label="Evidence Lens" variant="ghost" onPress={() => navigation.navigate('InternalPerspectiveLab', { eventId: eventId ?? undefined })} />
@@ -148,9 +200,9 @@ export default function InternalEvidenceDebtScreen() {
 
           <View style={styles.section}>
             <NeonText variant="label" tone="accent">VERIFICATION PRIORITY QUEUE</NeonText>
-            <NeonText variant="bodyMuted">Highest-leverage uncertainty first. Expected authority gain is a graph-method heuristic, not a guarantee.</NeonText>
+            <NeonText variant="bodyMuted">Highest-leverage uncertainty first. Expected authority gain is a graph-method heuristic, not a guarantee. Counterfactual simulation is opt-in per item.</NeonText>
             {report.items.map((item, index) => (
-              <Surface key={item.id} elevated padded style={styles.debtCard}>
+              <Surface key={item.id} elevated padded style={[styles.debtCard, selectedDebtId === item.id ? styles.selectedBorder : null]}>
                 <View style={styles.rowBetween}>
                   <View style={{ flex: 1 }}>
                     <Pill label={`P${index + 1} · ${item.kind.replaceAll('_', ' ').toUpperCase()}`} tone={item.priority >= 7 ? 'accent' : 'neutral'} dot={item.priority >= 7} />
@@ -165,7 +217,10 @@ export default function InternalEvidenceDebtScreen() {
                 {item.reasons.slice(0, 4).map((reason, reasonIndex) => <NeonText key={`${item.id}-r-${reasonIndex}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
                 {item.remediation.slice(0, 4).map((step, stepIndex) => <NeonText key={`${item.id}-m-${stepIndex}`} variant="body" style={{ marginTop: 4 }}>→ {step}</NeonText>)}
                 {item.nodeIds.length > 0 ? <NeonText variant="label" tone="muted" style={{ marginTop: spacing.sm }}>{[...new Set(item.nodeIds)].slice(0, 6).map((id) => nodeLabel(payload, id)).join(' · ')}</NeonText> : null}
-                <GlowButton label="Open remediation surface" variant="ghost" onPress={() => navigation.navigate(item.recommendedSurface, { eventId: eventId ?? undefined })} />
+                <View style={styles.actionRow}>
+                  <GlowButton label="Estimate information value" variant="ghost" onPress={() => setSelectedDebtId(item.id)} />
+                  <GlowButton label="Open remediation surface" variant="ghost" onPress={() => navigation.navigate(item.recommendedSurface, { eventId: eventId ?? undefined })} />
+                </View>
               </Surface>
             ))}
             {report.items.length === 0 ? <NeonText variant="bodyMuted">No meaningful evidence debt detected in the current authorized graph.</NeonText> : null}
@@ -191,10 +246,13 @@ const styles = StyleSheet.create({
   metric: { minWidth: 132, flexGrow: 1, borderRadius: radii.lg, borderColor: palette.hairline },
   ruleCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   objectiveCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong, gap: spacing.sm },
+  voiCard: { borderRadius: radii.xl, borderColor: palette.accent, gap: spacing.sm },
+  scenarioCard: { borderRadius: radii.lg, borderColor: palette.hairline },
   input: { borderWidth: 1, borderColor: palette.hairlineStrong, borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: palette.text, backgroundColor: 'rgba(15,23,42,0.72)' },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   section: { gap: spacing.sm },
   debtCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong, gap: 3 },
+  selectedBorder: { borderColor: palette.accent },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm },
   scoreBlock: { alignItems: 'flex-end', gap: 2 },
 });
