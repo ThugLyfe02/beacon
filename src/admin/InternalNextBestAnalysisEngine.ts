@@ -18,7 +18,9 @@ export type InternalAnalysisDestination =
   | 'InternalHandoffLab'
   | 'InternalAgenticTimeline'
   | 'InternalDecisionCalibration'
-  | 'InternalDecisionRetrospective';
+  | 'InternalDecisionRetrospective'
+  | 'InternalReasoningLineage'
+  | 'InternalReasoningRevalidation';
 
 export interface InternalNextAnalysisAction {
   id: string;
