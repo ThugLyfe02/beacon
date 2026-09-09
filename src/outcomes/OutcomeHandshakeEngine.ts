@@ -40,6 +40,9 @@ export interface OutcomeHandshakeState {
   counterpartIntent: OutcomeIntent | null;
   activationType: OutcomeActivationType | null;
   expiresAt: number | null;
+  ownConfirmed: boolean;
+  counterpartConfirmed: boolean;
+  confirmationCount: number;
 }
 
 export interface OutcomeIntentOption {
@@ -53,7 +56,7 @@ export interface OutcomeHandshakeEvaluation {
   state: OutcomeHandshakeState;
   headline: string;
   explanation: string;
-  primaryAction: 'choose_intent' | 'wait' | 'confirm_next_step' | 'mark_complete' | 'none';
+  primaryAction: 'choose_intent' | 'wait' | 'confirm_next_step' | 'wait_for_confirmation' | 'none';
   urgency: 'calm' | 'active' | 'closing';
   remainingMinutes: number | null;
 }
@@ -182,10 +185,25 @@ export function evaluateOutcomeHandshake(
     : Math.max(0, Math.ceil((state.expiresAt - now) / 60000));
 
   if (state.status === 'aligned') {
+    if (state.ownConfirmed) {
+      return {
+        state,
+        headline: state.counterpartConfirmed ? 'Both confirmations received' : 'Your side is confirmed',
+        explanation: state.counterpartConfirmed
+          ? 'Both participants independently confirmed the real-world next step. Beacon is sealing the shared outcome.'
+          : 'Your confirmation is sealed. The shared outcome remains aligned until the counterpart independently confirms their side.',
+        primaryAction: 'wait_for_confirmation',
+        urgency: remainingMinutes != null && remainingMinutes <= 180 ? 'closing' : 'active',
+        remainingMinutes,
+      };
+    }
+
     return {
       state,
       headline: getActivationLabel(state.activationType),
-      explanation: 'Both sides independently selected compatible next steps. Beacon revealed the alignment only after mutual intent existed.',
+      explanation: state.counterpartConfirmed
+        ? 'The counterpart has already confirmed this aligned next step. Your independent confirmation will complete the shared outcome.'
+        : 'Both sides independently selected compatible next steps. Beacon revealed the alignment only after mutual intent existed.',
       primaryAction: 'confirm_next_step',
       urgency: remainingMinutes != null && remainingMinutes <= 180 ? 'closing' : 'active',
       remainingMinutes,
@@ -196,7 +214,7 @@ export function evaluateOutcomeHandshake(
     return {
       state,
       headline: 'Outcome completed',
-      explanation: 'This mutual produced a confirmed real-world next step.',
+      explanation: 'Both participants independently confirmed this real-world next step.',
       primaryAction: 'none',
       urgency: 'calm',
       remainingMinutes,
@@ -218,7 +236,7 @@ export function evaluateOutcomeHandshake(
     return {
       state: { ...state, status: 'expired' },
       headline: 'Outcome window closed',
-      explanation: 'The private alignment window expired without a compatible reciprocal intent.',
+      explanation: 'The private alignment window expired without a completed reciprocal confirmation.',
       primaryAction: 'none',
       urgency: 'calm',
       remainingMinutes: 0,
