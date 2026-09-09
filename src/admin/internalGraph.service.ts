@@ -4,6 +4,8 @@ import type {
   InternalGraphPayload,
 } from './InternalGraphEngine';
 import type { InternalBridgePattern } from './InternalGraphStrategyEngine';
+import { applyInternalGraphEntityAliases } from './InternalGraphCanonicalizationEngine';
+import { loadInternalGraphEntityAliasState } from './internalGraphEntityResolution.service';
 
 export type InternalGraphCapability =
   | 'graph_read'
@@ -141,17 +143,21 @@ export async function loadInternalIntelligenceGraph(input: {
   includeRestricted?: boolean;
   limit?: number;
 } = {}): Promise<InternalGraphPayload> {
-  const { data, error } = await supabase.rpc('get_internal_intelligence_graph', {
-    p_event_id: input.eventId ?? null,
-    p_include_restricted: input.includeRestricted ?? false,
-    p_limit: Math.max(20, Math.min(input.limit ?? 900, 2000)),
-  });
+  const [graphResult, aliasState] = await Promise.all([
+    supabase.rpc('get_internal_intelligence_graph', {
+      p_event_id: input.eventId ?? null,
+      p_include_restricted: input.includeRestricted ?? false,
+      p_limit: Math.max(20, Math.min(input.limit ?? 900, 2000)),
+    }),
+    loadInternalGraphEntityAliasState(),
+  ]);
 
-  if (error || !data) {
-    console.error('[internalGraph.service] graph load:', error);
-    throw new Error(error?.message ?? 'Unable to load internal intelligence graph.');
+  if (graphResult.error || !graphResult.data) {
+    console.error('[internalGraph.service] graph load:', graphResult.error);
+    throw new Error(graphResult.error?.message ?? 'Unable to load internal intelligence graph.');
   }
-  return normalizeGraphPayload(data);
+  const raw = normalizeGraphPayload(graphResult.data);
+  return applyInternalGraphEntityAliases(raw, aliasState.aliases, aliasState.canonicalizationVersion);
 }
 
 export async function loadInternalGraphEventSequence(limit = 36): Promise<InternalGraphEventSequence> {
@@ -226,16 +232,20 @@ export async function loadInternalGraphExportPayload(input: {
   includeRestricted?: boolean;
   limit?: number;
 } = {}): Promise<InternalGraphPayload> {
-  const { data, error } = await supabase.rpc('get_internal_graph_export_payload', {
-    p_event_id: input.eventId ?? null,
-    p_include_restricted: input.includeRestricted ?? false,
-    p_limit: Math.max(20, Math.min(input.limit ?? 1800, 2000)),
-  });
-  if (error || !data) {
-    console.error('[internalGraph.service] export payload:', error);
-    throw new Error(error?.message ?? 'Unable to load graph export payload.');
+  const [graphResult, aliasState] = await Promise.all([
+    supabase.rpc('get_internal_graph_export_payload', {
+      p_event_id: input.eventId ?? null,
+      p_include_restricted: input.includeRestricted ?? false,
+      p_limit: Math.max(20, Math.min(input.limit ?? 1800, 2000)),
+    }),
+    loadInternalGraphEntityAliasState(),
+  ]);
+  if (graphResult.error || !graphResult.data) {
+    console.error('[internalGraph.service] export payload:', graphResult.error);
+    throw new Error(graphResult.error?.message ?? 'Unable to load graph export payload.');
   }
-  return normalizeGraphPayload(data);
+  const raw = normalizeGraphPayload(graphResult.data);
+  return applyInternalGraphEntityAliases(raw, aliasState.aliases, aliasState.canonicalizationVersion);
 }
 
 export async function getInternalBridgeSuppressions(): Promise<Set<string>> {
