@@ -113,7 +113,9 @@ export default function InternalPatternLabScreen() {
             {model.patterns.map((pattern, index) => (
               <Surface key={pattern.connectorKind} elevated padded style={styles.patternCard}>
                 <View style={styles.rowBetween}>
-                  <View style={styles.rank}>{index + 1}</View>
+                  <View style={styles.rank}>
+                    <NeonText variant="label" tone="accent">{index + 1}</NeonText>
+                  </View>
                   <View style={{ flex: 1 }}>
                     <NeonText variant="h2">{pattern.connectorKind.replaceAll('_', ' ')}</NeonText>
                     <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
