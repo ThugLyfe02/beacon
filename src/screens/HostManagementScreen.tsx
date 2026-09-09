@@ -267,22 +267,15 @@ export default function HostManagementScreen({
           {event.name}
         </NeonText>
         {!liveWindowEnded ? (
-          <View style={styles.codeRow}>
-            <Surface padded style={styles.codeCard}>
-              <NeonText variant="label" tone="muted">JOIN CODE</NeonText>
-              <NeonText variant="mono" tone="accent" glow style={styles.codeValue}>
-                {event.join_code}
-              </NeonText>
-            </Surface>
-            {event.access_code ? (
-              <Surface padded style={styles.codeCard}>
-                <NeonText variant="label" tone="muted">ACCESS</NeonText>
-                <NeonText variant="mono" tone="text" style={styles.codeValue}>
-                  {event.access_code}
-                </NeonText>
-              </Surface>
-            ) : null}
-          </View>
+          <Surface padded style={styles.codeCard}>
+            <NeonText variant="label" tone="muted">JOIN CODE</NeonText>
+            <NeonText variant="mono" tone="accent" glow style={styles.codeValue}>
+              {event.join_code}
+            </NeonText>
+            <NeonText variant="bodyMuted" style={styles.secretPolicyText}>
+              Approval-bypass secrets are one-way protected. Beacon never stores or re-displays their plaintext after creation.
+            </NeonText>
+          </Surface>
         ) : null}
       </View>
 
@@ -466,9 +459,9 @@ const styles = StyleSheet.create({
     borderColor: palette.accent,
     backgroundColor: palette.accentSoft,
   },
-  codeRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
-  codeCard: { flex: 1, borderRadius: radii.lg, gap: 4 },
+  codeCard: { marginTop: spacing.md, borderRadius: radii.lg, gap: 4 },
   codeValue: { fontSize: 22, letterSpacing: 2, marginTop: 4 },
+  secretPolicyText: { marginTop: spacing.sm, lineHeight: 17 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
