@@ -129,6 +129,7 @@ export function buildInternalNextBestAnalysisPlan(input: {
     const requiredCapability: InternalAnalysisCapability = debt.recommendedSurface === 'InternalEntityResolutionLab'
       || debt.recommendedSurface === 'InternalTargetRouting'
       || debt.recommendedSurface === 'InternalDecisionJournal'
+      || debt.recommendedSurface === 'InternalEvidenceConflicts'
       ? 'graph_manage'
       : 'graph_read';
     if (!capabilityAvailable(requiredCapability, input.capabilities)) continue;
@@ -254,6 +255,6 @@ export function buildInternalNextBestAnalysisPlan(input: {
   return {
     generatedAt: new Date().toISOString(),
     actions: ranked,
-    operatingRule: 'Next Best Analysis ranks evidence and method-remediation workbench transitions by expected information gain. It never recommends social action, scores people, or changes canonical graph truth.',
+    operatingRule: 'Next Best Analysis ranks evidence and method-remediation workbench transitions by expected information gain. Operator-confirmed conflict reconciliation remains graph-manage-only. It never recommends social action, scores people, or changes canonical graph truth.',
   };
 }
