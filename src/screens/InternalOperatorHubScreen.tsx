@@ -18,6 +18,7 @@ interface LabDefinition {
 const LABS: LabDefinition[] = [
   { route: 'InternalAdaptiveCommand', title: 'Operator Command', code: 'COMMAND', description: 'Adaptive command layer combining Watchtower triage, epistemic authority, decision admission, diversified target routing and health-calibrated agent missions.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalDecisionJournal', title: 'Decision Journal', code: 'HYPOTHESIS', description: 'Falsifiable operator hypotheses sealed against evidence digests, admission state and graph version, then resolved as supported, weakened or invalidated.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalPerspectiveLab', title: 'Lens Workbench', code: 'PERSPECTIVE', description: 'Reproducible task-specific graph views with evidence floors, recency, repetition, context focus and agent Scene Director recommendations.', capability: 'graph_read', accent: 'accent' },
   { route: 'InternalPrivateAccess', title: 'Private Access', code: 'ACCESS', description: 'Standing privileges, active JIT restricted/export leases, server truth and immediate self-revocation with no client self-elevation path.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalWatchtower', title: 'Watchtower', code: 'WATCH', description: 'Event-driven monitoring of canonical topology, motifs, broker emergence and private Machine result changes.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalTargetRouting', title: 'Target Routing', code: 'ROUTE', description: 'Diverse block-safe routes into target ecosystems with confidence floors, provenance, bottleneck risk and route redundancy.', capability: 'graph_manage', accent: 'accent' },
@@ -65,7 +66,7 @@ export default function InternalOperatorHubScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · OPERATOR CONTROL DECK · ADAPTIVE OS" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
-              <NeonText variant="bodyMuted">Adaptive command · falsifiable decision memory · private access · Watchtower · explainable routing · epistemic health · evidence graph · entity-quality control · forensic pivots · composable Machines · longitudinal memory · calibrated strategy</NeonText>
+              <NeonText variant="bodyMuted">Adaptive command · falsifiable decision memory · task-specific graph Perspectives · private access · Watchtower · explainable routing · epistemic health · evidence graph · forensic pivots · composable Machines · longitudinal memory</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -102,7 +103,7 @@ export default function InternalOperatorHubScreen() {
 
           <Surface padded style={styles.autonomyCard}>
             <Pill label="AUTONOMY BOUNDARY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation may detect, diff, route, assess its own evidence health, checkpoint canonical topology, monitor structural conditions, reconcile bounded mission memory, replay private recipes and refresh internal findings. Decision Journal outcomes remain operator memory and cannot silently become verified graph evidence. Entity canonicalization is limited to non-person context nodes and requires explicit operator approval. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation may detect, diff, route, recommend analytical Perspectives, assess its own evidence health, checkpoint canonical topology, monitor structural conditions, reconcile bounded mission memory, replay private recipes and refresh internal findings. Perspectives can only remove evidence from analytical view and cannot change canonical truth. Decision Journal outcomes remain operator memory and cannot silently become verified graph evidence. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
           </Surface>
         </ScrollView>
       </SafeAreaView>
