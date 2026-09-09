@@ -34,6 +34,7 @@ import {
   type InternalDecisionJournalStatus,
   type InternalDecisionRetrospectiveMetrics,
 } from '../admin/internalDecisionJournal.service';
+import { saveInternalDecisionJournalWithRefs } from '../admin/internalDecisionEvidenceRefs.service';
 import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
@@ -128,19 +129,13 @@ export default function InternalDecisionJournalScreen() {
   );
 
   const timeline = useMemo(() => payload ? buildInternalAgenticTimeline(payload) : null, [payload]);
-
   const triage = useMemo(
     () => watchtower && adaptiveRun
       ? triageInternalWatchtower({ state: watchtower, epistemicHealth: adaptiveRun.epistemicHealth })
       : null,
     [watchtower, adaptiveRun],
   );
-
-  const decisionCalibration = useMemo(
-    () => analyzeInternalDecisionCalibration(entries),
-    [entries],
-  );
-
+  const decisionCalibration = useMemo(() => analyzeInternalDecisionCalibration(entries), [entries]);
   const admissionSet = useMemo(
     () => adaptiveRun && suppressions
       ? evaluateInternalOperatorDecisionAdmission({
@@ -201,57 +196,80 @@ export default function InternalDecisionJournalScreen() {
     setSaving(true);
     try {
       const routing = adaptiveRun.routingPortfolio;
-      const saved = await saveInternalDecisionJournal({
-        eventId,
-        decisionKind,
-        title,
-        hypothesis,
-        disconfirmingCondition,
+      const evidenceSummary = {
+        schemaVersion: 'decision-evidence-v3-retrospective',
         graphVersion: payload.graphVersion,
+        decisionKind,
         admissionState: selectedAdmission.state,
         admissionAuthority: selectedAdmission.authority,
-        evidenceSummary: {
-          schemaVersion: 'decision-evidence-v3-retrospective',
-          graphVersion: payload.graphVersion,
-          decisionKind,
-          admissionState: selectedAdmission.state,
-          admissionAuthority: selectedAdmission.authority,
-          methodCalibration: selectedCalibrationBucket ? {
-            resolvedCount: selectedCalibrationBucket.resolvedCount,
-            maturity: selectedCalibrationBucket.maturity,
-            conservativeSupportFloor: selectedCalibrationBucket.conservativeSupportFloor,
-            calibrationGap: selectedCalibrationBucket.calibrationGap,
-            penalty: selectedCalibrationAdjustment.penalty,
-          } : null,
-          epistemicHealth: {
-            band: adaptiveRun.epistemicHealth.band,
-            score: adaptiveRun.epistemicHealth.score,
-            verifiedEdgeRatio: adaptiveRun.epistemicHealth.verifiedEdgeRatio,
-            ambiguousEdgeRatio: adaptiveRun.epistemicHealth.ambiguousEdgeRatio,
-            freshEdgeRatio: adaptiveRun.epistemicHealth.freshEdgeRatio,
-            repeatedEvidenceRatio: adaptiveRun.epistemicHealth.repeatedEvidenceRatio,
-          },
-          watchtower: {
-            openIncidentCount: triage.openIncidentCount,
-            criticalIncidentCount: triage.criticalIncidentCount,
-            topIncidentFamilies: triage.incidents.slice(0, 5).map((incident) => incident.family),
-          },
-          routing: routing ? {
-            matchedTargetCount: routing.matchedTargetCount,
-            candidatePathCount: routing.candidatePathCount,
-            routeCount: routing.routes.length,
-            routeDiversity: routing.routeDiversity,
-            structuralSinglePointCount: routing.structuralSinglePointNodeIds.length,
-            bestConfidenceFloor: routing.routes[0]?.confidenceFloor ?? null,
-            bestVerifiedEdgeRatio: routing.routes[0]?.verifiedEdgeRatio ?? null,
-          } : null,
-          effectiveCapabilities: {
-            manage: operator.manage,
-            restricted: operator.restricted,
-            export: operator.export,
-          },
+        methodCalibration: selectedCalibrationBucket ? {
+          resolvedCount: selectedCalibrationBucket.resolvedCount,
+          maturity: selectedCalibrationBucket.maturity,
+          conservativeSupportFloor: selectedCalibrationBucket.conservativeSupportFloor,
+          calibrationGap: selectedCalibrationBucket.calibrationGap,
+          penalty: selectedCalibrationAdjustment.penalty,
+        } : null,
+        epistemicHealth: {
+          band: adaptiveRun.epistemicHealth.band,
+          score: adaptiveRun.epistemicHealth.score,
+          verifiedEdgeRatio: adaptiveRun.epistemicHealth.verifiedEdgeRatio,
+          ambiguousEdgeRatio: adaptiveRun.epistemicHealth.ambiguousEdgeRatio,
+          freshEdgeRatio: adaptiveRun.epistemicHealth.freshEdgeRatio,
+          repeatedEvidenceRatio: adaptiveRun.epistemicHealth.repeatedEvidenceRatio,
         },
-      });
+        watchtower: {
+          openIncidentCount: triage.openIncidentCount,
+          criticalIncidentCount: triage.criticalIncidentCount,
+          topIncidentFamilies: triage.incidents.slice(0, 5).map((incident) => incident.family),
+        },
+        routing: routing ? {
+          matchedTargetCount: routing.matchedTargetCount,
+          candidatePathCount: routing.candidatePathCount,
+          routeCount: routing.routes.length,
+          routeDiversity: routing.routeDiversity,
+          structuralSinglePointCount: routing.structuralSinglePointNodeIds.length,
+          bestConfidenceFloor: routing.routes[0]?.confidenceFloor ?? null,
+          bestVerifiedEdgeRatio: routing.routes[0]?.verifiedEdgeRatio ?? null,
+        } : null,
+        effectiveCapabilities: {
+          manage: operator.manage,
+          restricted: operator.restricted,
+          export: operator.export,
+        },
+      };
+
+      const routeEvidenceIds = (
+        (decisionKind === 'target_route_review' || decisionKind === 'intervention_review') && routing
+      )
+        ? [...new Set(routing.routes.slice(0, 3).flatMap((routeResult) => routeResult.edges.map((edge) => edge.edgeId)))].slice(0, 64)
+        : [];
+
+      const saved = routeEvidenceIds.length > 0
+        ? await saveInternalDecisionJournalWithRefs({
+            eventId,
+            decisionKind,
+            title,
+            hypothesis,
+            disconfirmingCondition,
+            graphVersion: payload.graphVersion,
+            admissionState: selectedAdmission.state,
+            admissionAuthority: selectedAdmission.authority,
+            evidenceSummary,
+            edgeIds: routeEvidenceIds,
+            refKind: 'route_portfolio',
+          })
+        : await saveInternalDecisionJournal({
+            eventId,
+            decisionKind,
+            title,
+            hypothesis,
+            disconfirmingCondition,
+            graphVersion: payload.graphVersion,
+            admissionState: selectedAdmission.state,
+            admissionAuthority: selectedAdmission.authority,
+            evidenceSummary,
+          });
+
       const metrics = retrospectiveMetrics(decisionKind);
       if (metrics) {
         await recordInternalDecisionContext({
@@ -322,7 +340,7 @@ export default function InternalDecisionJournalScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · FALSIFIABLE DECISION MEMORY" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Decision Journal</NeonText>
-              <NeonText variant="bodyMuted">Hypothesis → calibrated authority → decision-time metrics → disconfirming condition → resolution-time metrics → later outcome. Historical context can only calibrate the analytical method.</NeonText>
+              <NeonText variant="bodyMuted">Hypothesis → calibrated authority → exact route evidence dependencies when applicable → decision-time metrics → disconfirming condition → resolution-time metrics → later outcome. Historical context can only calibrate the analytical method.</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -355,6 +373,9 @@ export default function InternalDecisionJournalScreen() {
               <NeonText variant="label" tone="accent">CALIBRATED ADMISSION SNAPSHOT · {selectedAdmission.state.replaceAll('_', ' ').toUpperCase()}</NeonText>
               {selectedAdmission.reasons.slice(0, 5).map((reason, index) => <NeonText key={`reason-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
               {selectedAdmission.requiredRemediation.slice(0, 3).map((item, index) => <NeonText key={`remediation-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• remediation: {item}</NeonText>)}
+              {(decisionKind === 'target_route_review' || decisionKind === 'intervention_review') && adaptiveRun.routingPortfolio?.routes.length
+                ? <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>The top three selected route alternatives will be transactionally bound to this hypothesis by exact edge id (max 64). These refs support targeted revalidation only; they do not copy graph payloads or make the edges true.</NeonText>
+                : null}
             </Surface>
             <GlowButton label={saving ? 'Sealing…' : 'Seal hypothesis + retrospective baseline'} disabled={saving} onPress={() => void save()} />
           </Section>
@@ -392,7 +413,7 @@ export default function InternalDecisionJournalScreen() {
 
           <Surface padded style={styles.card}>
             <Pill label="MEMORY BOUNDARY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>The database stores bounded hypothesis metadata, an evidence digest, and a strict metrics-only retrospective envelope. It does not retain the graph payload, target query, person ids, contact data, or movement. Historical overconfidence may reduce later analytical authority; historical underconfidence never grants more authority automatically.</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>The database stores bounded hypothesis metadata, an evidence digest, a strict metrics-only retrospective envelope, and—for route-dependent hypotheses only—the exact edge ids that supported review. It does not retain the graph payload, target query, contact data, movement, or inferred hidden dependencies. Historical overconfidence may reduce later analytical authority; historical underconfidence never grants more authority automatically.</NeonText>
           </Surface>
         </ScrollView>
       </SafeAreaView>
