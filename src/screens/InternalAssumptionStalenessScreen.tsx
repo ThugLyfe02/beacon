@@ -6,11 +6,20 @@ import { analyzeInternalGraph, type InternalGraphPayload } from '../admin/Intern
 import { runAdaptiveInternalGraphAgentOrchestrator } from '../admin/InternalAdaptiveAgentOrchestrator';
 import { buildInternalAgenticTimeline } from '../admin/InternalAgenticTimelineEngine';
 import { analyzeInternalAssumptionStaleness } from '../admin/InternalAssumptionStalenessEngine';
+import { analyzeInternalDecisionConflictDependencies } from '../admin/InternalDecisionDependencyEngine';
 import { triageInternalWatchtower } from '../admin/InternalWatchtowerTriageEngine';
 import {
   loadInternalDecisionRetrospectives,
   type InternalDecisionRetrospectiveRow,
 } from '../admin/internalDecisionJournal.service';
+import {
+  loadInternalDecisionEvidenceRefs,
+  type InternalDecisionEvidenceRef,
+} from '../admin/internalDecisionEvidenceRefs.service';
+import {
+  loadInternalEvidenceConflicts,
+  type InternalEvidenceConflict,
+} from '../admin/internalEvidenceConflict.service';
 import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
@@ -35,6 +44,8 @@ export default function InternalAssumptionStalenessScreen() {
   const [suppressions, setSuppressions] = useState<Set<string> | null>(null);
   const [watchtower, setWatchtower] = useState<InternalGraphWatchtowerState | null>(null);
   const [retrospectives, setRetrospectives] = useState<InternalDecisionRetrospectiveRow[]>([]);
+  const [decisionRefs, setDecisionRefs] = useState<InternalDecisionEvidenceRef[]>([]);
+  const [evidenceConflicts, setEvidenceConflicts] = useState<InternalEvidenceConflict[]>([]);
   const [sourceNodeId, setSourceNodeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,22 +53,28 @@ export default function InternalAssumptionStalenessScreen() {
     if (!operator.allowed || !operator.has('graph_manage')) return;
     setLoading(true);
     try {
-      const [graph, calibration, blockedPairs, watchState, decisionHistory] = await Promise.all([
+      const [graph, calibration, blockedPairs, watchState, decisionHistory, refs, conflicts] = await Promise.all([
         loadInternalIntelligenceGraph({ eventId, includeRestricted: false, limit: 1800 }),
         loadInternalBridgePatternCalibration(),
         getInternalBridgeSuppressions(),
         loadInternalGraphWatchtower(),
         loadInternalDecisionRetrospectives(eventId),
+        loadInternalDecisionEvidenceRefs({ eventId, openOnly: true, limit: 1600 }),
+        loadInternalEvidenceConflicts({ eventId, includeClosed: false, limit: 240 }),
       ]);
       setPayload(graph);
       setPatterns(calibration.patterns);
       setSuppressions(blockedPairs);
       setWatchtower(watchState);
       setRetrospectives(decisionHistory);
+      setDecisionRefs(refs);
+      setEvidenceConflicts(conflicts.conflicts);
       const analysis = analyzeInternalGraph(graph);
       setSourceNodeId(analysis.brokerNodeIds[0] ?? analysis.hubNodeIds[0] ?? graph.nodes.find((node) => node.kind === 'person')?.id ?? graph.nodes[0]?.id ?? null);
     } catch (error) {
       setSuppressions(null);
+      setDecisionRefs([]);
+      setEvidenceConflicts([]);
       Alert.alert('Assumption Staleness unavailable', error instanceof Error ? error.message : 'Unable to reconstruct assumption state.');
     } finally {
       setLoading(false);
@@ -79,6 +96,10 @@ export default function InternalAssumptionStalenessScreen() {
       : null,
     [watchtower, adaptiveRun],
   );
+  const decisionDependencies = useMemo(
+    () => analyzeInternalDecisionConflictDependencies({ refs: decisionRefs, conflicts: evidenceConflicts }),
+    [decisionRefs, evidenceConflicts],
+  );
   const report = useMemo(
     () => payload && adaptiveRun && timeline
       ? analyzeInternalAssumptionStaleness({
@@ -88,9 +109,10 @@ export default function InternalAssumptionStalenessScreen() {
           timeline,
           routingPortfolio: adaptiveRun.routingPortfolio,
           watchtowerTriage: triage,
+          decisionDependencies,
         })
       : null,
-    [payload, adaptiveRun, timeline, retrospectives, triage],
+    [payload, adaptiveRun, timeline, retrospectives, triage, decisionDependencies],
   );
 
   if (operator.loading || loading) {
@@ -109,7 +131,7 @@ export default function InternalAssumptionStalenessScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · ASSUMPTION REVALIDATION" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Assumption Staleness</NeonText>
-              <NeonText variant="bodyMuted">Detects when the evidence environment materially changed after a hypothesis was sealed. Stale means revalidate—not false.</NeonText>
+              <NeonText variant="bodyMuted">Detects when the evidence environment materially changed after a hypothesis was sealed. Conflict-driven revalidation requires an exact recorded edge dependency. Stale means revalidate—not false.</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -118,12 +140,14 @@ export default function InternalAssumptionStalenessScreen() {
             <Metric label="CURRENT" value={`${report.currentCount}`} />
             <Metric label="REVIEW DUE" value={`${report.reviewDueCount}`} />
             <Metric label="STALE" value={`${report.staleCount}`} />
+            <Metric label="CONFLICT-IMPACTED" value={`${decisionDependencies.impactedJournalIds.length}`} />
             <Metric label="GRAPH" value={payload.graphVersion.slice(0, 12)} />
           </View>
 
           <Surface padded style={styles.ruleCard}>
             <Pill label="REVALIDATION CONTRACT" tone="neutral" dot />
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>{report.operatingRule}</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{decisionDependencies.operatingRule}</NeonText>
           </Surface>
 
           {report.assumptions.map((item) => (
