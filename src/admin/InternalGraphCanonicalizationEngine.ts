@@ -110,6 +110,7 @@ function mergeEdge(current: InternalGraphEdge, incoming: InternalGraphEdge): Int
 export function applyInternalGraphEntityAliases(
   payload: InternalGraphPayload,
   aliases: InternalGraphEntityAlias[],
+  canonicalizationVersion?: string | null,
 ): InternalGraphPayload {
   if (aliases.length === 0) return payload;
 
@@ -177,10 +178,13 @@ export function applyInternalGraphEntityAliases(
     const rightKey = edgeKey(right);
     return leftKey.localeCompare(rightKey);
   });
+  const versionTag = canonicalizationVersion?.trim()
+    ? canonicalizationVersion.trim().slice(0, 12)
+    : aliasSignature(validAliases);
 
   return {
     ...payload,
-    graphVersion: `${payload.graphVersion}:canon:${aliasSignature(validAliases)}`,
+    graphVersion: `${payload.graphVersion}:canon:${versionTag}`,
     nodeCount: nodes.length,
     edgeCount: edges.length,
     nodes,
