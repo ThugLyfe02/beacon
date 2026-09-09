@@ -69,6 +69,12 @@ jobs:
       - name: Decision admission contract
         run: node scripts/validate-constellation-decision-admission.mjs
 
+      - name: Decision calibration feedback-loop contract
+        run: node scripts/validate-constellation-decision-calibration-loop.mjs
+
+      - name: Agentic timeline and temporal-coherence contract
+        run: node scripts/validate-constellation-agentic-timeline.mjs
+
       - name: Cognitive workbench contract
         run: node scripts/validate-constellation-cognitive-workbench.mjs
 
@@ -77,6 +83,9 @@ jobs:
 
       - name: Investigation handoff contract
         run: node scripts/validate-constellation-handoff.mjs
+
+      - name: Collaborative case-memory contract
+        run: node scripts/validate-constellation-collaborative-case-memory.mjs
 
       - name: Strategy/privacy boundary
         run: node scripts/validate-constellation-strategy.mjs
