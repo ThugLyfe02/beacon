@@ -1,0 +1,60 @@
+name: Constellation Operator OS
+
+on:
+  pull_request:
+    paths:
+      - 'src/admin/**'
+      - 'src/screens/Internal*.tsx'
+      - 'src/navigation/RootNavigator.tsx'
+      - 'src/components/NetworkPulseCard.tsx'
+      - 'supabase/migrations/06*.sql'
+      - 'scripts/validate-constellation-*.mjs'
+      - '.github/workflows/constellation-operator-os.yml'
+  push:
+    branches:
+      - 'feature/constellation-adaptive-operator-os'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constellation-operator-os-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  operator-os:
+    name: Operator OS contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Strict TypeScript
+        run: npx tsc --noEmit --pretty false
+
+      - name: Mission memory contract
+        run: node scripts/validate-constellation-mission-memory.mjs
+
+      - name: Machine and private recipe contract
+        run: node scripts/validate-constellation-machines.mjs
+
+      - name: Entity-quality contract
+        run: node scripts/validate-constellation-entity-quality.mjs
+
+      - name: Adaptive operator OS contract
+        run: node scripts/validate-constellation-operator-os.mjs
+
+      - name: Strategy/privacy boundary
+        run: node scripts/validate-constellation-strategy.mjs
