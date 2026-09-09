@@ -19,6 +19,7 @@ const LABS: LabDefinition[] = [
   { route: 'InternalAdaptiveCommand', title: 'Operator Command', code: 'COMMAND', description: 'Adaptive command layer combining Watchtower triage, epistemic authority, decision admission, diversified target routing and health-calibrated agent missions.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalDecisionJournal', title: 'Decision Journal', code: 'HYPOTHESIS', description: 'Falsifiable operator hypotheses sealed against evidence digests, admission state and graph version, then resolved as supported, weakened or invalidated.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalDecisionCalibration', title: 'Decision Calibration', code: 'METHOD', description: 'Shrinkage-aware memory of where analytical admission authority historically aligned with—or ran ahead of—later disconfirming evidence.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalHandoffLab', title: 'Handoff Lab', code: 'HANDOFF', description: 'Bounded operator-to-operator investigation capsules carrying case, canonical graph version, Perspective, evidence digest and a falsifiable next question without duplicating graph payloads.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalPerspectiveLab', title: 'Lens Workbench', code: 'PERSPECTIVE', description: 'Reproducible task-specific graph views with evidence floors, recency, repetition, context focus and agent Scene Director recommendations.', capability: 'graph_read', accent: 'accent' },
   { route: 'InternalPatternQueryLab', title: 'Pattern Grammar', code: 'PATTERN', description: 'Bloom-style bounded structural graph search with proactive schema-derived suggestions and no arbitrary Cypher or enrichment.', capability: 'graph_read', accent: 'accent' },
   { route: 'InternalPrivateAccess', title: 'Private Access', code: 'ACCESS', description: 'Standing privileges, active JIT restricted/export leases, server truth and immediate self-revocation with no client self-elevation path.', capability: 'graph_manage', accent: 'accent' },
@@ -68,7 +69,7 @@ export default function InternalOperatorHubScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · OPERATOR CONTROL DECK · ADAPTIVE OS" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
-              <NeonText variant="bodyMuted">Adaptive command · falsifiable/calibrated decision memory · Perspectives · bounded graph-pattern grammar · private access · Watchtower · explainable routing · epistemic health · evidence graph · forensic pivots · Machines · longitudinal memory</NeonText>
+              <NeonText variant="bodyMuted">Adaptive command · calibrated decision memory · investigation handoff · Perspectives · bounded pattern grammar · private access · Watchtower · explainable routing · epistemic health · forensic pivots · Machines · longitudinal memory</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -105,7 +106,7 @@ export default function InternalOperatorHubScreen() {
 
           <Surface padded style={styles.autonomyCard}>
             <Pill label="AUTONOMY BOUNDARY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation may detect, diff, route, recommend analytical Perspectives and structural pattern queries, assess its own evidence health, checkpoint canonical topology, monitor structural conditions, reconcile bounded mission memory, replay private recipes and refresh internal findings. Perspectives and pattern queries are read-only analytical views. Decision calibration evaluates method classes only and cannot score people or become graph evidence. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation may detect, diff, route, recommend analytical Perspectives and structural pattern queries, assess its own evidence health, checkpoint canonical topology, monitor structural conditions, reconcile bounded mission memory, replay private recipes, calibrate its own analytical method, and transfer bounded investigation context between provisioned operators. Handoffs copy no graph payload and authorize no social action. Perspectives and pattern queries are read-only analytical views. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
           </Surface>
         </ScrollView>
       </SafeAreaView>
