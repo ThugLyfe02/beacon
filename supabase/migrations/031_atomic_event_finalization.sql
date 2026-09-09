@@ -61,6 +61,12 @@ begin
     -- exists without a snapshot, continue and reconstruct from database facts.
   end if;
 
+  -- Migration 032's snapshot guard permits post-window snapshot creation only
+  -- inside this transaction-scoped finalization context. `true` makes the setting
+  -- LOCAL so it automatically disappears on commit/rollback and cannot leak to a
+  -- pooled connection's next request.
+  perform set_config('beacon.finalization_event_id', p_event_id::text, true);
+
   update public.events
   set
     ends_at = least(coalesce(ends_at, now()), now()),
