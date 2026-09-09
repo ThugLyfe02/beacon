@@ -27,6 +27,8 @@ import EditProfileScreen from '../screens/EditProfileScreen';
 import EventFeedScreen from '../screens/EventFeedScreen';
 import EventLobbyScreen from '../screens/EventLobbyScreen';
 import InternalGraphScreen from '../screens/InternalGraphScreen';
+import InternalBridgeLabScreen from '../screens/InternalBridgeLabScreen';
+import InternalStrategyLabScreen from '../screens/InternalStrategyLabScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
 import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
@@ -125,9 +127,6 @@ export function RootNavigator() {
         setProfileComplete(completed);
         if (completed) {
           try {
-            // getHostedEvent now means "newest unfinalized hosted event". A live
-            // window may already have ended naturally while the host still needs
-            // access to the control deck to seal outcomes and venue memory.
             const hostedEvent = await getHostedEvent(user.id);
             if (!cancelled) setIsHost(hostedEvent !== null);
           } catch (eventError) {
@@ -199,6 +198,13 @@ export function RootNavigator() {
     refreshEventState();
   };
 
+  const internalModalOptions = {
+    presentation: 'fullScreenModal' as const,
+    animation: 'fade' as const,
+    contentStyle: { backgroundColor: '#040711' },
+    headerShown: false,
+  };
+
   return (
     <NavigatorContext.Provider value={navCtx}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -212,22 +218,10 @@ export function RootNavigator() {
           )}
         </Stack.Screen>
 
-        <Stack.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={{ animation: 'slide_from_right' }}
-        />
-
-        <Stack.Screen
-          name="InternalGraph"
-          component={InternalGraphScreen}
-          options={{
-            presentation: 'fullScreenModal',
-            animation: 'fade',
-            contentStyle: { backgroundColor: '#040711' },
-            headerShown: false,
-          }}
-        />
+        <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="InternalGraph" component={InternalGraphScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalBridgeLab" component={InternalBridgeLabScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalStrategyLab" component={InternalStrategyLabScreen} options={internalModalOptions} />
 
         <Stack.Screen
           name="EditProfile"
@@ -324,11 +318,7 @@ export function RootNavigator() {
           }}
         />
 
-        <Stack.Screen
-          name="EventFeed"
-          component={EventFeedScreen}
-          options={{ animation: 'slide_from_right' }}
-        />
+        <Stack.Screen name="EventFeed" component={EventFeedScreen} options={{ animation: 'slide_from_right' }} />
 
         <Stack.Screen
           name="EventLobby"
@@ -424,16 +414,7 @@ export function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: palette.void,
-  },
-  loadingInner: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    marginTop: spacing.lg,
-  },
+  loadingContainer: { flex: 1, backgroundColor: palette.void },
+  loadingInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { marginTop: spacing.lg },
 });
