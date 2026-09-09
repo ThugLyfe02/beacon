@@ -20,6 +20,7 @@ import { triageInternalWatchtower } from '../admin/InternalWatchtowerTriageEngin
 import { evaluateInternalOperatorDecisionAdmission } from '../admin/InternalOperatorDecisionAdmission';
 import { analyzeInternalEvidenceDebt } from '../admin/InternalEvidenceDebtEngine';
 import { analyzeInternalMethodDebt } from '../admin/InternalMethodDebtEngine';
+import { analyzeInternalDecisionRetrospectives } from '../admin/InternalAnalyticalRetrospectiveEngine';
 import {
   buildInternalNextBestAnalysisPlan,
   type InternalAnalysisCapability,
@@ -27,6 +28,8 @@ import {
 import { buildInternalAnalystAttentionBudget } from '../admin/InternalAnalystAttentionGovernor';
 import { loadInternalDecisionCalibrationReport } from '../admin/internalDecisionCalibration.service';
 import type { InternalDecisionCalibrationReport } from '../admin/InternalDecisionCalibrationEngine';
+import { loadInternalDecisionRetrospectives } from '../admin/internalDecisionJournal.service';
+import type { InternalDecisionRetrospectiveRow } from '../admin/internalDecisionJournal.service';
 import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
@@ -59,6 +62,7 @@ export default function InternalAdaptiveCommandScreen() {
   const [suppressions, setSuppressions] = useState<Set<string> | null>(null);
   const [watchtower, setWatchtower] = useState<InternalGraphWatchtowerState | null>(null);
   const [decisionCalibration, setDecisionCalibration] = useState<InternalDecisionCalibrationReport | null>(null);
+  const [retrospectiveRows, setRetrospectiveRows] = useState<InternalDecisionRetrospectiveRow[]>([]);
   const [targetQuery, setTargetQuery] = useState('');
   const [sourceNodeId, setSourceNodeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,18 +71,20 @@ export default function InternalAdaptiveCommandScreen() {
     if (!operator.allowed || !operator.has('graph_manage')) return;
     setLoading(true);
     try {
-      const [graph, calibration, safeSuppressions, watchState, methodCalibration] = await Promise.all([
+      const [graph, calibration, safeSuppressions, watchState, methodCalibration, retrospectiveHistory] = await Promise.all([
         loadInternalIntelligenceGraph({ eventId, includeRestricted: false, limit: 1600 }),
         loadInternalBridgePatternCalibration(),
         getInternalBridgeSuppressions(),
         loadInternalGraphWatchtower(),
         loadInternalDecisionCalibrationReport(eventId),
+        loadInternalDecisionRetrospectives(eventId),
       ]);
       setPayload(graph);
       setPatterns(calibration.patterns);
       setSuppressions(safeSuppressions);
       setWatchtower(watchState);
       setDecisionCalibration(methodCalibration);
+      setRetrospectiveRows(retrospectiveHistory);
       const analysis = analyzeInternalGraph(graph);
       setSourceNodeId((current) => current && graph.nodes.some((node) => node.id === current)
         ? current
@@ -86,6 +92,7 @@ export default function InternalAdaptiveCommandScreen() {
     } catch (error) {
       setSuppressions(null);
       setDecisionCalibration(null);
+      setRetrospectiveRows([]);
       Alert.alert('Adaptive Command unavailable', error instanceof Error ? error.message : 'Unable to assemble operator intelligence.');
     } finally {
       setLoading(false);
@@ -118,6 +125,11 @@ export default function InternalAdaptiveCommandScreen() {
   const timeline = useMemo(
     () => payload ? buildInternalAgenticTimeline(payload) : null,
     [payload],
+  );
+
+  const retrospectiveReport = useMemo(
+    () => analyzeInternalDecisionRetrospectives(retrospectiveRows),
+    [retrospectiveRows],
   );
 
   const activeRules = useMemo(
@@ -168,9 +180,10 @@ export default function InternalAdaptiveCommandScreen() {
           evidenceDebt,
           timeline,
           routingPortfolio: adaptiveRun?.routingPortfolio ?? null,
+          retrospectives: retrospectiveReport,
         })
       : null,
-    [decisionCalibration, evidenceDebt, timeline, adaptiveRun],
+    [decisionCalibration, evidenceDebt, timeline, adaptiveRun, retrospectiveReport],
   );
 
   const analysisCapabilities = useMemo(() => {
@@ -230,7 +243,7 @@ export default function InternalAdaptiveCommandScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · ADAPTIVE NETWORK COMMAND" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Operator Command</NeonText>
-              <NeonText variant="bodyMuted">Attention budget · next-best analysis · method debt · Watchtower · evidence debt · calibrated admission · temporal coherence · diversified routing</NeonText>
+              <NeonText variant="bodyMuted">Attention budget · next-best analysis · retrospective method debt · Watchtower · evidence debt · calibrated admission · temporal coherence · diversified routing</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -239,11 +252,11 @@ export default function InternalAdaptiveCommandScreen() {
             <Metric label="GRAPH HEALTH" value={`${Math.round(health.score * 100)}%`} />
             <Metric label="EVIDENCE DEBT" value={`${evidenceDebt.highPriorityCount} HIGH`} />
             <Metric label="METHOD DEBT" value={`${methodDebt.items.length} ITEMS`} />
-            <Metric label="METHOD VERDICTS" value={`${decisionCalibration.resolvedCount}`} />
+            <Metric label="RETROSPECTIVE N" value={`${retrospectiveReport.resolvedCount}`} />
             <Metric label="CHRONOLOGY GAPS" value={`${timeline.chronologyGapCount}`} />
           </View>
 
-          <Section title="ATTENTION BUDGET · NEXT BEST ANALYSIS" subtitle="One primary analytical thread, at most two supporting threads; evidence, method, safety and temporal debt may preempt generic exploration">
+          <Section title="ATTENTION BUDGET · NEXT BEST ANALYSIS" subtitle="One primary analytical thread, at most two supporting threads; evidence, method, safety, temporal, and retrospective debt may preempt generic exploration">
             {attentionBudget.primary ? (
               <Surface elevated padded style={[styles.nextActionCard, styles.topActionBorder]}>
                 <View style={styles.rowBetween}><View style={{ flex: 1 }}><Pill label={`FOCUS NOW · ${attentionBudget.primary.source.replaceAll('_', ' ').toUpperCase()}`} tone="accent" dot /><NeonText variant="h1" style={{ marginTop: spacing.sm }}>{attentionBudget.primary.title}</NeonText></View><NeonText variant="mono" tone="accent">P{attentionBudget.primary.priority.toFixed(1)}</NeonText></View>
@@ -278,14 +291,15 @@ export default function InternalAdaptiveCommandScreen() {
           ) : null}
 
           <Surface padded style={styles.boundaryCard}>
-            <Pill label="CALIBRATION + TEMPORAL AUTHORITY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>Resolved falsifiable hypotheses may only reduce future authority when they demonstrate repeated overconfidence. Historical underconfidence never boosts authority automatically.</NeonText>
+            <Pill label="CALIBRATION + TEMPORAL + RETROSPECTIVE AUTHORITY" tone="neutral" dot />
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>Resolved falsifiable hypotheses may only reduce future authority when they demonstrate repeated overconfidence. Retrospective associations may increase scrutiny, never authority.</NeonText>
             <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>Agentic Timeline describes retained observation order only. {bestTemporal ? `Best route temporal coherence is ${Math.round(bestTemporal.overlapScore * 100)}%${bestTemporal.hasSharedObservationWindow ? ' with a shared observation window.' : ` with no shared observation window; nearest gap ~${Math.round(bestTemporal.nearestGapDays)} days.`}` : 'No target route is currently selected.'}</NeonText>
           </Surface>
 
           <View style={styles.actionRow}>
             <GlowButton label="Evidence Debt" variant="ghost" onPress={() => navigation.navigate('InternalEvidenceDebt', { eventId: eventId ?? undefined })} />
             <GlowButton label="Timeline" variant="ghost" onPress={() => navigation.navigate('InternalAgenticTimeline', { eventId: eventId ?? undefined })} />
+            <GlowButton label="Retrospective" variant="ghost" onPress={() => navigation.navigate('InternalDecisionRetrospective', { eventId: eventId ?? undefined })} />
             <GlowButton label="Decision Calibration" variant="ghost" onPress={() => navigation.navigate('InternalDecisionCalibration', { eventId: eventId ?? undefined })} />
             <GlowButton label="Case Memory" variant="ghost" onPress={() => navigation.navigate('InternalCollaborativeCaseMemory')} />
             <GlowButton label="Watchtower" variant="ghost" onPress={() => navigation.navigate('InternalWatchtower', { eventId: eventId ?? undefined })} />
@@ -343,7 +357,6 @@ export default function InternalAdaptiveCommandScreen() {
 function Section({ title, subtitle, children }: Readonly<{ title: string; subtitle: string; children: React.ReactNode }>) {
   return <View style={styles.section}><View><NeonText variant="label" tone="accent">{title}</NeonText><NeonText variant="bodyMuted" style={{ marginTop: 3 }}>{subtitle}</NeonText></View>{children}</View>;
 }
-
 function Metric({ label, value }: Readonly<{ label: string; value: string }>) {
   return <Surface padded style={styles.metric}><NeonText variant="label" tone="muted">{label}</NeonText><NeonText variant="h2" style={{ marginTop: 3 }}>{value}</NeonText></Surface>;
 }
