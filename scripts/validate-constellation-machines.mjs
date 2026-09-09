@@ -117,7 +117,7 @@ for (const [text, why] of [
   ['COMPOSE PRIVATE PIPELINE', 'operators must be able to compose audited Machine sequences'],
   ['REPRODUCIBILITY LEDGER', 'operators must be able to compare replay manifests'],
   ['TOPOLOGY RESULT CHANGED', 'manifest comparison must surface changed outputs without raw trace persistence'],
-  ['Seed/objective inputs are reduced to SHA-256 digests', 'registry UI must make retention semantics explicit'],
+  ['seed/objective inputs are reduced to SHA-256 digests', 'registry UI must make retention semantics explicit'],
   ['Seal reproducible run manifest', 'manifest sealing must remain an explicit operator action'],
 ]) requireText('src/screens/InternalMachineRegistryScreen.tsx', text, why);
 
