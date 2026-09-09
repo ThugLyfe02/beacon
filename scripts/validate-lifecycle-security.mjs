@@ -31,6 +31,7 @@ const requiredFiles = [
   'src/services/premium.service.ts',
   'src/screens/HostManagementScreen.tsx',
   'src/screens/MapScreen.tsx',
+  'src/screens/RadarScreen.tsx',
 ];
 for (const path of requiredFiles) read(path);
 
@@ -125,6 +126,14 @@ for (const [text, explanation] of [
   ['showDevControls={false}', 'production UI must not advertise disabled self-premium escalation'],
   ['Past events remain preserved for Vault, outcomes and memory', 'history must stay available conceptually without masquerading as live presence'],
 ]) requireText('src/screens/MapScreen.tsx', text, explanation);
+
+for (const [text, explanation] of [
+  ['getEventById', 'Radar must know the authoritative event lifecycle rather than infer it from empty peers'],
+  ['sweep.stopAnimation', 'Radar motion must physically stop when live proximity is sealed'],
+  ['Radar · sealed', 'the user must see that live scanning has ended'],
+  ['Afterglow', 'post-window Radar must transition into a distinct reflection state'],
+  ['No more proximity reveals.', 'sealed Radar must explain the privacy boundary'],
+]) requireText('src/screens/RadarScreen.tsx', text, explanation);
 
 if (failures.length > 0) {
   console.error('\nLifecycle security validation failed:\n');
