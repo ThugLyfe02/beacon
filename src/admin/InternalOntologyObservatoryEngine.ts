@@ -139,7 +139,7 @@ function buildRelationStats(payload: InternalGraphPayload, now: number): Interna
 }
 
 function buildKindStats(payload: InternalGraphPayload): InternalOntologyKindStat[] {
-  const degree = new Map(payload.nodes.map((node) => [node.id, 0] as const));
+  const degree = new Map<string, number>(payload.nodes.map((node) => [node.id, 0]));
   for (const edge of payload.edges) {
     degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
     degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
