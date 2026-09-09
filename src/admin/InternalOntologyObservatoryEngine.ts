@@ -1,4 +1,4 @@
-import type { InternalGraphConfidence, InternalGraphPayload } from './InternalGraphEngine';
+import type { InternalGraphPayload } from './InternalGraphEngine';
 
 export interface InternalOntologyKindStat {
   kind: string;
@@ -67,12 +67,6 @@ function entropy(counts: number[]): number {
   }
   const max = Math.log2(Math.max(1, counts.filter((value) => value > 0).length));
   return max > 0 ? result / max : 0;
-}
-
-function confidenceRank(confidence: InternalGraphConfidence): number {
-  if (confidence === 'VERIFIED') return 2;
-  if (confidence === 'DERIVED') return 1;
-  return 0;
 }
 
 function relationSignature(sourceKind: string, relation: string, targetKind: string): string {
