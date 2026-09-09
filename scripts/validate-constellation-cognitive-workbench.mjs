@@ -26,6 +26,7 @@ const files = [
   'src/screens/InternalDecisionJournalScreen.tsx',
   'src/admin/InternalEvidenceDebtEngine.ts',
   'src/admin/InternalNextBestAnalysisEngine.ts',
+  'src/admin/InternalAnalystAttentionGovernor.ts',
   'src/screens/InternalEvidenceDebtScreen.tsx',
   'src/screens/InternalAdaptiveCommandScreen.tsx',
   'src/screens/InternalOperatorHubScreen.tsx',
@@ -132,6 +133,17 @@ forbidText('src/admin/InternalNextBestAnalysisEngine.ts', 'supabase', 'cognitive
 forbidText('src/admin/InternalNextBestAnalysisEngine.ts', 'fetch(', 'cognitive router must not perform enrichment');
 
 for (const [text, why] of [
+  ['buildInternalAnalystAttentionBudget', 'bounded analyst attention policy must remain available'],
+  ['slice(1, 3)', 'supporting analytical threads must remain capped at two'],
+  ['slice(3, 10)', 'later queue must remain bounded'],
+  ['Critical evidence/safety conditions may preempt', 'preemption must remain limited to evidence/safety conditions'],
+  ['novelty, popularity, and human-value inference never do', 'attention policy must reject psychologically seductive but unsafe ranking cues'],
+  ['presentation policy only', 'attention governor must never imply evidence mutation'],
+]) requireText('src/admin/InternalAnalystAttentionGovernor.ts', text, why);
+forbidText('src/admin/InternalAnalystAttentionGovernor.ts', 'supabase', 'attention governor must remain pure presentation policy');
+forbidText('src/admin/InternalAnalystAttentionGovernor.ts', 'fetch(', 'attention governor must not perform enrichment');
+
+for (const [text, why] of [
   ['INTERNAL · VERIFICATION QUEUE', 'Evidence Debt workbench must be explicit'],
   ['SELF-HEALING CONTRACT', 'verification semantics must be visible'],
   ['VERIFICATION PRIORITY QUEUE', 'ranked uncertainty obligations must be inspectable'],
@@ -140,11 +152,14 @@ for (const [text, why] of [
 ]) requireText('src/screens/InternalEvidenceDebtScreen.tsx', text, why);
 
 for (const [text, why] of [
-  ['NEXT BEST ANALYSIS', 'Operator Command must surface the cognitive router before deeper telemetry'],
+  ['ATTENTION BUDGET · NEXT BEST ANALYSIS', 'Operator Command must make bounded cognitive focus the primary analytical surface'],
   ['buildInternalNextBestAnalysisPlan', 'Operator Command must consume next-best-analysis planning'],
+  ['buildInternalAnalystAttentionBudget', 'Operator Command must consume bounded attention policy'],
   ['analyzeInternalEvidenceDebt', 'Operator Command must consume evidence-debt state'],
-  ['Run next analysis', 'operator must be able to deep-link from ranked analysis suggestions'],
-  ['workbench transitions, never social actions', 'Command must state the cognitive router action boundary'],
+  ['Run primary analysis', 'operator must be able to deep-link from the primary analytical thread'],
+  ['FOCUS NOW', 'one primary analytical thread must be visually explicit'],
+  ['SUPPORT 1', 'supporting analytical context must be visible'],
+  ['LATER QUEUE', 'non-primary work must be deferred rather than competing for attention'],
 ]) requireText('src/screens/InternalAdaptiveCommandScreen.tsx', text, why);
 
 for (const route of ['InternalDecisionJournal', 'InternalDecisionCalibration', 'InternalPerspectiveLab', 'InternalPatternQueryLab', 'InternalEvidenceDebt']) {
@@ -153,6 +168,7 @@ for (const route of ['InternalDecisionJournal', 'InternalDecisionCalibration', '
   forbidText('src/components/NetworkPulseCard.tsx', route, `normal-user Network Pulse must not expose ${route}`);
 }
 forbidText('src/components/NetworkPulseCard.tsx', 'InternalNextBestAnalysisEngine', 'normal-user Network Pulse must not expose cognitive routing');
+forbidText('src/components/NetworkPulseCard.tsx', 'InternalAnalystAttentionGovernor', 'normal-user Network Pulse must not expose operator attention policy');
 forbidText('src/components/NetworkPulseCard.tsx', 'Evidence Debt', 'normal-user Network Pulse must not expose operator verification debt');
 
 if (failures.length) {
@@ -160,4 +176,4 @@ if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
-console.log('Constellation Perspective, Pattern Grammar, Decision Journal/Calibration, Evidence Debt, cognitive routing, and public-boundary contract passed.');
+console.log('Constellation Perspective, Pattern Grammar, Decision Journal/Calibration, Evidence Debt, cognitive routing, bounded attention, and public-boundary contract passed.');
