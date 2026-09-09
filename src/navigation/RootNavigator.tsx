@@ -43,6 +43,8 @@ import InternalWatchtowerScreen from '../screens/InternalWatchtowerScreen';
 import InternalTargetRoutingScreen from '../screens/InternalTargetRoutingScreen';
 import InternalGraphHealthScreen from '../screens/InternalGraphHealthScreen';
 import InternalAdaptiveCommandScreen from '../screens/InternalAdaptiveCommandScreen';
+import InternalDecisionJournalScreen from '../screens/InternalDecisionJournalScreen';
+import InternalPerspectiveLabScreen from '../screens/InternalPerspectiveLabScreen';
 import InternalPrivateAccessScreen from '../screens/InternalPrivateAccessScreen';
 import InternalOperatorHubScreen from '../screens/InternalOperatorHubScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
@@ -115,6 +117,8 @@ export function RootNavigator() {
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="InternalOperatorHub" component={InternalOperatorHubScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalAdaptiveCommand" component={InternalAdaptiveCommandScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalDecisionJournal" component={InternalDecisionJournalScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalPerspectiveLab" component={InternalPerspectiveLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPrivateAccess" component={InternalPrivateAccessScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalGraph" component={InternalGraphScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalForensicsLab" component={InternalForensicsLabScreen} options={internalModalOptions} />
