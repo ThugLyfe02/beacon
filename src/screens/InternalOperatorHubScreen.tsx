@@ -16,6 +16,7 @@ interface LabDefinition {
 }
 
 const LABS: LabDefinition[] = [
+  { route: 'InternalAdaptiveCommand', title: 'Operator Command', code: 'COMMAND', description: 'Adaptive command layer combining Watchtower triage, epistemic authority, diversified target routing and health-calibrated agent missions.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalWatchtower', title: 'Watchtower', code: 'WATCH', description: 'Event-driven monitoring of canonical topology, motifs, broker emergence and private Machine result changes.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalTargetRouting', title: 'Target Routing', code: 'ROUTE', description: 'Diverse block-safe routes into target ecosystems with confidence floors, provenance, bottleneck risk and route redundancy.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalGraphHealth', title: 'Evidence Health', code: 'HEALTH', description: 'Epistemic quality of the canonical graph: verified/ambiguous mix, freshness, repetition, weak contexts and canonicalization hygiene.', capability: 'graph_read', accent: 'accent' },
@@ -62,7 +63,7 @@ export default function InternalOperatorHubScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · OPERATOR CONTROL DECK · ADAPTIVE OS" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
-              <NeonText variant="bodyMuted">Watchtower · explainable routing · epistemic health · evidence graph · entity-quality control · forensic pivots · composable Machines · reproducible recipes · longitudinal memory · calibrated strategy</NeonText>
+              <NeonText variant="bodyMuted">Adaptive command · Watchtower · explainable routing · epistemic health · evidence graph · entity-quality control · forensic pivots · composable Machines · reproducible recipes · longitudinal memory · calibrated strategy</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
