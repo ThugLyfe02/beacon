@@ -16,6 +16,8 @@ interface LabDefinition {
 }
 
 const LABS: LabDefinition[] = [
+  { route: 'InternalWatchtower', title: 'Watchtower', code: 'WATCH', description: 'Event-driven monitoring of canonical topology, motifs, broker emergence and private Machine result changes.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalTargetRouting', title: 'Target Routing', code: 'ROUTE', description: 'Diverse block-safe routes into target ecosystems with confidence floors, provenance, bottleneck risk and route redundancy.', capability: 'graph_manage', accent: 'accent' },
   { route: 'InternalGraph', title: 'Constellation', code: 'GRAPH', description: '3D evidence graph, communities, explainable paths, structural holes, surprising edges and Bridge Builder.', capability: 'graph_read', accent: 'accent' },
   { route: 'InternalForensicsLab', title: 'Forensics Lab', code: 'FORENSICS', description: 'Articulation points, graph bridges, effective size, participation coefficient and unexpected-edge surprisal.', capability: 'graph_read', accent: 'accent' },
   { route: 'InternalTransformLab', title: 'Transform Lab', code: 'PIVOT', description: 'Maltego-style first-party transforms, reverse pivots, provenance timelines and bounded multi-hop expansion.', capability: 'graph_read', accent: 'accent' },
@@ -57,17 +59,24 @@ export default function InternalOperatorHubScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <Pill label="INTERNAL · OPERATOR CONTROL DECK" tone="accent" dot />
+              <Pill label="INTERNAL · ADAPTIVE OPERATOR OS" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
-              <NeonText variant="bodyMuted">Evidence graph · entity-quality control · forensic pivots · composable machines · reproducible private recipes · longitudinal memory · calibrated strategy · human-approved intervention</NeonText>
+              <NeonText variant="bodyMuted">Watchtower · explainable routing · evidence graph · entity-quality control · forensic pivots · composable Machines · reproducible recipes · longitudinal memory · calibrated strategy</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
 
           <Surface padded style={styles.capabilityCard}>
-            <Pill label="CAPABILITY ENVELOPE" tone="neutral" dot />
+            <Pill label="SERVER SECURITY ENVELOPE" tone="neutral" dot />
             <View style={styles.capabilityRow}>{operator.capabilities.map((capability) => <Pill key={capability} label={capability.replaceAll('_', ' ').toUpperCase()} tone="accent" />)}</View>
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{operator.expiresAt ? `Access expires ${new Date(operator.expiresAt).toLocaleString()}.` : 'No client-side privilege escalation path exists; every lab rechecks its required capability server-side.'}</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{operator.expiresAt ? `Access expires ${new Date(operator.expiresAt).toLocaleString()}.` : 'Access has no configured expiry.'}</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{operator.leastPrivilegeRule}</NeonText>
+            <View style={styles.capabilityMatrix}>
+              <Pill label={`READ ${operator.read ? 'YES' : 'NO'}`} tone={operator.read ? 'accent' : 'neutral'} />
+              <Pill label={`MANAGE ${operator.manage ? 'YES' : 'NO'}`} tone={operator.manage ? 'accent' : 'neutral'} />
+              <Pill label={`RESTRICTED ${operator.restricted ? 'YES' : 'NO'}`} tone={operator.restricted ? 'accent' : 'neutral'} />
+              <Pill label={`EXPORT ${operator.export ? 'YES' : 'NO'}`} tone={operator.export ? 'accent' : 'neutral'} />
+            </View>
           </Surface>
 
           <View style={styles.grid}>
@@ -83,12 +92,12 @@ export default function InternalOperatorHubScreen() {
             ))}
           </View>
 
-          {operator.has('graph_restricted') ? <Surface padded style={styles.restrictedCard}><Pill label="RESTRICTED FORENSICS AVAILABLE" tone="accent" dot /><NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Your capability envelope permits safety topology where a specific lab exposes it. Block suppression still governs bridge eligibility even when restricted edges are visually hidden.</NeonText></Surface> : null}
-          {operator.has('graph_export') ? <Surface padded style={styles.exportCard}><Pill label="EXPORT CAPABILITY ACTIVE" tone="neutral" dot /><NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Strategy Lab can generate sanitized GraphML and deterministic Neo4j Cypher artifacts. Export remains a separate privilege from graph management.</NeonText></Surface> : null}
+          {operator.has('graph_restricted') ? <Surface padded style={styles.restrictedCard}><Pill label="RESTRICTED FORENSICS AVAILABLE" tone="accent" dot /><NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Your exact server capability permits safety topology where a specific lab exposes it. Block suppression still governs bridge/routing eligibility even when restricted edges are visually hidden.</NeonText></Surface> : null}
+          {operator.has('graph_export') ? <Surface padded style={styles.exportCard}><Pill label="EXPORT CAPABILITY ACTIVE" tone="neutral" dot /><NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Sanitized GraphML and deterministic Neo4j Cypher artifacts require this independent capability. Graph management alone cannot export.</NeonText></Surface> : null}
 
           <Surface padded style={styles.autonomyCard}>
             <Pill label="AUTONOMY BOUNDARY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation agents and Machines may analyze, diff, checkpoint finalized canonical topology, reconcile bounded mission memory, replay private recipes and refresh internal findings. Entity canonicalization is limited to non-person context nodes and requires explicit operator approval. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation may detect, diff, route, checkpoint canonical topology, monitor structural conditions, reconcile bounded mission memory, replay private recipes and refresh internal findings. Entity canonicalization is limited to non-person context nodes and requires explicit operator approval. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
           </Surface>
         </ScrollView>
       </SafeAreaView>
@@ -97,5 +106,5 @@ export default function InternalOperatorHubScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#02050D' }, centered: { flex: 1, backgroundColor: '#02050D', alignItems: 'center', justifyContent: 'center', padding: spacing.xl }, lockedCard: { width: '100%', maxWidth: 520, borderRadius: radii.xl }, scroll: { padding: spacing.lg, paddingBottom: 100, gap: spacing.lg }, header: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }, title: { marginTop: spacing.sm, fontSize: 40 }, capabilityCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong }, capabilityRow: { marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, grid: { gap: spacing.sm }, labPressable: { width: '100%' }, labCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong }, cardFooter: { marginTop: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }, restrictedCard: { borderRadius: radii.xl, borderColor: palette.accent }, exportCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong }, autonomyCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
+  container: { flex: 1, backgroundColor: '#02050D' }, centered: { flex: 1, backgroundColor: '#02050D', alignItems: 'center', justifyContent: 'center', padding: spacing.xl }, lockedCard: { width: '100%', maxWidth: 520, borderRadius: radii.xl }, scroll: { padding: spacing.lg, paddingBottom: 100, gap: spacing.lg }, header: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }, title: { marginTop: spacing.sm, fontSize: 40 }, capabilityCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong }, capabilityRow: { marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, capabilityMatrix: { marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, grid: { gap: spacing.sm }, labPressable: { width: '100%' }, labCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong }, cardFooter: { marginTop: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }, restrictedCard: { borderRadius: radii.xl, borderColor: palette.accent }, exportCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong }, autonomyCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
 });
