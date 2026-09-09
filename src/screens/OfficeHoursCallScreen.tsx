@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   useNavigation,
   useRoute,
@@ -15,6 +15,7 @@ import {
 import { Track } from 'livekit-client';
 import { usePremiumStatus } from '../premium/usePremium';
 import { getLivekitTokenForOfficeHours, type LivekitGrant } from '../services/livekit.service';
+import { confirmOfficeHoursCompletion } from '../services/officeHours.service';
 
 registerGlobals();
 
@@ -27,12 +28,12 @@ function CallStage() {
 
   return (
     <View style={styles.stage}>
-      {tracks.map((t) => (
-        <View key={t.participant.identity + t.source} style={styles.tile}>
-          {t.publication?.track && (
-            <VideoTrack trackRef={t} style={StyleSheet.absoluteFillObject} />
+      {tracks.map((track) => (
+        <View key={track.participant.identity + track.source} style={styles.tile}>
+          {track.publication?.track && (
+            <VideoTrack trackRef={track} style={StyleSheet.absoluteFillObject} />
           )}
-          <Text style={styles.tileLabel}>{t.participant.identity}</Text>
+          <Text style={styles.tileLabel}>{track.participant.identity}</Text>
         </View>
       ))}
     </View>
@@ -47,6 +48,7 @@ export default function OfficeHoursCallScreen() {
 
   const [grant, setGrant] = useState<LivekitGrant | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (!isPremium) return;
@@ -54,10 +56,10 @@ export default function OfficeHoursCallScreen() {
     (async () => {
       try {
         await AudioSession.startAudioSession();
-        const g = await getLivekitTokenForOfficeHours(officeHoursRequestId);
-        if (!cancelled) setGrant(g);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Could not start call');
+        const nextGrant = await getLivekitTokenForOfficeHours(officeHoursRequestId);
+        if (!cancelled) setGrant(nextGrant);
+      } catch (caught) {
+        if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not start call');
       }
     })();
     return () => {
@@ -65,6 +67,34 @@ export default function OfficeHoursCallScreen() {
       AudioSession.stopAudioSession();
     };
   }, [officeHoursRequestId, isPremium]);
+
+  async function endAndConfirm() {
+    if (confirming) return;
+    setConfirming(true);
+    try {
+      const state = await confirmOfficeHoursCompletion(officeHoursRequestId);
+      if (state.status === 'completed') {
+        Alert.alert(
+          'Two-party session confirmed',
+          'Both participants independently confirmed this Office Hours session. It can now count as verified outcome evidence.',
+        );
+      } else {
+        Alert.alert(
+          'Your confirmation is sealed',
+          'Beacon recorded only your side. The session will not count as completed until the other participant independently confirms.',
+        );
+      }
+      navigation.goBack();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not confirm your side.';
+      Alert.alert(
+        'Call ended without outcome confirmation',
+        `${message} You can leave without changing the verified completion state.`,
+      );
+    } finally {
+      setConfirming(false);
+    }
+  }
 
   if (!isPremium) {
     return (
@@ -110,12 +140,27 @@ export default function OfficeHoursCallScreen() {
       >
         <CallStage />
       </LiveKitRoom>
-      <Pressable
-        style={styles.leaveBtn}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.leaveText}>End Call</Text>
-      </Pressable>
+
+      <View style={styles.callControls}>
+        <Pressable
+          disabled={confirming}
+          style={[styles.confirmBtn, confirming && styles.disabled]}
+          onPress={endAndConfirm}
+        >
+          {confirming ? (
+            <ActivityIndicator color="#071018" />
+          ) : (
+            <Text style={styles.confirmText}>End & confirm my side</Text>
+          )}
+        </Pressable>
+        <Pressable
+          disabled={confirming}
+          style={styles.leaveBtn}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.leaveText}>Leave without confirming</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -153,14 +198,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   btnText: { color: '#0a0a0a', fontWeight: '700' },
-  leaveBtn: {
+  callControls: {
     position: 'absolute',
-    bottom: 32,
-    alignSelf: 'center',
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
+    left: 20,
+    right: 20,
+    bottom: 28,
+    gap: 8,
+  },
+  confirmBtn: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    backgroundColor: '#34D399',
+    borderRadius: 999,
+  },
+  confirmText: { color: '#071018', fontWeight: '800' },
+  leaveBtn: {
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    backgroundColor: 'rgba(239,68,68,0.9)',
     borderRadius: 999,
   },
   leaveText: { color: '#f5f5f5', fontWeight: '700' },
+  disabled: { opacity: 0.55 },
 });
