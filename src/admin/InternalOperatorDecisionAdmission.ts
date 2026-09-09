@@ -1,4 +1,9 @@
 import type { InternalAdaptiveAgentRun } from './InternalAdaptiveAgentOrchestrator';
+import {
+  getInternalDecisionCalibrationAdjustment,
+  type InternalDecisionCalibrationReport,
+} from './InternalDecisionCalibrationEngine';
+import { analyzeInternalRouteTemporalCoherence } from './InternalAgenticTimelineEngine';
 import type { InternalWatchtowerTriageResult } from './InternalWatchtowerTriageEngine';
 
 export type InternalOperatorDecisionKind =
@@ -79,11 +84,13 @@ function makeAdmission(input: {
  *
  * Inputs may only reduce analytical authority. This engine cannot grant a server
  * capability, override a block/suppression boundary, or execute an intervention.
- * A decision that is "admitted" is merely allowed to enter human review.
+ * Historical calibration and temporal coherence are conservative modifiers only:
+ * neither can create authority that current evidence does not already support.
  */
 export function evaluateInternalOperatorDecisionAdmission(input: {
   adaptiveRun: InternalAdaptiveAgentRun;
   watchtowerTriage?: InternalWatchtowerTriageResult | null;
+  decisionCalibration?: InternalDecisionCalibrationReport | null;
   suppressionsEstablished: boolean;
   capabilities: {
     manage: boolean;
@@ -108,19 +115,28 @@ export function evaluateInternalOperatorDecisionAdmission(input: {
     ...(highUrgency > 0 ? ['Review high/critical Watchtower incidents and their evidence surfaces before escalating decisions.'] : []),
   ];
 
+  const calibrationFor = (kind: InternalOperatorDecisionKind) =>
+    getInternalDecisionCalibrationAdjustment(input.decisionCalibration ?? null, kind);
   const admissions: InternalOperatorDecisionAdmission[] = [];
 
+  const analysisCalibration = calibrationFor('analysis_review');
   admissions.push(makeAdmission({
     kind: 'analysis_review',
     title: 'General graph analysis',
-    authority: Math.max(0.42, base - incidentPenalty * 0.45),
-    reasons: [...healthReasons, 'analysis remains available even when evidence is weak so operators can investigate why'],
+    authority: Math.max(0.42, base - incidentPenalty * 0.45 - analysisCalibration.penalty),
+    reasons: [
+      ...healthReasons,
+      ...analysisCalibration.reasons,
+      'analysis remains available even when evidence is weak so operators can investigate why',
+    ],
     remediation: healthRemediation,
     forcedState: health.band === 'degraded' ? 'review_with_caution' : undefined,
   }));
 
   const route = run.routingPortfolio?.routes[0] ?? null;
-  const routeAuthority = route
+  const temporal = route ? analyzeInternalRouteTemporalCoherence(route) : null;
+  const routeCalibration = calibrationFor('target_route_review');
+  const rawRouteAuthority = route
     ? clamp01(
         base * 0.52
         + route.evidenceQuality * 0.18
@@ -131,6 +147,8 @@ export function evaluateInternalOperatorDecisionAdmission(input: {
         - incidentPenalty,
       )
     : 0;
+  const temporalMultiplier = temporal ? 0.82 + temporal.overlapScore * 0.18 : 1;
+  const routeAuthority = clamp01(rawRouteAuthority * temporalMultiplier - routeCalibration.penalty);
   const routeSafetyBlocked = !input.suppressionsEstablished;
   admissions.push(makeAdmission({
     kind: 'target_route_review',
@@ -139,24 +157,33 @@ export function evaluateInternalOperatorDecisionAdmission(input: {
     reasons: route
       ? [
           ...healthReasons,
+          ...routeCalibration.reasons,
           `${Math.round(route.verifiedEdgeRatio * 100)}% verified route edges; confidence floor ${route.confidenceFloor.toLowerCase()}`,
           `${Math.round(run.routingPortfolio!.routeDiversity * 100)}% route diversity across ${run.routingPortfolio!.routes.length} selected alternatives`,
           `${run.routingPortfolio!.structuralSinglePointNodeIds.length} shared structural bottleneck${run.routingPortfolio!.structuralSinglePointNodeIds.length === 1 ? '' : 's'}`,
+          ...(temporal ? [`temporal coherence ${Math.round(temporal.overlapScore * 100)}%; ${temporal.hasSharedObservationWindow ? 'route edges share a retained observation window' : `no shared retained window, nearest aggregate gap ~${Math.round(temporal.nearestGapDays)} days`}`] : []),
         ]
-      : [...healthReasons, 'no target-route portfolio is currently available'],
+      : [...healthReasons, ...routeCalibration.reasons, 'no target-route portfolio is currently available'],
     remediation: [
       ...healthRemediation,
       ...(!route ? ['Specify a target ecosystem and produce at least one block-safe evidence route.'] : []),
       ...(route?.confidenceFloor === 'AMBIGUOUS' ? ['Replace or manually validate ambiguous route evidence before escalation.'] : []),
       ...(run.routingPortfolio && run.routingPortfolio.routeDiversity < 0.25 ? ['Seek an independent route so the conclusion is not dominated by one evidence chain.'] : []),
+      ...(temporal && !temporal.hasSharedObservationWindow ? ['Review Agentic Timeline before treating this structural route as contemporaneously supported.'] : []),
       ...(!input.suppressionsEstablished ? ['Re-establish authoritative block/suppression truth before any route can enter review.'] : []),
     ],
     forcedState: routeSafetyBlocked ? 'safety_blocked' : undefined,
   }));
 
+  const interventionCalibration = calibrationFor('intervention_review');
+  const temporalPenalty = temporal && !temporal.hasSharedObservationWindow
+    ? Math.min(0.12, 0.04 + temporal.nearestGapDays / 3650)
+    : 0;
   const interventionAuthority = clamp01(
     Math.min(base, route ? routeAuthority : base * 0.72)
     - incidentPenalty
+    - interventionCalibration.penalty
+    - temporalPenalty
     - (health.band === 'fragile' ? 0.12 : health.band === 'degraded' ? 0.25 : 0),
   );
   admissions.push(makeAdmission({
@@ -165,12 +192,15 @@ export function evaluateInternalOperatorDecisionAdmission(input: {
     authority: interventionAuthority,
     reasons: [
       ...healthReasons,
+      ...interventionCalibration.reasons,
       'intervention review is intentionally stricter than analysis or route inspection',
       ...(route ? [`best available route confidence floor is ${route.confidenceFloor.toLowerCase()}`] : ['no target route is required for non-routing interventions']),
+      ...(temporal && !temporal.hasSharedObservationWindow ? ['route-dependent evidence does not share one retained observation window, reducing point-in-time authority'] : []),
     ],
     remediation: [
       ...healthRemediation,
       ...(route?.confidenceFloor === 'AMBIGUOUS' ? ['Do not elevate a route-dependent intervention until ambiguous evidence is resolved.'] : []),
+      ...(temporal && !temporal.hasSharedObservationWindow ? ['Resolve temporal-coherence debt or explicitly record a historical-only route interpretation before intervention review.'] : []),
       ...(!input.suppressionsEstablished ? ['Re-establish authoritative suppression truth.'] : []),
     ],
     forcedState: !input.suppressionsEstablished
@@ -182,23 +212,30 @@ export function evaluateInternalOperatorDecisionAdmission(input: {
           : undefined,
   }));
 
+  const restrictedCalibration = calibrationFor('restricted_forensics_review');
   admissions.push(makeAdmission({
     kind: 'restricted_forensics_review',
     title: 'Restricted-forensics review',
-    authority: clamp01(base - incidentPenalty * 0.4),
-    reasons: [...healthReasons, input.capabilities.restricted ? 'exact restricted capability is currently active' : 'restricted capability is not active'],
+    authority: clamp01(base - incidentPenalty * 0.4 - restrictedCalibration.penalty),
+    reasons: [
+      ...healthReasons,
+      ...restrictedCalibration.reasons,
+      input.capabilities.restricted ? 'exact restricted capability is currently active' : 'restricted capability is not active',
+    ],
     remediation: input.capabilities.restricted
       ? healthRemediation
       : ['Obtain an authorized standing or service-issued time-bounded graph_restricted capability before restricted evidence can be reviewed.'],
     forcedState: input.capabilities.restricted ? undefined : 'capability_required',
   }));
 
+  const exportCalibration = calibrationFor('portable_export_review');
   admissions.push(makeAdmission({
     kind: 'portable_export_review',
     title: 'Portable graph export review',
-    authority: clamp01(base - incidentPenalty * 0.25),
+    authority: clamp01(base - incidentPenalty * 0.25 - exportCalibration.penalty),
     reasons: [
       ...healthReasons,
+      ...exportCalibration.reasons,
       input.capabilities.export ? 'exact graph_export capability is currently active' : 'graph_export capability is not active',
       'portable export remains pseudonymous-by-default and requires a server receipt before sharing',
     ],
@@ -214,6 +251,6 @@ export function evaluateInternalOperatorDecisionAdmission(input: {
     lowestAuthority: admissions.reduce((minimum, admission) => Math.min(minimum, admission.authority), 1),
     blockedCount: admissions.filter((admission) => admission.state === 'safety_blocked' || admission.state === 'capability_required').length,
     remediationCount: admissions.filter((admission) => admission.state === 'evidence_remediation_required').length,
-    operatingRule: 'Decision admission governs whether evidence may enter operator review. It cannot grant capabilities, override blocks, or execute actions.',
+    operatingRule: 'Decision admission governs whether evidence may enter operator review. Current evidence sets the ceiling; historical calibration and temporal coherence may only reduce authority. Admission cannot grant capabilities, override blocks, or execute actions.',
   };
 }
