@@ -12,6 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { analyzeInternalGraph, type InternalGraphPayload } from '../admin/InternalGraphEngine';
 import { runAdaptiveInternalGraphAgentOrchestrator } from '../admin/InternalAdaptiveAgentOrchestrator';
+import {
+  analyzeInternalRouteTemporalCoherence,
+  buildInternalAgenticTimeline,
+} from '../admin/InternalAgenticTimelineEngine';
 import { triageInternalWatchtower } from '../admin/InternalWatchtowerTriageEngine';
 import { analyzeInternalDecisionCalibration } from '../admin/InternalDecisionCalibrationEngine';
 import {
@@ -20,10 +24,12 @@ import {
 } from '../admin/InternalOperatorDecisionAdmission';
 import {
   loadInternalDecisionJournal,
+  recordInternalDecisionContext,
   resolveInternalDecisionJournal,
   saveInternalDecisionJournal,
   type InternalDecisionJournalEntry,
   type InternalDecisionJournalStatus,
+  type InternalDecisionRetrospectiveMetrics,
 } from '../admin/internalDecisionJournal.service';
 import {
   getInternalBridgeSuppressions,
@@ -118,6 +124,8 @@ export default function InternalDecisionJournalScreen() {
     [payload, suppressions, patterns, targetQuery, sourceNodeId],
   );
 
+  const timeline = useMemo(() => payload ? buildInternalAgenticTimeline(payload) : null, [payload]);
+
   const triage = useMemo(
     () => watchtower && adaptiveRun
       ? triageInternalWatchtower({ state: watchtower, epistemicHealth: adaptiveRun.epistemicHealth })
@@ -150,6 +158,32 @@ export default function InternalDecisionJournalScreen() {
   const selectedAdmission = admissionSet?.admissions.find((admission) => admission.kind === decisionKind) ?? null;
   const selectedEntry = entries.find((entry) => entry.id === selectedEntryId) ?? null;
   const selectedCalibrationBucket = decisionCalibration.byDecisionKind.find((bucket) => bucket.key === decisionKind) ?? null;
+  const resolutionAdmission = selectedEntry
+    ? admissionSet?.admissions.find((admission) => admission.kind === selectedEntry.decisionKind) ?? null
+    : null;
+
+  const retrospectiveMetrics = useCallback((admissionKind: InternalOperatorDecisionKind): InternalDecisionRetrospectiveMetrics | null => {
+    if (!adaptiveRun || !triage || !timeline || !admissionSet) return null;
+    const routing = adaptiveRun.routingPortfolio;
+    const bestRoute = routing?.routes[0] ?? null;
+    const temporal = bestRoute ? analyzeInternalRouteTemporalCoherence(bestRoute) : null;
+    const admission = admissionSet.admissions.find((item) => item.kind === admissionKind);
+    return {
+      healthScore: adaptiveRun.epistemicHealth.score,
+      verifiedRatio: adaptiveRun.epistemicHealth.verifiedEdgeRatio,
+      ambiguousRatio: adaptiveRun.epistemicHealth.ambiguousEdgeRatio,
+      freshRatio: adaptiveRun.epistemicHealth.freshEdgeRatio,
+      repeatedRatio: adaptiveRun.epistemicHealth.repeatedEvidenceRatio,
+      routeDiversity: routing ? routing.routeDiversity : null,
+      routeCount: routing?.routes.length ?? 0,
+      sharedBottlenecks: routing?.structuralSinglePointNodeIds.length ?? 0,
+      temporalOverlap: temporal?.overlapScore ?? null,
+      chronologyGaps: timeline.chronologyGapCount,
+      openIncidents: triage.openIncidentCount,
+      criticalIncidents: triage.criticalIncidentCount,
+      calibrationPenalty: admission?.calibrationPenalty ?? 0,
+    };
+  }, [adaptiveRun, triage, timeline, admissionSet]);
 
   const save = async () => {
     if (!payload || !adaptiveRun || !selectedAdmission || !triage) return;
@@ -160,7 +194,7 @@ export default function InternalDecisionJournalScreen() {
     setSaving(true);
     try {
       const routing = adaptiveRun.routingPortfolio;
-      await saveInternalDecisionJournal({
+      const saved = await saveInternalDecisionJournal({
         eventId,
         decisionKind,
         title,
@@ -170,7 +204,7 @@ export default function InternalDecisionJournalScreen() {
         admissionState: selectedAdmission.state,
         admissionAuthority: selectedAdmission.authority,
         evidenceSummary: {
-          schemaVersion: 'decision-evidence-v2-calibrated',
+          schemaVersion: 'decision-evidence-v3-retrospective',
           graphVersion: payload.graphVersion,
           decisionKind,
           admissionState: selectedAdmission.state,
@@ -210,6 +244,15 @@ export default function InternalDecisionJournalScreen() {
           },
         },
       });
+      const metrics = retrospectiveMetrics(decisionKind);
+      if (metrics) {
+        await recordInternalDecisionContext({
+          journalId: saved.id,
+          phase: 'created',
+          graphVersion: payload.graphVersion,
+          metrics,
+        });
+      }
       setTitle('');
       setHypothesis('');
       setDisconfirmingCondition('');
@@ -228,6 +271,21 @@ export default function InternalDecisionJournalScreen() {
     }
     setResolving(true);
     try {
+      const metrics = retrospectiveMetrics(selectedEntry.decisionKind);
+      if (metrics && payload) {
+        try {
+          await recordInternalDecisionContext({
+            journalId: selectedEntry.id,
+            phase: 'resolved',
+            graphVersion: payload.graphVersion,
+            metrics,
+          });
+        } catch (contextError) {
+          // Legacy hypotheses may predate migration 073 and therefore have no
+          // truthful decision-time context to compare against. Do not fabricate it.
+          console.warn('[DecisionJournal] retrospective context unavailable for legacy entry:', contextError);
+        }
+      }
       await resolveInternalDecisionJournal({ journalId: selectedEntry.id, status, conclusionNote });
       setSelectedEntryId(null);
       setConclusionNote('');
@@ -245,7 +303,7 @@ export default function InternalDecisionJournalScreen() {
   if (!operator.allowed || !operator.has('graph_manage')) {
     return <View style={styles.centered}><GridBackground /><Surface padded style={styles.lockedCard}><Pill label="DECISION JOURNAL · SEALED" tone="neutral" dot /><NeonText variant="h1" style={{ marginTop: spacing.md }}>Graph management capability required.</NeonText></Surface></View>;
   }
-  if (!payload || !adaptiveRun || !admissionSet || !selectedAdmission || !triage) return null;
+  if (!payload || !adaptiveRun || !admissionSet || !selectedAdmission || !triage || !timeline) return null;
 
   return (
     <View style={styles.container}>
@@ -256,7 +314,7 @@ export default function InternalDecisionJournalScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · FALSIFIABLE DECISION MEMORY" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Decision Journal</NeonText>
-              <NeonText variant="bodyMuted">Hypothesis → calibrated evidence authority → disconfirming condition → later outcome. Resolved history can only reduce future authority when repeated overconfidence is demonstrated.</NeonText>
+              <NeonText variant="bodyMuted">Hypothesis → calibrated authority → decision-time metrics → disconfirming condition → resolution-time metrics → later outcome. Historical context can only calibrate the analytical method.</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -267,7 +325,8 @@ export default function InternalDecisionJournalScreen() {
               <Metric label="HEALTH" value={`${Math.round(adaptiveRun.epistemicHealth.score * 100)}%`} />
               <Metric label="ADMISSION" value={selectedAdmission.state.replaceAll('_', ' ').toUpperCase()} />
               <Metric label="AUTHORITY" value={`${Math.round(selectedAdmission.authority * 100)}%`} />
-              <Metric label="METHOD VERDICTS" value={`${selectedCalibrationBucket?.resolvedCount ?? 0}`} />
+              <Metric label="CALIBRATION PENALTY" value={`${Math.round(selectedAdmission.calibrationPenalty * 100)}%`} />
+              <Metric label="CHRONOLOGY GAPS" value={`${timeline.chronologyGapCount}`} />
             </View>
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{selectedAdmission.operatingRule}</NeonText>
           </Surface>
@@ -289,7 +348,7 @@ export default function InternalDecisionJournalScreen() {
               {selectedAdmission.reasons.slice(0, 5).map((reason, index) => <NeonText key={`reason-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
               {selectedAdmission.requiredRemediation.slice(0, 3).map((item, index) => <NeonText key={`remediation-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• remediation: {item}</NeonText>)}
             </Surface>
-            <GlowButton label={saving ? 'Sealing…' : 'Seal hypothesis + calibrated evidence digest'} disabled={saving} onPress={() => void save()} />
+            <GlowButton label={saving ? 'Sealing…' : 'Seal hypothesis + retrospective baseline'} disabled={saving} onPress={() => void save()} />
           </Section>
 
           <Section title="HYPOTHESIS LEDGER" subtitle={`${entries.filter((entry) => entry.status === 'open').length} open · ${entries.length} retained in this private scope`}>
@@ -311,7 +370,8 @@ export default function InternalDecisionJournalScreen() {
           </Section>
 
           {selectedEntry?.status === 'open' ? (
-            <Section title="RESOLVE SELECTED HYPOTHESIS" subtitle="Resolution recalibrates the method; it never mutates graph evidence automatically">
+            <Section title="RESOLVE SELECTED HYPOTHESIS" subtitle="Resolution records current analytical-state metrics before recalibrating the method; it never mutates graph evidence automatically">
+              {resolutionAdmission ? <NeonText variant="bodyMuted">Current {selectedEntry.decisionKind.replaceAll('_', ' ')} authority: {Math.round(resolutionAdmission.authority * 100)}% · calibration penalty {Math.round(resolutionAdmission.calibrationPenalty * 100)}%</NeonText> : null}
               <TextInput value={conclusionNote} onChangeText={setConclusionNote} placeholder="What changed, held, or failed?" placeholderTextColor="#64748B" style={[styles.input, styles.multiline]} multiline />
               <View style={styles.actionRow}>
                 <GlowButton label="Supported" variant="ghost" disabled={resolving} onPress={() => void resolve('supported')} />
@@ -324,7 +384,7 @@ export default function InternalDecisionJournalScreen() {
 
           <Surface padded style={styles.card}>
             <Pill label="MEMORY BOUNDARY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>The database stores bounded hypothesis metadata and an evidence digest—not the graph payload. Journal outcomes remain operator memory. Historical overconfidence may reduce later analytical authority; historical underconfidence never grants more authority automatically.</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>The database stores bounded hypothesis metadata, an evidence digest, and a strict metrics-only retrospective envelope. It does not retain the graph payload, target query, person ids, contact data, or movement. Historical overconfidence may reduce later analytical authority; historical underconfidence never grants more authority automatically.</NeonText>
           </Surface>
         </ScrollView>
       </SafeAreaView>
