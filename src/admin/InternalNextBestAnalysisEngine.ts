@@ -17,7 +17,8 @@ export type InternalAnalysisDestination =
   | 'InternalEpochLab'
   | 'InternalHandoffLab'
   | 'InternalAgenticTimeline'
-  | 'InternalDecisionCalibration';
+  | 'InternalDecisionCalibration'
+  | 'InternalDecisionRetrospective';
 
 export interface InternalNextAnalysisAction {
   id: string;
@@ -80,6 +81,7 @@ export function buildInternalNextBestAnalysisPlan(input: {
 
   for (const item of input.methodDebt?.items.slice(0, 5) ?? []) {
     const requiredCapability: InternalAnalysisCapability = item.recommendedSurface === 'InternalDecisionCalibration'
+      || item.recommendedSurface === 'InternalDecisionRetrospective'
       || item.recommendedSurface === 'InternalTargetRouting'
       || item.recommendedSurface === 'InternalDecisionJournal'
       ? 'graph_manage'
