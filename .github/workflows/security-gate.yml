@@ -101,6 +101,27 @@ jobs:
         if: steps.lifecycle-security.outcome == 'failure'
         run: exit 1
 
+      - name: Validate privileged physical-world surfaces
+        id: privileged-surfaces
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-privileged-surfaces.mjs 2>&1 | tee privileged-surface-validation.txt
+
+      - name: Upload privileged surface diagnostics
+        if: steps.privileged-surfaces.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: privileged-surface-diagnostics
+          path: privileged-surface-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on privileged surface contract violations
+        if: steps.privileged-surfaces.outcome == 'failure'
+        run: exit 1
+
       - name: Validate product preservation contract
         run: node scripts/validate-product-preservation.mjs
 
