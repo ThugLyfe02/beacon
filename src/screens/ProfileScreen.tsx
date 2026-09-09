@@ -23,6 +23,7 @@ import {
   PremiumDrawer,
   Surface,
 } from '../components/ui';
+import NetworkPulseCard from '../components/NetworkPulseCard';
 import { useAuth } from '../hooks/useAuth';
 import { useFollow } from '../hooks/useFollow';
 import { usePremium } from '../hooks/usePremium';
@@ -53,6 +54,7 @@ export default function ProfileScreen() {
   const internalGraphAvailable = isSelf
     && internalOperator.allowed
     && internalOperator.has('graph_read');
+  const bridgeLabAvailable = internalGraphAvailable && internalOperator.has('graph_manage');
 
   const loadUser = useCallback(async () => {
     setLoadingUser(true);
@@ -154,42 +156,45 @@ export default function ProfileScreen() {
               />
             }
             ListHeaderComponent={
-              <ProfileHeader
-                user={user}
-                followCounts={follow.counts}
-                followLoading={follow.loading}
-                following={follow.following}
-                onFollowPress={async () => {
-                  try {
-                    await follow.toggle();
-                  } catch {
-                    Alert.alert('Action failed', 'Could not update follow.');
-                  }
-                }}
-                isSelf={isSelf}
-                onEdit={() => navigation.navigate('EditProfile')}
-                onOpenInternalGraph={internalGraphAvailable ? () => navigation.navigate('InternalGraph') : null}
-                onSignOut={() => {
-                  Alert.alert(
-                    'Drop signal?',
-                    'Sign out of Beacon on this device.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Sign out',
-                        style: 'destructive',
-                        onPress: async () => {
-                          const { error } = await signOut();
-                          if (error) {
-                            Alert.alert('Sign out failed', error.message);
-                          }
+              <>
+                <ProfileHeader
+                  user={user}
+                  followCounts={follow.counts}
+                  followLoading={follow.loading}
+                  following={follow.following}
+                  onFollowPress={async () => {
+                    try {
+                      await follow.toggle();
+                    } catch {
+                      Alert.alert('Action failed', 'Could not update follow.');
+                    }
+                  }}
+                  isSelf={isSelf}
+                  onEdit={() => navigation.navigate('EditProfile')}
+                  onOpenInternalGraph={internalGraphAvailable ? () => navigation.navigate('InternalGraph') : null}
+                  onOpenStrategyLab={internalGraphAvailable ? () => navigation.navigate('InternalStrategyLab') : null}
+                  onOpenBridgeLab={bridgeLabAvailable ? () => navigation.navigate('InternalBridgeLab') : null}
+                  onSignOut={() => {
+                    Alert.alert(
+                      'Drop signal?',
+                      'Sign out of Beacon on this device.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Sign out',
+                          style: 'destructive',
+                          onPress: async () => {
+                            const { error } = await signOut();
+                            if (error) Alert.alert('Sign out failed', error.message);
+                          },
                         },
-                      },
-                    ]
-                  );
-                }}
-                postCount={feed.posts.length}
-              />
+                      ]
+                    );
+                  }}
+                  postCount={feed.posts.length}
+                />
+                {isSelf ? <NetworkPulseCard /> : null}
+              </>
             }
             ListEmptyComponent={
               !loadingUser && !feed.loading ? (
@@ -229,6 +234,8 @@ interface HeaderProps {
   isSelf: boolean;
   onEdit: () => void;
   onOpenInternalGraph: (() => void) | null;
+  onOpenStrategyLab: (() => void) | null;
+  onOpenBridgeLab: (() => void) | null;
   onSignOut: () => void;
   postCount: number;
 }
@@ -242,6 +249,8 @@ function ProfileHeader({
   isSelf,
   onEdit,
   onOpenInternalGraph,
+  onOpenStrategyLab,
+  onOpenBridgeLab,
   onSignOut,
   postCount,
 }: Readonly<HeaderProps>) {
@@ -258,16 +267,12 @@ function ProfileHeader({
             <NeonText variant="h1">{user?.name || 'Anonymous'}</NeonText>
             {user?.is_premium ? <PremiumBadge size="md" /> : null}
           </View>
-          {user?.role ? (
-            <NeonText variant="label" tone="accent">{user.role}</NeonText>
-          ) : null}
+          {user?.role ? <NeonText variant="label" tone="accent">{user.role}</NeonText> : null}
         </View>
       </View>
 
       {user?.one_liner ? (
-        <NeonText variant="body" style={{ marginTop: spacing.md, lineHeight: 22 }}>
-          {user.one_liner}
-        </NeonText>
+        <NeonText variant="body" style={{ marginTop: spacing.md, lineHeight: 22 }}>{user.one_liner}</NeonText>
       ) : null}
 
       <View style={styles.statRow}>
@@ -288,36 +293,19 @@ function ProfileHeader({
       {isSelf ? (
         <View style={styles.selfActions}>
           {onOpenInternalGraph ? (
-            <GlowButton
-              label="Open Constellation"
-              onPress={onOpenInternalGraph}
-              variant="ghost"
-              fullWidth
-              style={styles.internalGraphBtn}
-            />
+            <GlowButton label="Open Constellation" onPress={onOpenInternalGraph} variant="ghost" fullWidth style={styles.internalGraphBtn} />
           ) : null}
-          <GlowButton
-            label="Edit profile"
-            onPress={onEdit}
-            variant="ghost"
-            fullWidth
-          />
-          <GlowButton
-            label="Sign out"
-            onPress={onSignOut}
-            variant="ghost"
-            fullWidth
-            style={styles.signOutBtn}
-          />
+          {onOpenStrategyLab ? (
+            <GlowButton label="Strategy Lab" onPress={onOpenStrategyLab} variant="ghost" fullWidth style={styles.internalGraphBtn} />
+          ) : null}
+          {onOpenBridgeLab ? (
+            <GlowButton label="Bridge Lab" onPress={onOpenBridgeLab} variant="ghost" fullWidth style={styles.internalGraphBtn} />
+          ) : null}
+          <GlowButton label="Edit profile" onPress={onEdit} variant="ghost" fullWidth />
+          <GlowButton label="Sign out" onPress={onSignOut} variant="ghost" fullWidth style={styles.signOutBtn} />
         </View>
       ) : (
-        <FollowButton
-          following={following}
-          loading={followLoading}
-          onPress={onFollowPress}
-          fullWidth
-          size="md"
-        />
+        <FollowButton following={following} loading={followLoading} onPress={onFollowPress} fullWidth size="md" />
       )}
 
       <View style={styles.divider} />
@@ -338,11 +326,7 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { padding: spacing.lg, paddingBottom: 120 },
-  profileCard: {
-    borderRadius: radii.xl,
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
+  profileCard: { borderRadius: radii.xl, gap: spacing.md, marginBottom: spacing.md },
   avatarRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
   avatar: {
     width: 64,
@@ -355,12 +339,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { fontSize: 28, lineHeight: 32 },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
