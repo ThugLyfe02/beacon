@@ -39,6 +39,26 @@ import InternalMissionLedgerScreen from '../screens/InternalMissionLedgerScreen'
 import InternalMachineLabScreen from '../screens/InternalMachineLabScreen';
 import InternalMachineRegistryScreen from '../screens/InternalMachineRegistryScreen';
 import InternalEntityResolutionLabScreen from '../screens/InternalEntityResolutionLabScreen';
+import InternalWatchtowerScreen from '../screens/InternalWatchtowerScreen';
+import InternalTargetRoutingScreen from '../screens/InternalTargetRoutingScreen';
+import InternalGraphHealthScreen from '../screens/InternalGraphHealthScreen';
+import InternalEvidenceDebtScreen from '../screens/InternalEvidenceDebtScreen';
+import InternalEvidenceConflictScreen from '../screens/InternalEvidenceConflictScreen';
+import InternalReasoningLineageScreen from '../screens/InternalReasoningLineageScreen';
+import InternalReasoningRevalidationScreen from '../screens/InternalReasoningRevalidationScreen';
+import InternalDecisionReproducibilityScreen from '../screens/InternalDecisionReproducibilityScreen';
+import InternalOntologyObservatoryScreen from '../screens/InternalOntologyObservatoryScreen';
+import InternalAgenticTimelineScreen from '../screens/InternalAgenticTimelineScreen';
+import InternalCollaborativeCaseMemoryScreen from '../screens/InternalCollaborativeCaseMemoryScreen';
+import InternalAdaptiveCommandScreen from '../screens/InternalAdaptiveCommandScreen';
+import InternalDecisionJournalScreen from '../screens/InternalDecisionJournalScreen';
+import InternalDecisionCalibrationScreen from '../screens/InternalDecisionCalibrationScreen';
+import InternalDecisionRetrospectiveScreen from '../screens/InternalDecisionRetrospectiveScreen';
+import InternalAssumptionStalenessScreen from '../screens/InternalAssumptionStalenessScreen';
+import InternalPerspectiveLabScreen from '../screens/InternalPerspectiveLabScreen';
+import InternalPatternQueryLabScreen from '../screens/InternalPatternQueryLabScreen';
+import InternalHandoffLabScreen from '../screens/InternalHandoffLabScreen';
+import InternalPrivateAccessScreen from '../screens/InternalPrivateAccessScreen';
 import InternalOperatorHubScreen from '../screens/InternalOperatorHubScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
@@ -109,12 +129,32 @@ export function RootNavigator() {
         <Stack.Screen name="MainTabs">{() => <MainTabs userId={user.id} isHost={isHost} onEventEnded={handleEventEnded} />}</Stack.Screen>
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="InternalOperatorHub" component={InternalOperatorHubScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalAdaptiveCommand" component={InternalAdaptiveCommandScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalDecisionJournal" component={InternalDecisionJournalScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalDecisionCalibration" component={InternalDecisionCalibrationScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalDecisionRetrospective" component={InternalDecisionRetrospectiveScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalAssumptionStaleness" component={InternalAssumptionStalenessScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalReasoningLineage" component={InternalReasoningLineageScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalDecisionReproducibility" component={InternalDecisionReproducibilityScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalReasoningRevalidation" component={InternalReasoningRevalidationScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalPerspectiveLab" component={InternalPerspectiveLabScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalPatternQueryLab" component={InternalPatternQueryLabScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalHandoffLab" component={InternalHandoffLabScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalCollaborativeCaseMemory" component={InternalCollaborativeCaseMemoryScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalPrivateAccess" component={InternalPrivateAccessScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalGraph" component={InternalGraphScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalForensicsLab" component={InternalForensicsLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalMissionLedger" component={InternalMissionLedgerScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalMachineLab" component={InternalMachineLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalMachineRegistry" component={InternalMachineRegistryScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalEntityResolutionLab" component={InternalEntityResolutionLabScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalWatchtower" component={InternalWatchtowerScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalTargetRouting" component={InternalTargetRoutingScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalGraphHealth" component={InternalGraphHealthScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalEvidenceDebt" component={InternalEvidenceDebtScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalEvidenceConflicts" component={InternalEvidenceConflictScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalOntologyObservatory" component={InternalOntologyObservatoryScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalAgenticTimeline" component={InternalAgenticTimelineScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalBridgeLab" component={InternalBridgeLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalStrategyLab" component={InternalStrategyLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalSimulationLab" component={InternalSimulationLabScreen} options={internalModalOptions} />

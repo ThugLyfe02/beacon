@@ -1,0 +1,109 @@
+name: Constellation Operator OS
+
+on:
+  pull_request:
+    paths:
+      - 'src/admin/**'
+      - 'src/screens/Internal*.tsx'
+      - 'src/navigation/RootNavigator.tsx'
+      - 'src/components/NetworkPulseCard.tsx'
+      - 'supabase/migrations/06*.sql'
+      - 'supabase/migrations/07*.sql'
+      - 'scripts/validate-constellation-*.mjs'
+      - '.github/workflows/constellation-operator-os.yml'
+  push:
+    branches:
+      - 'feature/constellation-adaptive-operator-os'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constellation-operator-os-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  operator-os:
+    name: Operator OS contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Strict TypeScript
+        run: npx tsc --noEmit --pretty false
+
+      - name: Mission memory contract
+        run: node scripts/validate-constellation-mission-memory.mjs
+
+      - name: Machine and private recipe contract
+        run: node scripts/validate-constellation-machines.mjs
+
+      - name: Entity-quality contract
+        run: node scripts/validate-constellation-entity-quality.mjs
+
+      - name: Adaptive operator OS contract
+        run: node scripts/validate-constellation-operator-os.mjs
+
+      - name: Watchtower baseline and epistemic-health contract
+        run: node scripts/validate-constellation-epistemic-health.mjs
+
+      - name: Portable export privacy and receipt contract
+        run: node scripts/validate-constellation-export-boundary.mjs
+
+      - name: Adaptive command and JIT access contract
+        run: node scripts/validate-constellation-adaptive-command.mjs
+
+      - name: Decision admission contract
+        run: node scripts/validate-constellation-decision-admission.mjs
+
+      - name: Decision calibration feedback-loop contract
+        run: node scripts/validate-constellation-decision-calibration-loop.mjs
+
+      - name: Agentic timeline and temporal-coherence contract
+        run: node scripts/validate-constellation-agentic-timeline.mjs
+
+      - name: Cognitive workbench contract
+        run: node scripts/validate-constellation-cognitive-workbench.mjs
+
+      - name: Value-of-information contract
+        run: node scripts/validate-constellation-value-of-information.mjs
+
+      - name: Retrospective decision-learning contract
+        run: node scripts/validate-constellation-retrospective-loop.mjs
+
+      - name: Assumption staleness contract
+        run: node scripts/validate-constellation-assumption-staleness.mjs
+
+      - name: Evidence conflict contract
+        run: node scripts/validate-constellation-evidence-conflicts.mjs
+
+      - name: Reasoning lineage contract
+        run: node scripts/validate-constellation-reasoning-lineage.mjs
+
+      - name: Durable reasoning revalidation contract
+        run: node scripts/validate-constellation-revalidation-queue.mjs
+
+      - name: Investigation handoff contract
+        run: node scripts/validate-constellation-handoff.mjs
+
+      - name: Collaborative case-memory contract
+        run: node scripts/validate-constellation-collaborative-case-memory.mjs
+
+      - name: Case rehydration contract
+        run: node scripts/validate-constellation-case-rehydration.mjs
+
+      - name: Strategy/privacy boundary
+        run: node scripts/validate-constellation-strategy.mjs
