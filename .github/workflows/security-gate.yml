@@ -227,6 +227,27 @@ jobs:
         if: steps.constellation-mission-memory.outcome == 'failure'
         run: exit 1
 
+      - name: Validate Constellation Machine boundary
+        id: constellation-machines
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-constellation-machines.mjs 2>&1 | tee constellation-machines-validation.txt
+
+      - name: Upload Constellation Machine diagnostics
+        if: steps.constellation-machines.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: constellation-machines-diagnostics
+          path: constellation-machines-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on Constellation Machine violations
+        if: steps.constellation-machines.outcome == 'failure'
+        run: exit 1
+
       - name: Validate product preservation contract
         run: node scripts/validate-product-preservation.mjs
 
