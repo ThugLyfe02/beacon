@@ -44,6 +44,7 @@ import InternalTargetRoutingScreen from '../screens/InternalTargetRoutingScreen'
 import InternalGraphHealthScreen from '../screens/InternalGraphHealthScreen';
 import InternalEvidenceDebtScreen from '../screens/InternalEvidenceDebtScreen';
 import InternalEvidenceConflictScreen from '../screens/InternalEvidenceConflictScreen';
+import InternalReasoningLineageScreen from '../screens/InternalReasoningLineageScreen';
 import InternalOntologyObservatoryScreen from '../screens/InternalOntologyObservatoryScreen';
 import InternalAgenticTimelineScreen from '../screens/InternalAgenticTimelineScreen';
 import InternalCollaborativeCaseMemoryScreen from '../screens/InternalCollaborativeCaseMemoryScreen';
@@ -131,6 +132,7 @@ export function RootNavigator() {
         <Stack.Screen name="InternalDecisionCalibration" component={InternalDecisionCalibrationScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalDecisionRetrospective" component={InternalDecisionRetrospectiveScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalAssumptionStaleness" component={InternalAssumptionStalenessScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalReasoningLineage" component={InternalReasoningLineageScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPerspectiveLab" component={InternalPerspectiveLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPatternQueryLab" component={InternalPatternQueryLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalHandoffLab" component={InternalHandoffLabScreen} options={internalModalOptions} />
