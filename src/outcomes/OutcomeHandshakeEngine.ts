@@ -211,10 +211,13 @@ export function evaluateOutcomeHandshake(
   }
 
   if (state.status === 'completed') {
+    const hasTwoPartyReceipts = state.confirmationCount >= 2;
     return {
       state,
-      headline: 'Outcome completed',
-      explanation: 'Both participants independently confirmed this real-world next step.',
+      headline: hasTwoPartyReceipts ? 'Outcome completed' : 'Outcome recorded',
+      explanation: hasTwoPartyReceipts
+        ? 'Both participants independently confirmed this real-world next step.'
+        : 'This outcome was completed under an earlier protocol; independent two-party confirmation receipts are unavailable.',
       primaryAction: 'none',
       urgency: 'calm',
       remainingMinutes,
