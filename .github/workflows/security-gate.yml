@@ -185,6 +185,27 @@ jobs:
         if: steps.constellation-strategy.outcome == 'failure'
         run: exit 1
 
+      - name: Validate Constellation forensic longitudinal boundary
+        id: constellation-longitudinal
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-constellation-longitudinal.mjs 2>&1 | tee constellation-longitudinal-validation.txt
+
+      - name: Upload Constellation longitudinal diagnostics
+        if: steps.constellation-longitudinal.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: constellation-longitudinal-diagnostics
+          path: constellation-longitudinal-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on Constellation longitudinal violations
+        if: steps.constellation-longitudinal.outcome == 'failure'
+        run: exit 1
+
       - name: Validate product preservation contract
         run: node scripts/validate-product-preservation.mjs
 
