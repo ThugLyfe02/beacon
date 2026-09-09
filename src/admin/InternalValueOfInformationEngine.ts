@@ -39,10 +39,6 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-function pairKey(left: string, right: string): string {
-  return left < right ? `${left}|${right}` : `${right}|${left}`;
-}
-
 function clonePayload(payload: InternalGraphPayload): InternalGraphPayload {
   return {
     ...payload,
@@ -70,6 +66,10 @@ function scenarioPayload(input: {
   kind: InternalInformationScenarioKind;
   now: number;
 }): InternalGraphPayload | null {
+  // Operator-confirmed conflicts contain two evidence claims whose reconciliation
+  // cannot be represented honestly as one binary edge hypothesis. Simulating both
+  // as confirmed or both as removed would manufacture a false decision problem.
+  if (input.debt.kind === 'operator_confirmed_conflict') return null;
   if (input.debt.edgeIds.length === 0) return null;
   const targetEdges = new Set(input.debt.edgeIds);
   const existingCount = input.payload.edges.filter((edge) => targetEdges.has(edge.id)).length;
@@ -198,7 +198,9 @@ export function simulateInternalValueOfInformation(input: {
       confirmation: null,
       disconfirmation: null,
       conclusionSensitivity: [
-        'This obligation is contextual or route-structural rather than edge-specific, so Beacon will not invent a hypothetical relationship to simulate it.',
+        input.debt.kind === 'operator_confirmed_conflict'
+          ? 'This obligation is an explicit conflict between two retained evidence claims. Beacon will not collapse it into a fake both-confirmed/both-removed scenario; reconcile the conflict directly.'
+          : 'This obligation is contextual or route-structural rather than edge-specific, so Beacon will not invent a hypothetical relationship to simulate it.',
       ],
       operatingRule: 'Value of Information uses non-persistent counterfactual graph states to measure conclusion sensitivity. It never writes evidence, predicts which scenario is true, or instructs external enrichment.',
     };
