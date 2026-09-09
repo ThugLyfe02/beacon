@@ -17,7 +17,10 @@ import {
   buildInternalAgenticTimeline,
 } from '../admin/InternalAgenticTimelineEngine';
 import { triageInternalWatchtower } from '../admin/InternalWatchtowerTriageEngine';
-import { analyzeInternalDecisionCalibration } from '../admin/InternalDecisionCalibrationEngine';
+import {
+  analyzeInternalDecisionCalibration,
+  getInternalDecisionCalibrationAdjustment,
+} from '../admin/InternalDecisionCalibrationEngine';
 import {
   evaluateInternalOperatorDecisionAdmission,
   type InternalOperatorDecisionKind,
@@ -158,8 +161,12 @@ export default function InternalDecisionJournalScreen() {
   const selectedAdmission = admissionSet?.admissions.find((admission) => admission.kind === decisionKind) ?? null;
   const selectedEntry = entries.find((entry) => entry.id === selectedEntryId) ?? null;
   const selectedCalibrationBucket = decisionCalibration.byDecisionKind.find((bucket) => bucket.key === decisionKind) ?? null;
+  const selectedCalibrationAdjustment = getInternalDecisionCalibrationAdjustment(decisionCalibration, decisionKind);
   const resolutionAdmission = selectedEntry
     ? admissionSet?.admissions.find((admission) => admission.kind === selectedEntry.decisionKind) ?? null
+    : null;
+  const resolutionCalibrationAdjustment = selectedEntry
+    ? getInternalDecisionCalibrationAdjustment(decisionCalibration, selectedEntry.decisionKind)
     : null;
 
   const retrospectiveMetrics = useCallback((admissionKind: InternalOperatorDecisionKind): InternalDecisionRetrospectiveMetrics | null => {
@@ -167,7 +174,7 @@ export default function InternalDecisionJournalScreen() {
     const routing = adaptiveRun.routingPortfolio;
     const bestRoute = routing?.routes[0] ?? null;
     const temporal = bestRoute ? analyzeInternalRouteTemporalCoherence(bestRoute) : null;
-    const admission = admissionSet.admissions.find((item) => item.kind === admissionKind);
+    const calibrationAdjustment = getInternalDecisionCalibrationAdjustment(decisionCalibration, admissionKind);
     return {
       healthScore: adaptiveRun.epistemicHealth.score,
       verifiedRatio: adaptiveRun.epistemicHealth.verifiedEdgeRatio,
@@ -181,9 +188,9 @@ export default function InternalDecisionJournalScreen() {
       chronologyGaps: timeline.chronologyGapCount,
       openIncidents: triage.openIncidentCount,
       criticalIncidents: triage.criticalIncidentCount,
-      calibrationPenalty: admission?.calibrationPenalty ?? 0,
+      calibrationPenalty: calibrationAdjustment.penalty,
     };
-  }, [adaptiveRun, triage, timeline, admissionSet]);
+  }, [adaptiveRun, triage, timeline, admissionSet, decisionCalibration]);
 
   const save = async () => {
     if (!payload || !adaptiveRun || !selectedAdmission || !triage) return;
@@ -214,6 +221,7 @@ export default function InternalDecisionJournalScreen() {
             maturity: selectedCalibrationBucket.maturity,
             conservativeSupportFloor: selectedCalibrationBucket.conservativeSupportFloor,
             calibrationGap: selectedCalibrationBucket.calibrationGap,
+            penalty: selectedCalibrationAdjustment.penalty,
           } : null,
           epistemicHealth: {
             band: adaptiveRun.epistemicHealth.band,
@@ -325,7 +333,7 @@ export default function InternalDecisionJournalScreen() {
               <Metric label="HEALTH" value={`${Math.round(adaptiveRun.epistemicHealth.score * 100)}%`} />
               <Metric label="ADMISSION" value={selectedAdmission.state.replaceAll('_', ' ').toUpperCase()} />
               <Metric label="AUTHORITY" value={`${Math.round(selectedAdmission.authority * 100)}%`} />
-              <Metric label="CALIBRATION PENALTY" value={`${Math.round(selectedAdmission.calibrationPenalty * 100)}%`} />
+              <Metric label="CALIBRATION PENALTY" value={`${Math.round(selectedCalibrationAdjustment.penalty * 100)}%`} />
               <Metric label="CHRONOLOGY GAPS" value={`${timeline.chronologyGapCount}`} />
             </View>
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{selectedAdmission.operatingRule}</NeonText>
@@ -371,7 +379,7 @@ export default function InternalDecisionJournalScreen() {
 
           {selectedEntry?.status === 'open' ? (
             <Section title="RESOLVE SELECTED HYPOTHESIS" subtitle="Resolution records current analytical-state metrics before recalibrating the method; it never mutates graph evidence automatically">
-              {resolutionAdmission ? <NeonText variant="bodyMuted">Current {selectedEntry.decisionKind.replaceAll('_', ' ')} authority: {Math.round(resolutionAdmission.authority * 100)}% · calibration penalty {Math.round(resolutionAdmission.calibrationPenalty * 100)}%</NeonText> : null}
+              {resolutionAdmission ? <NeonText variant="bodyMuted">Current {selectedEntry.decisionKind.replaceAll('_', ' ')} authority: {Math.round(resolutionAdmission.authority * 100)}% · calibration penalty {Math.round((resolutionCalibrationAdjustment?.penalty ?? 0) * 100)}%</NeonText> : null}
               <TextInput value={conclusionNote} onChangeText={setConclusionNote} placeholder="What changed, held, or failed?" placeholderTextColor="#64748B" style={[styles.input, styles.multiline]} multiline />
               <View style={styles.actionRow}>
                 <GlowButton label="Supported" variant="ghost" disabled={resolving} onPress={() => void resolve('supported')} />
