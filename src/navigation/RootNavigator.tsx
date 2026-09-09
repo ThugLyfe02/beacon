@@ -49,6 +49,7 @@ import InternalCollaborativeCaseMemoryScreen from '../screens/InternalCollaborat
 import InternalAdaptiveCommandScreen from '../screens/InternalAdaptiveCommandScreen';
 import InternalDecisionJournalScreen from '../screens/InternalDecisionJournalScreen';
 import InternalDecisionCalibrationScreen from '../screens/InternalDecisionCalibrationScreen';
+import InternalDecisionRetrospectiveScreen from '../screens/InternalDecisionRetrospectiveScreen';
 import InternalPerspectiveLabScreen from '../screens/InternalPerspectiveLabScreen';
 import InternalPatternQueryLabScreen from '../screens/InternalPatternQueryLabScreen';
 import InternalHandoffLabScreen from '../screens/InternalHandoffLabScreen';
@@ -126,6 +127,7 @@ export function RootNavigator() {
         <Stack.Screen name="InternalAdaptiveCommand" component={InternalAdaptiveCommandScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalDecisionJournal" component={InternalDecisionJournalScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalDecisionCalibration" component={InternalDecisionCalibrationScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalDecisionRetrospective" component={InternalDecisionRetrospectiveScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPerspectiveLab" component={InternalPerspectiveLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalPatternQueryLab" component={InternalPatternQueryLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalHandoffLab" component={InternalHandoffLabScreen} options={internalModalOptions} />
