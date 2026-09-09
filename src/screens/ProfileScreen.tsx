@@ -111,7 +111,7 @@ export default function ProfileScreen() {
           </Pressable>
           <View style={styles.headerActions}>
             {internalGraphAvailable ? (
-              <Pressable onPress={() => navigation.navigate('InternalGraph')} hitSlop={12}>
+              <Pressable onPress={() => navigation.navigate('InternalOperatorHub')} hitSlop={12}>
                 <NeonText variant="label" tone="accent" glow>CONSTELLATION</NeonText>
               </Pressable>
             ) : null}
