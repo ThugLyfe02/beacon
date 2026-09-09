@@ -13,6 +13,7 @@ import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@r
 import { analyzeInternalGraph, type InternalGraphPayload } from '../admin/InternalGraphEngine';
 import { runAdaptiveInternalGraphAgentOrchestrator } from '../admin/InternalAdaptiveAgentOrchestrator';
 import { triageInternalWatchtower } from '../admin/InternalWatchtowerTriageEngine';
+import { analyzeInternalDecisionCalibration } from '../admin/InternalDecisionCalibrationEngine';
 import {
   evaluateInternalOperatorDecisionAdmission,
   type InternalOperatorDecisionKind,
@@ -124,11 +125,17 @@ export default function InternalDecisionJournalScreen() {
     [watchtower, adaptiveRun],
   );
 
+  const decisionCalibration = useMemo(
+    () => analyzeInternalDecisionCalibration(entries),
+    [entries],
+  );
+
   const admissionSet = useMemo(
     () => adaptiveRun && suppressions
       ? evaluateInternalOperatorDecisionAdmission({
           adaptiveRun,
           watchtowerTriage: triage,
+          decisionCalibration,
           suppressionsEstablished: true,
           capabilities: {
             manage: operator.manage,
@@ -137,11 +144,12 @@ export default function InternalDecisionJournalScreen() {
           },
         })
       : null,
-    [adaptiveRun, suppressions, triage, operator.manage, operator.restricted, operator.export],
+    [adaptiveRun, suppressions, triage, decisionCalibration, operator.manage, operator.restricted, operator.export],
   );
 
   const selectedAdmission = admissionSet?.admissions.find((admission) => admission.kind === decisionKind) ?? null;
   const selectedEntry = entries.find((entry) => entry.id === selectedEntryId) ?? null;
+  const selectedCalibrationBucket = decisionCalibration.byDecisionKind.find((bucket) => bucket.key === decisionKind) ?? null;
 
   const save = async () => {
     if (!payload || !adaptiveRun || !selectedAdmission || !triage) return;
@@ -162,11 +170,17 @@ export default function InternalDecisionJournalScreen() {
         admissionState: selectedAdmission.state,
         admissionAuthority: selectedAdmission.authority,
         evidenceSummary: {
-          schemaVersion: 'decision-evidence-v1',
+          schemaVersion: 'decision-evidence-v2-calibrated',
           graphVersion: payload.graphVersion,
           decisionKind,
           admissionState: selectedAdmission.state,
           admissionAuthority: selectedAdmission.authority,
+          methodCalibration: selectedCalibrationBucket ? {
+            resolvedCount: selectedCalibrationBucket.resolvedCount,
+            maturity: selectedCalibrationBucket.maturity,
+            conservativeSupportFloor: selectedCalibrationBucket.conservativeSupportFloor,
+            calibrationGap: selectedCalibrationBucket.calibrationGap,
+          } : null,
           epistemicHealth: {
             band: adaptiveRun.epistemicHealth.band,
             score: adaptiveRun.epistemicHealth.score,
@@ -214,11 +228,7 @@ export default function InternalDecisionJournalScreen() {
     }
     setResolving(true);
     try {
-      await resolveInternalDecisionJournal({
-        journalId: selectedEntry.id,
-        status,
-        conclusionNote,
-      });
+      await resolveInternalDecisionJournal({ journalId: selectedEntry.id, status, conclusionNote });
       setSelectedEntryId(null);
       setConclusionNote('');
       await load();
@@ -232,11 +242,9 @@ export default function InternalDecisionJournalScreen() {
   if (operator.loading || loading) {
     return <View style={styles.centered}><GridBackground /><ActivityIndicator color={palette.accent} size="large" /><NeonText variant="label" tone="accent" style={{ marginTop: spacing.md }}>LOADING DECISION MEMORY</NeonText></View>;
   }
-
   if (!operator.allowed || !operator.has('graph_manage')) {
     return <View style={styles.centered}><GridBackground /><Surface padded style={styles.lockedCard}><Pill label="DECISION JOURNAL · SEALED" tone="neutral" dot /><NeonText variant="h1" style={{ marginTop: spacing.md }}>Graph management capability required.</NeonText></Surface></View>;
   }
-
   if (!payload || !adaptiveRun || !admissionSet || !selectedAdmission || !triage) return null;
 
   return (
@@ -248,18 +256,18 @@ export default function InternalDecisionJournalScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · FALSIFIABLE DECISION MEMORY" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Decision Journal</NeonText>
-              <NeonText variant="bodyMuted">Hypothesis → evidence digest → disconfirming condition → later outcome. The journal compounds calibration without persisting graph payloads or person-watch targets.</NeonText>
+              <NeonText variant="bodyMuted">Hypothesis → calibrated evidence authority → disconfirming condition → later outcome. Resolved history can only reduce future authority when repeated overconfidence is demonstrated.</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
 
           <Surface padded style={styles.card}>
-            <Pill label="CURRENT EVIDENCE ENVELOPE" tone="neutral" dot />
+            <Pill label="CURRENT CALIBRATED EVIDENCE ENVELOPE" tone="neutral" dot />
             <View style={styles.metricRow}>
               <Metric label="HEALTH" value={`${Math.round(adaptiveRun.epistemicHealth.score * 100)}%`} />
               <Metric label="ADMISSION" value={selectedAdmission.state.replaceAll('_', ' ').toUpperCase()} />
               <Metric label="AUTHORITY" value={`${Math.round(selectedAdmission.authority * 100)}%`} />
-              <Metric label="OPEN INCIDENTS" value={`${triage.openIncidentCount}`} />
+              <Metric label="METHOD VERDICTS" value={`${selectedCalibrationBucket?.resolvedCount ?? 0}`} />
             </View>
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{selectedAdmission.operatingRule}</NeonText>
           </Surface>
@@ -272,18 +280,16 @@ export default function InternalDecisionJournalScreen() {
                 </Pressable>
               ))}
             </ScrollView>
-            {(decisionKind === 'target_route_review' || decisionKind === 'intervention_review') ? (
-              <TextInput value={targetQuery} onChangeText={setTargetQuery} placeholder="Optional target ecosystem used for current route evidence" placeholderTextColor="#64748B" style={styles.input} autoCapitalize="none" />
-            ) : null}
+            {(decisionKind === 'target_route_review' || decisionKind === 'intervention_review') ? <TextInput value={targetQuery} onChangeText={setTargetQuery} placeholder="Optional target ecosystem used for current route evidence" placeholderTextColor="#64748B" style={styles.input} autoCapitalize="none" /> : null}
             <TextInput value={title} onChangeText={setTitle} placeholder="Short hypothesis title" placeholderTextColor="#64748B" style={styles.input} />
             <TextInput value={hypothesis} onChangeText={setHypothesis} placeholder="What does the current graph evidence support believing?" placeholderTextColor="#64748B" style={[styles.input, styles.multiline]} multiline />
             <TextInput value={disconfirmingCondition} onChangeText={setDisconfirmingCondition} placeholder="What future evidence would weaken or invalidate this hypothesis?" placeholderTextColor="#64748B" style={[styles.input, styles.multiline]} multiline />
             <Surface padded style={styles.smallCard}>
-              <NeonText variant="label" tone="accent">ADMISSION SNAPSHOT · {selectedAdmission.state.replaceAll('_', ' ').toUpperCase()}</NeonText>
-              {selectedAdmission.reasons.slice(0, 4).map((reason, index) => <NeonText key={`reason-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
+              <NeonText variant="label" tone="accent">CALIBRATED ADMISSION SNAPSHOT · {selectedAdmission.state.replaceAll('_', ' ').toUpperCase()}</NeonText>
+              {selectedAdmission.reasons.slice(0, 5).map((reason, index) => <NeonText key={`reason-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
               {selectedAdmission.requiredRemediation.slice(0, 3).map((item, index) => <NeonText key={`remediation-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• remediation: {item}</NeonText>)}
             </Surface>
-            <GlowButton label={saving ? 'Sealing…' : 'Seal hypothesis + evidence digest'} disabled={saving} onPress={save} />
+            <GlowButton label={saving ? 'Sealing…' : 'Seal hypothesis + calibrated evidence digest'} disabled={saving} onPress={() => void save()} />
           </Section>
 
           <Section title="HYPOTHESIS LEDGER" subtitle={`${entries.filter((entry) => entry.status === 'open').length} open · ${entries.length} retained in this private scope`}>
@@ -291,11 +297,7 @@ export default function InternalDecisionJournalScreen() {
               <Pressable key={entry.id} onPress={() => setSelectedEntryId(entry.id)}>
                 <Surface elevated padded style={[styles.entryCard, selectedEntryId === entry.id && styles.selectedBorder]}>
                   <View style={styles.rowBetween}>
-                    <View style={{ flex: 1 }}>
-                      <Pill label={`${entry.status.toUpperCase()} · ${entry.decisionKind.replaceAll('_', ' ').toUpperCase()}`} tone={statusTone(entry.status)} dot={entry.status === 'open'} />
-                      <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{entry.title}</NeonText>
-                      <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{entry.hypothesis}</NeonText>
-                    </View>
+                    <View style={{ flex: 1 }}><Pill label={`${entry.status.toUpperCase()} · ${entry.decisionKind.replaceAll('_', ' ').toUpperCase()}`} tone={statusTone(entry.status)} dot={entry.status === 'open'} /><NeonText variant="h2" style={{ marginTop: spacing.sm }}>{entry.title}</NeonText><NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{entry.hypothesis}</NeonText></View>
                     <NeonText variant="mono" tone="accent">A{Math.round(entry.admissionAuthority * 100)}</NeonText>
                   </View>
                   <NeonText variant="label" tone="muted" style={{ marginTop: spacing.sm }}>WOULD BE DISCONFIRMED BY</NeonText>
@@ -309,20 +311,20 @@ export default function InternalDecisionJournalScreen() {
           </Section>
 
           {selectedEntry?.status === 'open' ? (
-            <Section title="RESOLVE SELECTED HYPOTHESIS" subtitle="Outcome labels teach future operators whether a prior evidence posture held up; they do not mutate the graph automatically">
+            <Section title="RESOLVE SELECTED HYPOTHESIS" subtitle="Resolution recalibrates the method; it never mutates graph evidence automatically">
               <TextInput value={conclusionNote} onChangeText={setConclusionNote} placeholder="What changed, held, or failed?" placeholderTextColor="#64748B" style={[styles.input, styles.multiline]} multiline />
               <View style={styles.actionRow}>
-                <GlowButton label="Supported" variant="ghost" disabled={resolving} onPress={() => resolve('supported')} />
-                <GlowButton label="Weakened" variant="ghost" disabled={resolving} onPress={() => resolve('weakened')} />
-                <GlowButton label="Invalidated" variant="ghost" disabled={resolving} onPress={() => resolve('invalidated')} />
-                <GlowButton label="Close" variant="ghost" disabled={resolving} onPress={() => resolve('closed')} />
+                <GlowButton label="Supported" variant="ghost" disabled={resolving} onPress={() => void resolve('supported')} />
+                <GlowButton label="Weakened" variant="ghost" disabled={resolving} onPress={() => void resolve('weakened')} />
+                <GlowButton label="Invalidated" variant="ghost" disabled={resolving} onPress={() => void resolve('invalidated')} />
+                <GlowButton label="Close" variant="ghost" disabled={resolving} onPress={() => void resolve('closed')} />
               </View>
             </Section>
           ) : null}
 
           <Surface padded style={styles.card}>
             <Pill label="MEMORY BOUNDARY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>The database stores your bounded hypothesis metadata and a digest of the evidence summary—not the graph payload supplied for sealing. Journal outcomes remain operator memory and never become verified graph evidence, capability grants, Watchtower rules, or autonomous actions by themselves.</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>The database stores bounded hypothesis metadata and an evidence digest—not the graph payload. Journal outcomes remain operator memory. Historical overconfidence may reduce later analytical authority; historical underconfidence never grants more authority automatically.</NeonText>
           </Surface>
         </ScrollView>
       </SafeAreaView>
