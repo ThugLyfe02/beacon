@@ -22,6 +22,15 @@ function requireAll(relativePath, needles, label) {
   }
 }
 
+function forbidAll(relativePath, needles, label) {
+  const content = read(relativePath);
+  for (const needle of needles) {
+    if (content.includes(needle)) {
+      failures.push(`${label}: ${relativePath} must not contain ${JSON.stringify(needle)}`);
+    }
+  }
+}
+
 const protectedFiles = [
   'src/screens/MapScreen.tsx',
   'src/screens/MatchesScreen.tsx',
@@ -29,6 +38,7 @@ const protectedFiles = [
   'src/screens/OfficeHoursRequestScreen.tsx',
   'src/screens/OfficeHoursInboxScreen.tsx',
   'src/screens/OfficeHoursCallScreen.tsx',
+  'src/screens/HostManagementScreen.tsx',
   'src/spatial/SpatialFieldScreen.tsx',
   'src/spatial/ARFieldScreen.tsx',
   'src/screens/ChooseAvatarScreen.tsx',
@@ -36,6 +46,7 @@ const protectedFiles = [
   'src/services/match.service.ts',
   'src/services/officeHours.service.ts',
   'src/services/outcome-handshake.service.ts',
+  'src/services/outcome-intelligence.service.ts',
   'src/services/vault.service.ts',
 ];
 
@@ -48,6 +59,7 @@ requireAll('src/screens/MapScreen.tsx', [
   '<PremiumDrawer',
   'watchLocation',
   'getNearbyPremium',
+  'eventWindowState',
 ], 'Map journey regression');
 
 requireAll('src/screens/MatchesScreen.tsx', [
@@ -65,13 +77,27 @@ requireAll('src/screens/EventLobbyScreen.tsx', [
 requireAll('src/services/event.service.ts', [
   'export async function createEvent',
   'export async function updateEvent',
-  'export async function deleteEvent',
   'export async function getEventByCode',
   'export async function getUserEvents',
   'export async function getHostedEvent',
   'eventPriority',
   'latitude: eventData.latitude ?? null',
+  ".is('finalized_at', null)",
 ], 'Event lifecycle regression');
+forbidAll('src/services/event.service.ts', [
+  'export async function deleteEvent',
+], 'Destructive event lifecycle regression');
+
+requireAll('src/services/outcome-intelligence.service.ts', [
+  'export async function finalizeHostedEvent',
+  "rpc('finalize_hosted_event'",
+], 'Atomic event finalization regression');
+
+requireAll('src/screens/HostManagementScreen.tsx', [
+  'REFLECTION MODE',
+  'Seal outcomes & memory',
+  'finalizeHostedEvent',
+], 'Host reflection/finalization regression');
 
 requireAll('src/services/match.service.ts', [
   'secure_send_connection_request',
@@ -96,7 +122,10 @@ requireAll('src/config/featureFlags.ts', [
 ], 'Integrated feature flag regression');
 
 const migrations = fs.readdirSync(path.join(root, 'supabase/migrations'));
-const requiredMigrationPrefixes = ['019_', '020_', '021_', '022_', '023_', '024_', '025_', '026_', '027_', '028_'];
+const requiredMigrationPrefixes = [
+  '019_', '020_', '021_', '022_', '023_', '024_', '025_', '026_',
+  '027_', '028_', '029_', '030_', '031_', '032_', '033_', '034_',
+];
 for (const prefix of requiredMigrationPrefixes) {
   if (!migrations.some((file) => file.startsWith(prefix))) {
     failures.push(`Missing protected migration prefix: ${prefix}`);
