@@ -19,6 +19,7 @@ import {
 import { triageInternalWatchtower } from '../admin/InternalWatchtowerTriageEngine';
 import { evaluateInternalOperatorDecisionAdmission } from '../admin/InternalOperatorDecisionAdmission';
 import { analyzeInternalEvidenceDebt } from '../admin/InternalEvidenceDebtEngine';
+import { analyzeInternalMethodDebt } from '../admin/InternalMethodDebtEngine';
 import {
   buildInternalNextBestAnalysisPlan,
   type InternalAnalysisCapability,
@@ -160,6 +161,18 @@ export default function InternalAdaptiveCommandScreen() {
     [payload, adaptiveRun],
   );
 
+  const methodDebt = useMemo(
+    () => decisionCalibration && evidenceDebt && timeline
+      ? analyzeInternalMethodDebt({
+          calibration: decisionCalibration,
+          evidenceDebt,
+          timeline,
+          routingPortfolio: adaptiveRun?.routingPortfolio ?? null,
+        })
+      : null,
+    [decisionCalibration, evidenceDebt, timeline, adaptiveRun],
+  );
+
   const analysisCapabilities = useMemo(() => {
     const result = new Set<InternalAnalysisCapability>();
     if (operator.read) result.add('graph_read');
@@ -170,16 +183,17 @@ export default function InternalAdaptiveCommandScreen() {
   }, [operator.read, operator.manage, operator.restricted, operator.export]);
 
   const nextAnalysis = useMemo(
-    () => adaptiveRun && evidenceDebt
+    () => adaptiveRun && evidenceDebt && methodDebt
       ? buildInternalNextBestAnalysisPlan({
           epistemicHealth: adaptiveRun.epistemicHealth,
           evidenceDebt,
+          methodDebt,
           watchtowerTriage,
           routingPortfolio: adaptiveRun.routingPortfolio,
           capabilities: analysisCapabilities,
         })
       : null,
-    [adaptiveRun, evidenceDebt, watchtowerTriage, analysisCapabilities],
+    [adaptiveRun, evidenceDebt, methodDebt, watchtowerTriage, analysisCapabilities],
   );
 
   const attentionBudget = useMemo(
@@ -195,29 +209,14 @@ export default function InternalAdaptiveCommandScreen() {
   );
 
   if (operator.loading || loading) {
-    return (
-      <View style={styles.centered}>
-        <GridBackground />
-        <ActivityIndicator color={palette.accent} size="large" />
-        <NeonText variant="label" tone="accent" style={{ marginTop: spacing.md }}>CALIBRATING ADAPTIVE COMMAND</NeonText>
-      </View>
-    );
+    return <View style={styles.centered}><GridBackground /><ActivityIndicator color={palette.accent} size="large" /><NeonText variant="label" tone="accent" style={{ marginTop: spacing.md }}>CALIBRATING ADAPTIVE COMMAND</NeonText></View>;
   }
 
   if (!operator.allowed || !operator.has('graph_manage')) {
-    return (
-      <View style={styles.centered}>
-        <GridBackground />
-        <Surface padded style={styles.lockedCard}>
-          <Pill label="ADAPTIVE COMMAND · SEALED" tone="neutral" dot />
-          <NeonText variant="h1" style={{ marginTop: spacing.md }}>Graph management capability required.</NeonText>
-          <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>This surface composes Watchtower, calibrated routing and private strategy state and therefore requires exact server-side graph_manage.</NeonText>
-        </Surface>
-      </View>
-    );
+    return <View style={styles.centered}><GridBackground /><Surface padded style={styles.lockedCard}><Pill label="ADAPTIVE COMMAND · SEALED" tone="neutral" dot /><NeonText variant="h1" style={{ marginTop: spacing.md }}>Graph management capability required.</NeonText><NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>This surface composes Watchtower, calibrated routing and private strategy state and therefore requires exact server-side graph_manage.</NeonText></Surface></View>;
   }
 
-  if (!payload || !suppressions || !adaptiveRun || !decisionAdmission || !decisionCalibration || !timeline || !evidenceDebt || !nextAnalysis || !attentionBudget) return null;
+  if (!payload || !suppressions || !adaptiveRun || !decisionAdmission || !decisionCalibration || !timeline || !evidenceDebt || !methodDebt || !nextAnalysis || !attentionBudget) return null;
   const health = adaptiveRun.epistemicHealth;
   const routing = adaptiveRun.routingPortfolio;
   const bestTemporal = routing?.routes[0] ? analyzeInternalRouteTemporalCoherence(routing.routes[0]) : null;
@@ -231,7 +230,7 @@ export default function InternalAdaptiveCommandScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · ADAPTIVE NETWORK COMMAND" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Operator Command</NeonText>
-              <NeonText variant="bodyMuted">Attention budget · next-best analysis · Watchtower triage · evidence debt · calibrated admission · temporal coherence · diversified routing · adaptive missions</NeonText>
+              <NeonText variant="bodyMuted">Attention budget · next-best analysis · method debt · Watchtower · evidence debt · calibrated admission · temporal coherence · diversified routing</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -239,41 +238,27 @@ export default function InternalAdaptiveCommandScreen() {
           <View style={styles.metricRow}>
             <Metric label="GRAPH HEALTH" value={`${Math.round(health.score * 100)}%`} />
             <Metric label="EVIDENCE DEBT" value={`${evidenceDebt.highPriorityCount} HIGH`} />
+            <Metric label="METHOD DEBT" value={`${methodDebt.items.length} ITEMS`} />
             <Metric label="METHOD VERDICTS" value={`${decisionCalibration.resolvedCount}`} />
             <Metric label="CHRONOLOGY GAPS" value={`${timeline.chronologyGapCount}`} />
-            <Metric label="FOCUS THREADS" value={`${(attentionBudget.primary ? 1 : 0) + attentionBudget.supporting.length}`} />
           </View>
 
-          <Section title="ATTENTION BUDGET · NEXT BEST ANALYSIS" subtitle="One primary analytical thread, at most two supporting threads; critical evidence/safety conditions may preempt">
+          <Section title="ATTENTION BUDGET · NEXT BEST ANALYSIS" subtitle="One primary analytical thread, at most two supporting threads; evidence, method, safety and temporal debt may preempt generic exploration">
             {attentionBudget.primary ? (
               <Surface elevated padded style={[styles.nextActionCard, styles.topActionBorder]}>
-                <View style={styles.rowBetween}>
-                  <View style={{ flex: 1 }}>
-                    <Pill label={`FOCUS NOW · ${attentionBudget.primary.source.replaceAll('_', ' ').toUpperCase()}`} tone="accent" dot />
-                    <NeonText variant="h1" style={{ marginTop: spacing.sm }}>{attentionBudget.primary.title}</NeonText>
-                  </View>
-                  <NeonText variant="mono" tone="accent">P{attentionBudget.primary.priority.toFixed(1)}</NeonText>
-                </View>
+                <View style={styles.rowBetween}><View style={{ flex: 1 }}><Pill label={`FOCUS NOW · ${attentionBudget.primary.source.replaceAll('_', ' ').toUpperCase()}`} tone="accent" dot /><NeonText variant="h1" style={{ marginTop: spacing.sm }}>{attentionBudget.primary.title}</NeonText></View><NeonText variant="mono" tone="accent">P{attentionBudget.primary.priority.toFixed(1)}</NeonText></View>
                 {attentionBudget.primary.rationale.slice(0, 5).map((reason, index) => <NeonText key={`primary-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
                 {attentionBudget.primary.destination ? <GlowButton label="Run primary analysis" variant="ghost" onPress={() => navigation.navigate(attentionBudget.primary!.destination!, { eventId: eventId ?? undefined })} /> : null}
               </Surface>
             ) : null}
             {attentionBudget.supporting.map((thread, index) => (
               <Surface key={thread.id} padded style={styles.supportCard}>
-                <View style={styles.rowBetween}>
-                  <View style={{ flex: 1 }}><Pill label={`SUPPORT ${index + 1}`} tone="neutral" /><NeonText variant="h2" style={{ marginTop: spacing.sm }}>{thread.title}</NeonText></View>
-                  <NeonText variant="mono" tone="muted">P{thread.priority.toFixed(1)}</NeonText>
-                </View>
+                <View style={styles.rowBetween}><View style={{ flex: 1 }}><Pill label={`SUPPORT ${index + 1}`} tone="neutral" /><NeonText variant="h2" style={{ marginTop: spacing.sm }}>{thread.title}</NeonText></View><NeonText variant="mono" tone="muted">P{thread.priority.toFixed(1)}</NeonText></View>
                 {thread.rationale.slice(0, 3).map((reason, reasonIndex) => <NeonText key={`${thread.id}-${reasonIndex}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
                 {thread.destination ? <GlowButton label="Open supporting analysis" variant="ghost" onPress={() => navigation.navigate(thread.destination!, { eventId: eventId ?? undefined })} /> : null}
               </Surface>
             ))}
-            {attentionBudget.later.length > 0 ? (
-              <Surface padded style={styles.laterCard}>
-                <Pill label={`LATER QUEUE · ${attentionBudget.later.length}${attentionBudget.suppressedCount > 0 ? ` + ${attentionBudget.suppressedCount} SUPPRESSED` : ''}`} tone="neutral" />
-                {attentionBudget.later.slice(0, 5).map((thread) => <NeonText key={thread.id} variant="bodyMuted" style={{ marginTop: 3 }}>• {thread.title}</NeonText>)}
-              </Surface>
-            ) : null}
+            {attentionBudget.later.length > 0 ? <Surface padded style={styles.laterCard}><Pill label={`LATER QUEUE · ${attentionBudget.later.length}${attentionBudget.suppressedCount > 0 ? ` + ${attentionBudget.suppressedCount} SUPPRESSED` : ''}`} tone="neutral" />{attentionBudget.later.slice(0, 5).map((thread) => <NeonText key={thread.id} variant="bodyMuted" style={{ marginTop: 3 }}>• {thread.title}</NeonText>)}</Surface> : null}
             <NeonText variant="bodyMuted">{attentionBudget.operatingRule}</NeonText>
           </Section>
 
@@ -282,6 +267,15 @@ export default function InternalAdaptiveCommandScreen() {
             <NeonText variant="h1" style={{ marginTop: spacing.sm }}>{Math.round(health.score * 100)}% evidence authority</NeonText>
             {health.warnings.slice(0, 5).map((warning) => <NeonText key={warning} variant="bodyMuted" style={{ marginTop: 3 }}>• {warning}</NeonText>)}
           </Surface>
+
+          {methodDebt.items.length > 0 ? (
+            <Surface elevated padded style={[styles.boundaryCard, methodDebt.topPriority >= 7 ? styles.warningBorder : null]}>
+              <Pill label="ANALYTICAL METHOD DEBT" tone="accent" dot />
+              <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{methodDebt.items[0]!.title}</NeonText>
+              {methodDebt.items[0]!.reasons.slice(0, 4).map((reason, index) => <NeonText key={`method-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
+              <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{methodDebt.operatingRule}</NeonText>
+            </Surface>
+          ) : null}
 
           <Surface padded style={styles.boundaryCard}>
             <Pill label="CALIBRATION + TEMPORAL AUTHORITY" tone="neutral" dot />
@@ -293,18 +287,15 @@ export default function InternalAdaptiveCommandScreen() {
             <GlowButton label="Evidence Debt" variant="ghost" onPress={() => navigation.navigate('InternalEvidenceDebt', { eventId: eventId ?? undefined })} />
             <GlowButton label="Timeline" variant="ghost" onPress={() => navigation.navigate('InternalAgenticTimeline', { eventId: eventId ?? undefined })} />
             <GlowButton label="Decision Calibration" variant="ghost" onPress={() => navigation.navigate('InternalDecisionCalibration', { eventId: eventId ?? undefined })} />
+            <GlowButton label="Case Memory" variant="ghost" onPress={() => navigation.navigate('InternalCollaborativeCaseMemory')} />
             <GlowButton label="Watchtower" variant="ghost" onPress={() => navigation.navigate('InternalWatchtower', { eventId: eventId ?? undefined })} />
             <GlowButton label="Target Routing" variant="ghost" onPress={() => navigation.navigate('InternalTargetRouting', { eventId: eventId ?? undefined })} />
-            <GlowButton label="Private Access" variant="ghost" onPress={() => navigation.navigate('InternalPrivateAccess')} />
           </View>
 
           <Section title="WATCHTOWER INCIDENT TRIAGE" subtitle={`${activeRules.length} active structural watches; incidents are replayable review-urgency groupings, never person/org risk scores or automatic actions`}>
             {openIncidents.slice(0, 8).map((incident) => (
               <Surface key={incident.id} elevated padded style={[styles.incidentCard, incident.severity === 'critical' || incident.severity === 'high' ? styles.warningBorder : null]}>
-                <View style={styles.rowBetween}>
-                  <View style={{ flex: 1 }}><Pill label={`${incident.severity.toUpperCase()} · ${incident.family.replaceAll('_', ' ').toUpperCase()}`} tone={incident.severity === 'critical' || incident.severity === 'high' ? 'accent' : 'neutral'} dot /><NeonText variant="h2" style={{ marginTop: spacing.sm }}>{incident.title}</NeonText></View>
-                  <NeonText variant="mono" tone="accent">S{incident.score.toFixed(1)}</NeonText>
-                </View>
+                <View style={styles.rowBetween}><View style={{ flex: 1 }}><Pill label={`${incident.severity.toUpperCase()} · ${incident.family.replaceAll('_', ' ').toUpperCase()}`} tone={incident.severity === 'critical' || incident.severity === 'high' ? 'accent' : 'neutral'} dot /><NeonText variant="h2" style={{ marginTop: spacing.sm }}>{incident.title}</NeonText></View><NeonText variant="mono" tone="accent">S{incident.score.toFixed(1)}</NeonText></View>
                 {incident.reasons.slice(0, 4).map((reason, index) => <NeonText key={`${incident.id}-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
                 <GlowButton label="Open evidence" variant="ghost" onPress={() => navigation.navigate(incident.recommendedReviewSurface, { eventId: incident.eventId ?? eventId ?? undefined })} />
               </Surface>
@@ -315,10 +306,7 @@ export default function InternalAdaptiveCommandScreen() {
           <Section title="DECISION ADMISSION" subtitle="Current evidence sets the ceiling; historical calibration and temporal coherence may only reduce authority. Admission never authorizes action.">
             {decisionAdmission.admissions.map((admission) => (
               <Surface key={admission.kind} padded style={[styles.admissionCard, admission.state === 'safety_blocked' || admission.state === 'evidence_remediation_required' ? styles.warningBorder : null]}>
-                <View style={styles.rowBetween}>
-                  <View style={{ flex: 1 }}><Pill label={admissionLabel(admission.state)} tone={admission.state === 'admitted_to_review' ? 'accent' : 'neutral'} dot={admission.state === 'admitted_to_review'} /><NeonText variant="h2" style={{ marginTop: spacing.sm }}>{admission.title}</NeonText></View>
-                  <NeonText variant="mono" tone="accent">A{Math.round(admission.authority * 100)}</NeonText>
-                </View>
+                <View style={styles.rowBetween}><View style={{ flex: 1 }}><Pill label={admissionLabel(admission.state)} tone={admission.state === 'admitted_to_review' ? 'accent' : 'neutral'} dot={admission.state === 'admitted_to_review'} /><NeonText variant="h2" style={{ marginTop: spacing.sm }}>{admission.title}</NeonText></View><NeonText variant="mono" tone="accent">A{Math.round(admission.authority * 100)}</NeonText></View>
                 {admission.reasons.slice(0, 6).map((reason, index) => <NeonText key={`${admission.kind}-reason-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
                 {admission.requiredRemediation.slice(0, 4).map((item, index) => <NeonText key={`${admission.kind}-remediation-${index}`} variant="body" style={{ marginTop: 3 }}>→ {item}</NeonText>)}
                 <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{admission.operatingRule}</NeonText>
@@ -332,13 +320,7 @@ export default function InternalAdaptiveCommandScreen() {
             {routing ? <View style={styles.metricRow}><Metric label="ROUTES" value={`${routing.routes.length}`} /><Metric label="DIVERSITY" value={`${Math.round(routing.routeDiversity * 100)}%`} /><Metric label="SHARED BOTTLENECKS" value={`${routing.structuralSinglePointNodeIds.length}`} /></View> : null}
             {routing?.routes.slice(0, 3).map((routeResult) => {
               const coherence = analyzeInternalRouteTemporalCoherence(routeResult);
-              return (
-                <Surface key={routeResult.id} padded style={styles.smallCard}>
-                  <View style={styles.rowBetween}><NeonText variant="h2" style={{ flex: 1 }}>{routeResult.targetLabel}</NeonText><Pill label={routeResult.confidenceFloor} tone={routeResult.confidenceFloor === 'VERIFIED' ? 'accent' : 'neutral'} /></View>
-                  <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{routeResult.nodeIds.map((id) => nodeLabel(payload, id)).join(' → ')}</NeonText>
-                  <NeonText variant="label" tone="muted" style={{ marginTop: 4 }}>{Math.round(routeResult.verifiedEdgeRatio * 100)}% VERIFIED · {routeResult.hopCount} HOPS · TEMPORAL {Math.round(coherence.overlapScore * 100)}%</NeonText>
-                </Surface>
-              );
+              return <Surface key={routeResult.id} padded style={styles.smallCard}><View style={styles.rowBetween}><NeonText variant="h2" style={{ flex: 1 }}>{routeResult.targetLabel}</NeonText><Pill label={routeResult.confidenceFloor} tone={routeResult.confidenceFloor === 'VERIFIED' ? 'accent' : 'neutral'} /></View><NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{routeResult.nodeIds.map((id) => nodeLabel(payload, id)).join(' → ')}</NeonText><NeonText variant="label" tone="muted" style={{ marginTop: 4 }}>{Math.round(routeResult.verifiedEdgeRatio * 100)}% VERIFIED · {routeResult.hopCount} HOPS · TEMPORAL {Math.round(coherence.overlapScore * 100)}%</NeonText></Surface>;
             })}
           </Section>
 
