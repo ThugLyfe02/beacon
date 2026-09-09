@@ -1,3 +1,4 @@
+import { analyzeInternalRouteTemporalCoherence } from './InternalAgenticTimelineEngine';
 import type { InternalGraphEpistemicHealth } from './InternalGraphEpistemicHealthEngine';
 import type { InternalEvidenceDebtReport, InternalEvidenceDebtSurface } from './InternalEvidenceDebtEngine';
 import type { InternalTargetRoutingPortfolio } from './InternalTargetRoutingEngine';
@@ -13,7 +14,8 @@ export type InternalAnalysisDestination =
   | 'InternalWatchtower'
   | 'InternalMachineRegistry'
   | 'InternalEpochLab'
-  | 'InternalHandoffLab';
+  | 'InternalHandoffLab'
+  | 'InternalAgenticTimeline';
 
 export interface InternalNextAnalysisAction {
   id: string;
@@ -165,6 +167,27 @@ export function buildInternalNextBestAnalysisPlan(input: {
   }
 
   if (routing && routing.routes.length > 0) {
+    const temporal = analyzeInternalRouteTemporalCoherence(routing.routes[0]!);
+    if (!temporal.hasSharedObservationWindow || temporal.overlapScore < 0.72) {
+      addUnique(actions, {
+        id: 'routing:temporal-coherence',
+        title: 'Test whether the leading route was contemporaneously supported',
+        category: 'routing',
+        priority: temporal.overlapScore < 0.5 ? 8.8 : 7.7,
+        expectedInformationGain: clamp01(0.16 + (1 - temporal.overlapScore) * 0.32),
+        destination: 'InternalAgenticTimeline',
+        requiredCapability: 'graph_read',
+        rationale: [
+          `best route temporal coherence ${Math.round(temporal.overlapScore * 100)}%`,
+          ...(temporal.hasSharedObservationWindow
+            ? ['route has a shared retained observation window but temporal support is incomplete']
+            : [`no shared retained observation window; nearest aggregate gap ~${Math.round(temporal.nearestGapDays)} days`]),
+          'structural reachability across history should not be mistaken for point-in-time reachability',
+        ],
+        operatingConstraint: 'Timeline tests observation-window coherence only; it never infers causation, availability, or consent.',
+      });
+    }
+
     if (routing.structuralSinglePointNodeIds.length > 0 || routing.routeDiversity < 0.42) {
       addUnique(actions, {
         id: 'routing:independence',
