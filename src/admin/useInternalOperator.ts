@@ -15,6 +15,9 @@ const EMPTY: InternalOperatorSecurityEnvelope = {
   export: false,
   grantedAt: null,
   leastPrivilegeRule: 'Server capability envelope unavailable; internal operator access fails closed.',
+  standingCapabilities: [],
+  leasedCapabilities: [],
+  activeLeases: [],
 };
 
 /**
