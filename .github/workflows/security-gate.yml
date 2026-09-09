@@ -164,6 +164,27 @@ jobs:
         if: steps.internal-intelligence.outcome == 'failure'
         run: exit 1
 
+      - name: Validate Constellation strategy boundaries
+        id: constellation-strategy
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-constellation-strategy.mjs 2>&1 | tee constellation-strategy-validation.txt
+
+      - name: Upload Constellation strategy diagnostics
+        if: steps.constellation-strategy.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: constellation-strategy-diagnostics
+          path: constellation-strategy-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on Constellation strategy violations
+        if: steps.constellation-strategy.outcome == 'failure'
+        run: exit 1
+
       - name: Validate product preservation contract
         run: node scripts/validate-product-preservation.mjs
 
