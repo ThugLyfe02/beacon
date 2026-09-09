@@ -2,9 +2,10 @@ name: Security Gate
 
 on:
   pull_request:
-    branches: [main]
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'feature/**'
   schedule:
     - cron: '17 7 * * 1'
 
@@ -59,29 +60,218 @@ jobs:
         run: exit 1
 
       - name: Validate opportunity architecture integration
-        run: node scripts/validate-opportunity-architecture.mjs
-
-      - name: Validate product preservation contract
-        run: node scripts/validate-product-preservation.mjs
-
-      - name: Audit production dependencies
-        id: dependency-audit
+        id: architecture
         continue-on-error: true
         shell: bash
         run: |
           set -o pipefail
-          npm audit --omit=dev --audit-level=high --json 2>&1 | tee npm-audit.json
+          node scripts/validate-opportunity-architecture.mjs 2>&1 | tee architecture-validation.txt
+
+      - name: Upload architecture validation diagnostics
+        if: steps.architecture.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-validation-diagnostics
+          path: architecture-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on architecture contract violations
+        if: steps.architecture.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate lifecycle and SECURITY DEFINER contract
+        id: lifecycle-security
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-lifecycle-security.mjs 2>&1 | tee lifecycle-security-validation.txt
+
+      - name: Upload lifecycle security diagnostics
+        if: steps.lifecycle-security.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lifecycle-security-diagnostics
+          path: lifecycle-security-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on lifecycle security contract violations
+        if: steps.lifecycle-security.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate privileged physical-world surfaces
+        id: privileged-surfaces
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-privileged-surfaces.mjs 2>&1 | tee privileged-surface-validation.txt
+
+      - name: Upload privileged surface diagnostics
+        if: steps.privileged-surfaces.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: privileged-surface-diagnostics
+          path: privileged-surface-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on privileged surface contract violations
+        if: steps.privileged-surfaces.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate join discovery abuse boundary
+        id: join-discovery
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-join-discovery.mjs 2>&1 | tee join-discovery-validation.txt
+
+      - name: Upload join discovery diagnostics
+        if: steps.join-discovery.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: join-discovery-diagnostics
+          path: join-discovery-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on join discovery contract violations
+        if: steps.join-discovery.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate exclusive intelligence graph
+        id: internal-intelligence
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-internal-intelligence-graph.mjs 2>&1 | tee internal-intelligence-validation.txt
+
+      - name: Upload intelligence graph diagnostics
+        if: steps.internal-intelligence.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: internal-intelligence-diagnostics
+          path: internal-intelligence-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on intelligence graph contract violations
+        if: steps.internal-intelligence.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate Constellation strategy boundaries
+        id: constellation-strategy
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-constellation-strategy.mjs 2>&1 | tee constellation-strategy-validation.txt
+
+      - name: Upload Constellation strategy diagnostics
+        if: steps.constellation-strategy.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: constellation-strategy-diagnostics
+          path: constellation-strategy-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on Constellation strategy violations
+        if: steps.constellation-strategy.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate Constellation forensic longitudinal boundary
+        id: constellation-longitudinal
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-constellation-longitudinal.mjs 2>&1 | tee constellation-longitudinal-validation.txt
+
+      - name: Upload Constellation longitudinal diagnostics
+        if: steps.constellation-longitudinal.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: constellation-longitudinal-diagnostics
+          path: constellation-longitudinal-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on Constellation longitudinal violations
+        if: steps.constellation-longitudinal.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate Constellation Mission Ledger boundary
+        id: constellation-mission-memory
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-constellation-mission-memory.mjs 2>&1 | tee constellation-mission-memory-validation.txt
+
+      - name: Upload Constellation Mission Ledger diagnostics
+        if: steps.constellation-mission-memory.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: constellation-mission-memory-diagnostics
+          path: constellation-mission-memory-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on Constellation Mission Ledger violations
+        if: steps.constellation-mission-memory.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate Constellation Machine boundary
+        id: constellation-machines
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-constellation-machines.mjs 2>&1 | tee constellation-machines-validation.txt
+
+      - name: Upload Constellation Machine diagnostics
+        if: steps.constellation-machines.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: constellation-machines-diagnostics
+          path: constellation-machines-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on Constellation Machine violations
+        if: steps.constellation-machines.outcome == 'failure'
+        run: exit 1
+
+      - name: Validate product preservation contract
+        run: node scripts/validate-product-preservation.mjs
+
+      - name: Enforce production dependency policy
+        id: dependency-audit
+        continue-on-error: true
+        shell: bash
+        run: |
+          npm audit --omit=dev --json > npm-audit.json || true
+          set -o pipefail
+          node scripts/enforce-npm-audit-policy.mjs npm-audit.json security/npm-audit-policy.json 2>&1 | tee npm-audit-policy-summary.txt
 
       - name: Upload dependency audit diagnostics
         if: steps.dependency-audit.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: npm-audit-diagnostics
-          path: npm-audit.json
+          path: |
+            npm-audit.json
+            npm-audit-policy-summary.txt
           if-no-files-found: error
           retention-days: 7
 
-      - name: Fail on high-severity dependency findings
+      - name: Fail on production dependency policy violations
         if: steps.dependency-audit.outcome == 'failure'
         run: exit 1
 
@@ -218,4 +408,4 @@ jobs:
         if: steps.dependency-review.outcome == 'failure'
         run: |
           echo "Dependency review could not produce a blocking result for this repository configuration."
-          echo "npm audit remains the blocking dependency vulnerability control."
+          echo "The runtime-aware npm audit policy remains the blocking dependency vulnerability control."

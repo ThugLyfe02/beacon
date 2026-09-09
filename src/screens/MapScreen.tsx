@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, type MapStyleElement } from 'react-native-maps';
 import type { NavigationProp } from '@react-navigation/native';
@@ -37,11 +37,21 @@ type PendingRequest = {
 };
 
 type Coordinates = { latitude: number; longitude: number };
+type EventWindowState = 'live' | 'upcoming' | 'historical';
 
 const MAP_STYLE: MapStyleElement[] = DARK_MAP_STYLE.map((entry) => ({
   ...entry,
   stylers: entry.stylers.map((styler) => ({ ...styler })),
 })) as MapStyleElement[];
+
+function eventWindowState(event: EventRow, now: number): EventWindowState {
+  if (event.finalized_at) return 'historical';
+  const startsAt = event.starts_at ? Date.parse(event.starts_at) : Number.NaN;
+  const endsAt = event.ends_at ? Date.parse(event.ends_at) : Number.NaN;
+  if (Number.isFinite(endsAt) && endsAt <= now) return 'historical';
+  if (Number.isFinite(startsAt) && startsAt > now) return 'upcoming';
+  return 'live';
+}
 
 export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenProps>) {
   const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
@@ -52,8 +62,34 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
   const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({});
   const [nearbyPremium, setNearbyPremium] = useState<NearbyPremiumUser[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [lifecycleNow, setLifecycleNow] = useState(Date.now());
   const premium = usePremium(userId);
   const watcherRef = useRef<LocationSubscription | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setLifecycleNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const lifecycle = useMemo(() => {
+    const live: EventRow[] = [];
+    const upcoming: EventRow[] = [];
+    const historical: EventRow[] = [];
+    for (const event of events) {
+      const state = eventWindowState(event, lifecycleNow);
+      if (state === 'live') live.push(event);
+      else if (state === 'upcoming') upcoming.push(event);
+      else historical.push(event);
+    }
+    return { live, upcoming, historical };
+  }, [events, lifecycleNow]);
+
+  const activeEvent = lifecycle.live[0] ?? null;
+  const activeEventId = activeEvent?.id ?? null;
+  const visibleEvents = useMemo(
+    () => [...lifecycle.live, ...lifecycle.upcoming],
+    [lifecycle.live, lifecycle.upcoming],
+  );
 
   const loadEvents = useCallback(async () => {
     setIsLoading(true);
@@ -85,8 +121,10 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
 
   const publishLocation = useCallback((coords: Coordinates) => {
     setUserLocation(coords);
-    pushMyLocation(userId, coords.latitude, coords.longitude).catch(() => undefined);
-  }, [userId]);
+    if (activeEventId && premium.isDiscoverable) {
+      pushMyLocation(activeEventId, coords.latitude, coords.longitude).catch(() => undefined);
+    }
+  }, [activeEventId, premium.isDiscoverable]);
 
   useEffect(() => {
     getCurrentLocation().then((location) => {
@@ -110,16 +148,15 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
     };
   }, [publishLocation]);
 
-  const eventId = events[0]?.id ?? null;
   useEffect(() => {
-    if (!eventId || !premium.isPremium) {
+    if (!activeEventId || !premium.isPremium || !premium.isDiscoverable) {
       setNearbyPremium([]);
       return;
     }
 
     let cancelled = false;
     const refresh = async () => {
-      const peers = await getNearbyPremium(eventId);
+      const peers = await getNearbyPremium(activeEventId);
       if (!cancelled) setNearbyPremium(peers);
     };
     refresh();
@@ -128,10 +165,10 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
       cancelled = true;
       clearInterval(timer);
     };
-  }, [eventId, premium.isPremium]);
+  }, [activeEventId, premium.isPremium, premium.isDiscoverable]);
 
   const initialRegion = (() => {
-    const locatedEvent = events.find((event) => event.latitude != null && event.longitude != null);
+    const locatedEvent = visibleEvents.find((event) => event.latitude != null && event.longitude != null);
     if (locatedEvent?.latitude != null && locatedEvent.longitude != null) {
       return {
         latitude: locatedEvent.latitude,
@@ -149,11 +186,15 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
       setDrawerOpen(true);
       return;
     }
-    if (!eventId) {
-      Alert.alert('No event', 'Join an event before opening the radar.');
+    if (!premium.isDiscoverable) {
+      Alert.alert('Mutual visibility required', 'Turn on Discoverable before opening live premium radar.');
       return;
     }
-    navigation.navigate('Radar', { eventId });
+    if (!activeEventId) {
+      Alert.alert('No live event', 'Radar activates only while an approved event is inside its live window.');
+      return;
+    }
+    navigation.navigate('Radar', { eventId: activeEventId });
   }
 
   if (isLoading) {
@@ -166,7 +207,7 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
     );
   }
 
-  if (events.length === 0) {
+  if (visibleEvents.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <GridBackground />
@@ -182,10 +223,16 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
         ) : null}
 
         <Surface elevated padded glow style={styles.emptyCard}>
-          <Pill label="No active signals" tone="neutral" dot />
-          <NeonText variant="h1" style={styles.cardTitle}>The room is quiet.</NeonText>
+          <Pill
+            label={lifecycle.historical.length > 0 ? `${lifecycle.historical.length} preserved in history` : 'No active signals'}
+            tone="neutral"
+            dot
+          />
+          <NeonText variant="h1" style={styles.cardTitle}>The live field is quiet.</NeonText>
           <NeonText variant="bodyMuted" style={styles.cardCopy}>
-            Join an event with a code, or light your own beacon.
+            {lifecycle.historical.length > 0
+              ? 'Past events remain preserved for Vault, outcomes and memory, but they no longer masquerade as live proximity fields.'
+              : 'Join an event with a code, or light your own beacon.'}
           </NeonText>
           <GlowButton label="Join with a code" onPress={() => navigation.navigate('JoinEvent')} variant="secondary" fullWidth size="md" />
           <GlowButton label="Light a beacon" onPress={() => navigation.navigate('CreateEvent')} variant="primary" fullWidth size="md" style={styles.cardButton} />
@@ -193,6 +240,10 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
       </View>
     );
   }
+
+  const hudLabel = activeEvent
+    ? 'Live · scanning'
+    : 'Upcoming · staged';
 
   return (
     <View style={styles.container}>
@@ -209,14 +260,15 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
         showsBuildings={false}
         showsTraffic={false}
       >
-        {events.map((event) => {
+        {visibleEvents.map((event) => {
           if (event.latitude == null || event.longitude == null) return null;
+          const state = eventWindowState(event, lifecycleNow);
           return (
             <Marker
               key={event.id}
               coordinate={{ latitude: event.latitude, longitude: event.longitude }}
               title={event.name}
-              description={event.description || 'Tap to open channel'}
+              description={state === 'live' ? event.description || 'Live channel' : 'Upcoming event'}
               onCalloutPress={() => {
                 onEventPress?.(event);
                 navigation.navigate('EventFeed', { eventId: event.id, eventName: event.name });
@@ -246,9 +298,9 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
       <View pointerEvents="box-none" style={styles.hudTop}>
         <Surface style={styles.hudBar}>
           <View style={styles.hudCluster}>
-            <Pill label="Live · scanning" tone="accent" dot />
+            <Pill label={hudLabel} tone={activeEvent ? 'accent' : 'neutral'} dot />
             <NeonText variant="label" tone="muted">
-              {events.length} signal{events.length === 1 ? '' : 's'}
+              {visibleEvents.length} field{visibleEvents.length === 1 ? '' : 's'}
               {premium.isPremium && nearbyPremium.length > 0 ? ` · ${nearbyPremium.length} ✦` : ''}
             </NeonText>
           </View>
@@ -261,13 +313,13 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
       <View pointerEvents="box-none" style={styles.hudBottom}>
         <Pressable onPress={() => setDrawerOpen(true)} style={({ pressed }) => [styles.statusButton, pressed && styles.pressed]}>
           {premium.isPremium
-            ? <PremiumBadge size="md" label={premium.isDiscoverable ? 'PREMIUM · LIVE' : 'PREMIUM'} />
+            ? <PremiumBadge size="md" label={premium.isDiscoverable && activeEvent ? 'PREMIUM · LIVE' : 'PREMIUM'} />
             : <Pill label="Go Premium ✦" tone="premium" />}
         </Pressable>
 
-        <Pressable onPress={openRadar} style={({ pressed }) => [styles.radarButton, premium.isPremium && styles.radarActive, pressed && styles.pressed]}>
-          <NeonText variant="h2" tone={premium.isPremium ? 'premium' : 'muted'} glow={premium.isPremium} style={styles.radarGlyph}>◎</NeonText>
-          <NeonText variant="label" tone={premium.isPremium ? 'premium' : 'dim'} style={styles.radarLabel}>RADAR</NeonText>
+        <Pressable onPress={openRadar} style={({ pressed }) => [styles.radarButton, premium.isPremium && activeEvent && premium.isDiscoverable && styles.radarActive, pressed && styles.pressed]}>
+          <NeonText variant="h2" tone={premium.isPremium && activeEvent ? 'premium' : 'muted'} glow={Boolean(premium.isPremium && activeEvent)} style={styles.radarGlyph}>◎</NeonText>
+          <NeonText variant="label" tone={premium.isPremium && activeEvent ? 'premium' : 'dim'} style={styles.radarLabel}>RADAR</NeonText>
         </Pressable>
       </View>
 
@@ -280,6 +332,7 @@ export default function MapScreen({ userId, onEventPress }: Readonly<MapScreenPr
         premiumSince={premium.premiumSince}
         onTogglePremiumDev={premium.togglePremiumDev}
         onToggleDiscoverable={premium.setDiscoverable}
+        showDevControls={false}
       />
     </View>
   );

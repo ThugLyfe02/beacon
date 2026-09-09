@@ -1,6 +1,6 @@
 // =============================================================================
 // officeHours.service.ts
-// Office Hours requests between approved event attendees (Phase 2).
+// Evidence-backed Office Hours requests between approved event attendees.
 // =============================================================================
 
 import { supabase } from '../lib/supabase';
@@ -31,10 +31,36 @@ export interface OfficeHoursRequestWithPeer extends OfficeHoursRequest {
   direction: 'incoming' | 'outgoing';
 }
 
+export interface OfficeHoursCompletionState {
+  requestId: string;
+  status: OfficeHoursStatus;
+  ownConfirmed: boolean;
+  counterpartConfirmed: boolean;
+  confirmationCount: number;
+}
+
+interface CompletionStateRow {
+  request_id: string;
+  status: OfficeHoursStatus;
+  own_confirmed: boolean;
+  counterpart_confirmed: boolean;
+  confirmation_count: number;
+}
+
 function createIdempotencyNonce(): string {
   const first = Math.random().toString(36).slice(2);
   const second = Math.random().toString(36).slice(2);
   return `office-hours-${Date.now().toString(36)}-${first}${second}`.slice(0, 120);
+}
+
+function mapCompletionState(row: CompletionStateRow): OfficeHoursCompletionState {
+  return {
+    requestId: row.request_id,
+    status: row.status,
+    ownConfirmed: row.own_confirmed,
+    counterpartConfirmed: row.counterpart_confirmed,
+    confirmationCount: row.confirmation_count,
+  };
 }
 
 export async function createOfficeHoursRequest(input: {
@@ -70,7 +96,7 @@ export async function createOfficeHoursRequest(input: {
 }
 
 export async function listMyOfficeHoursRequests(
-  userId: string
+  userId: string,
 ): Promise<OfficeHoursRequestWithPeer[]> {
   const { data, error } = await supabase
     .from('office_hours_requests')
@@ -103,20 +129,51 @@ export async function listMyOfficeHoursRequests(
   });
 }
 
-async function updateStatus(
+async function transitionStatus(
   requestId: string,
-  status: OfficeHoursStatus
+  status: 'accepted' | 'declined' | 'cancelled',
 ): Promise<void> {
   const { error } = await supabase
-    .from('office_hours_requests')
-    .update({ status, responded_at: new Date().toISOString() } as never)
-    .eq('id', requestId);
+    .rpc('transition_office_hours_request', {
+      p_request_id: requestId,
+      p_status: status,
+    })
+    .single();
+
   if (error) {
-    console.error('[officeHours.service] update error:', error);
+    console.error('[officeHours.service] transition error:', error);
     throw new Error(error.message ?? 'Could not update request');
   }
 }
 
-export const acceptOfficeHoursRequest = (id: string) => updateStatus(id, 'accepted');
-export const declineOfficeHoursRequest = (id: string) => updateStatus(id, 'declined');
-export const cancelOfficeHoursRequest = (id: string) => updateStatus(id, 'cancelled');
+export const acceptOfficeHoursRequest = (id: string) => transitionStatus(id, 'accepted');
+export const declineOfficeHoursRequest = (id: string) => transitionStatus(id, 'declined');
+export const cancelOfficeHoursRequest = (id: string) => transitionStatus(id, 'cancelled');
+
+export async function getOfficeHoursCompletionState(
+  requestId: string,
+): Promise<OfficeHoursCompletionState | null> {
+  const { data, error } = await supabase
+    .rpc('get_office_hours_completion_state', { p_request_id: requestId })
+    .single();
+
+  if (error || !data) {
+    if (error) console.error('[officeHours.service] completion state error:', error);
+    return null;
+  }
+  return mapCompletionState(data as CompletionStateRow);
+}
+
+export async function confirmOfficeHoursCompletion(
+  requestId: string,
+): Promise<OfficeHoursCompletionState> {
+  const { data, error } = await supabase
+    .rpc('confirm_office_hours_completion', { p_request_id: requestId })
+    .single();
+
+  if (error || !data) {
+    console.error('[officeHours.service] completion confirmation error:', error);
+    throw new Error(error?.message ?? 'Could not confirm Office Hours completion');
+  }
+  return mapCompletionState(data as CompletionStateRow);
+}

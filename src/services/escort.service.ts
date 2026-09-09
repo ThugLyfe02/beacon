@@ -1,7 +1,6 @@
 // =============================================================================
 // escort.service.ts
-// Host-side venue room management + escort assignment for office-hours
-// requests. Phase 4.
+// Host-side physical Office Hours orchestration.
 // =============================================================================
 
 import { supabase } from '../lib/supabase';
@@ -27,6 +26,12 @@ export interface EscortRequest {
   room_label: string | null;
 }
 
+function createEscortNonce(): string {
+  const randomA = Math.random().toString(36).slice(2);
+  const randomB = Math.random().toString(36).slice(2);
+  return `escort-${Date.now().toString(36)}-${randomA}${randomB}`.slice(0, 120);
+}
+
 export async function listVenueRooms(eventId: string): Promise<VenueRoom[]> {
   const { data, error } = await supabase
     .from('venue_rooms')
@@ -43,13 +48,16 @@ export async function listVenueRooms(eventId: string): Promise<VenueRoom[]> {
 export async function createVenueRoom(
   eventId: string,
   label: string,
-  capacity: number
+  capacity: number,
 ): Promise<VenueRoom> {
   const { data, error } = await supabase
-    .from('venue_rooms')
-    .insert({ event_id: eventId, label, capacity } as never)
-    .select('id, event_id, label, capacity, is_busy')
+    .rpc('create_venue_room_secure', {
+      p_event_id: eventId,
+      p_label: label.trim(),
+      p_capacity: capacity,
+    })
     .single();
+
   if (error || !data) {
     throw new Error(error?.message ?? 'Could not create room');
   }
@@ -57,18 +65,15 @@ export async function createVenueRoom(
 }
 
 export async function listEscortQueue(eventId: string): Promise<EscortRequest[]> {
-  const { data, error } = await supabase
-    .from('office_hours_requests')
-    .select(
-      'id, status, proposed_start, proposed_end, requester_id, recipient_id, room_id, requester:users!office_hours_requests_requester_id_fkey(name), recipient:users!office_hours_requests_recipient_id_fkey(name), venue_rooms(label)'
-    )
-    .eq('event_id', eventId)
-    .in('status', ['accepted', 'awaiting_escort'])
-    .order('proposed_start');
+  const { data, error } = await supabase.rpc('get_host_escort_queue', {
+    p_event_id: eventId,
+  });
+
   if (error) {
     console.error('[escort.service] listEscortQueue error:', error);
     return [];
   }
+
   return (data ?? []).map((row: any) => ({
     id: row.id,
     status: row.status,
@@ -76,37 +81,42 @@ export async function listEscortQueue(eventId: string): Promise<EscortRequest[]>
     proposed_end: row.proposed_end,
     requester_id: row.requester_id,
     recipient_id: row.recipient_id,
-    room_id: row.room_id,
-    requester_name: row.requester?.name ?? null,
-    recipient_name: row.recipient?.name ?? null,
-    room_label: row.venue_rooms?.label ?? null,
+    room_id: row.room_id ?? null,
+    requester_name: row.requester_name ?? null,
+    recipient_name: row.recipient_name ?? null,
+    room_label: row.room_label ?? null,
   }));
 }
 
 export async function assignRoom(
   officeHoursRequestId: string,
-  roomId: string
+  roomId: string,
 ): Promise<void> {
   const { error } = await supabase
-    .from('office_hours_requests')
-    .update({ room_id: roomId, status: 'awaiting_escort' } as never)
-    .eq('id', officeHoursRequestId);
-  if (error) {
-    throw new Error(error.message);
-  }
-  // Fire push notification (best effort, ignore failures).
+    .rpc('assign_escort_room_secure', {
+      p_request_id: officeHoursRequestId,
+      p_room_id: roomId,
+      p_nonce: createEscortNonce(),
+    })
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  // Push notification remains best effort; assignment truth is already committed
+  // atomically in Postgres. The edge function derives the room from that database
+  // assignment and never trusts client-supplied room metadata.
   try {
     await supabase.functions.invoke('escort-notify', {
-      body: { officeHoursRequestId, roomId },
+      body: { officeHoursRequestId },
     });
-  } catch (e) {
-    console.warn('[escort.service] escort-notify failed:', e);
+  } catch (error) {
+    console.warn('[escort.service] escort-notify failed:', error);
   }
 }
 
 export async function saveExpoPushToken(
   userId: string,
-  token: string
+  token: string,
 ): Promise<void> {
   const { error } = await supabase
     .from('users')

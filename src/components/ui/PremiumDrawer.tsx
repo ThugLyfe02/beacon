@@ -35,7 +35,9 @@ export function PremiumDrawer({
   premiumSince,
   onTogglePremiumDev,
   onToggleDiscoverable,
-  showDevControls = __DEV__,
+  // Self-service premium mutation is database-disabled. Keep the old callback
+  // injectable for isolated local harnesses, but never advertise it by default.
+  showDevControls = false,
 }: Readonly<Props>) {
   const slide = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(0)).current;

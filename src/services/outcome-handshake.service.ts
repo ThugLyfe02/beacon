@@ -14,6 +14,9 @@ interface OutcomeStateRow {
   counterpart_intent: OutcomeIntent | null;
   activation_type: OutcomeActivationType | null;
   expires_at: string | null;
+  own_confirmed: boolean | null;
+  counterpart_confirmed: boolean | null;
+  confirmation_count: number | null;
 }
 
 interface ProposeOutcomeRow {
@@ -31,6 +34,15 @@ interface MatchContextRow {
   user_b_id: string;
 }
 
+interface ConfirmOutcomeRow {
+  accepted: boolean;
+  event_id: string;
+  handshake_status: Exclude<OutcomeHandshakeStatus, 'idle'>;
+  own_confirmed: boolean;
+  counterpart_confirmed: boolean;
+  confirmation_count: number;
+}
+
 function createIdempotencyNonce(): string {
   const random = Math.random().toString(36).slice(2);
   const second = Math.random().toString(36).slice(2);
@@ -46,6 +58,9 @@ function emptyState(matchId: string): OutcomeHandshakeState {
     counterpartIntent: null,
     activationType: null,
     expiresAt: null,
+    ownConfirmed: false,
+    counterpartConfirmed: false,
+    confirmationCount: 0,
   };
 }
 
@@ -58,6 +73,9 @@ function mapState(matchId: string, row: OutcomeStateRow): OutcomeHandshakeState 
     counterpartIntent: row.counterpart_intent,
     activationType: row.activation_type,
     expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : null,
+    ownConfirmed: row.own_confirmed === true,
+    counterpartConfirmed: row.counterpart_confirmed === true,
+    confirmationCount: Math.max(0, Math.min(2, row.confirmation_count ?? 0)),
   };
 }
 
@@ -78,7 +96,7 @@ export async function getOutcomeHandshakeState(
   if (!matchId || !userId) return emptyState(matchId);
 
   const { data, error } = await supabase
-    .rpc('get_outcome_handshake_state', { p_match_id: matchId })
+    .rpc('get_outcome_handshake_commit_state', { p_match_id: matchId })
     .single();
 
   if (error || !data) {
@@ -119,7 +137,7 @@ export async function proposeOutcomeHandshake(input: {
       reasonCodes: row.handshake_status === 'aligned'
         ? ['compatible_reciprocal_intent']
         : ['counterpart_intent_not_yet_aligned'],
-      policyVersion: 'outcome-handshake-v1',
+      policyVersion: 'outcome-handshake-v2',
       expiresAt: row.expires_at,
       metadata: {
         intent: input.intent,
@@ -129,44 +147,40 @@ export async function proposeOutcomeHandshake(input: {
     });
   }
 
-  return {
-    id: row.handshake_id,
-    matchId: input.matchId,
-    status: row.handshake_status,
-    ownIntent: row.own_intent,
-    counterpartIntent: row.counterpart_intent,
-    activationType: row.activation_type,
-    expiresAt: new Date(row.expires_at).getTime(),
-  };
+  // Re-read through the confirmation-aware state surface. This guarantees the
+  // client never fabricates confirmation fields after a proposal response.
+  return getOutcomeHandshakeState(input.matchId, 'authenticated');
 }
 
 export async function completeOutcomeHandshake(handshakeId: string): Promise<boolean> {
   if (!handshakeId) return false;
-  const { data: context } = await supabase
-    .from('outcome_handshakes')
-    .select('event_id')
-    .eq('id', handshakeId)
-    .maybeSingle();
 
-  const { data, error } = await supabase.rpc('complete_outcome_handshake', {
-    p_handshake_id: handshakeId,
-  });
+  const { data, error } = await supabase
+    .rpc('confirm_outcome_handshake', { p_handshake_id: handshakeId })
+    .single();
 
-  if (error) {
-    console.error('[outcome-handshake.service] complete:', error);
+  if (error || !data) {
+    console.error('[outcome-handshake.service] confirm:', error);
     return false;
   }
 
-  if (data === true && context?.event_id) {
+  const row = data as ConfirmOutcomeRow;
+  if (row.accepted && row.event_id) {
     void recordDecisionProvenance({
-      eventId: context.event_id,
+      eventId: row.event_id,
       domain: 'outcome_handshake',
-      outcome: 'complete',
-      reasonCodes: ['participant_confirmed_real_world_outcome'],
-      policyVersion: 'outcome-handshake-v1',
-      metadata: { handshakeId },
+      outcome: row.handshake_status === 'completed' ? 'complete' : 'align',
+      reasonCodes: row.handshake_status === 'completed'
+        ? ['two_party_real_world_outcome_confirmed']
+        : ['participant_confirmation_recorded_waiting_counterpart'],
+      policyVersion: 'outcome-handshake-v2',
+      metadata: {
+        handshakeId,
+        status: row.handshake_status,
+        confirmationCount: row.confirmation_count,
+      },
     });
   }
 
-  return data === true;
+  return row.accepted === true;
 }

@@ -75,6 +75,8 @@ export default function CreateEventScreen({
         latitude = coords.latitude;
         longitude = coords.longitude;
       }
+
+      const normalizedAccessCode = accessCode.trim().toUpperCase();
       const event = await createEvent(userId, {
         name: name.trim(),
         description: description.trim() || undefined,
@@ -83,10 +85,16 @@ export default function CreateEventScreen({
         longitude,
         address: locationType === 'fixed' ? address.trim() : undefined,
         requires_approval: requiresApproval,
-        access_code: accessCode.trim() || undefined,
+        access_code: normalizedAccessCode || undefined,
         show_participant_count: showParticipantCount,
       });
-      Alert.alert('Beacon lit', `Join code: ${event.join_code}`);
+
+      Alert.alert(
+        'Beacon lit',
+        normalizedAccessCode
+          ? `Join code: ${event.join_code}\n\nBypass code: ${normalizedAccessCode}\n\nSave the bypass code now. Beacon stores only a protected hash and will not reveal the plaintext later.`
+          : `Join code: ${event.join_code}`,
+      );
       onEventCreated(event.id);
     } catch (error) {
       console.error('Failed to create event:', error);
@@ -190,11 +198,11 @@ export default function CreateEventScreen({
               <GlowInput
                 label="Access code (optional)"
                 value={accessCode}
-                onChangeText={(t) => setAccessCode(t.toUpperCase())}
+                onChangeText={(text) => setAccessCode(text.toUpperCase())}
                 placeholder="Bypass code"
                 autoCapitalize="characters"
                 maxLength={20}
-                hint="Anyone with this code skips approval."
+                hint="Anyone with this code skips approval. Beacon stores only a protected hash, so save the plaintext yourself."
               />
             ) : null}
 

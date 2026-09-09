@@ -50,6 +50,9 @@ function emptyState(matchId: string): OutcomeHandshakeState {
     counterpartIntent: null,
     activationType: null,
     expiresAt: null,
+    ownConfirmed: false,
+    counterpartConfirmed: false,
+    confirmationCount: 0,
   };
 }
 
@@ -105,13 +108,20 @@ export default function OutcomeHandshakeCard({
   async function markComplete() {
     if (!state.id) return;
     setCompleting(true);
-    const completed = await completeOutcomeHandshake(state.id);
-    setCompleting(false);
-    if (completed) {
-      setState((current) => ({ ...current, status: 'completed' }));
+    const accepted = await completeOutcomeHandshake(state.id);
+    if (accepted) {
+      const refreshed = await getOutcomeHandshakeState(matchId, userId);
+      setState(refreshed);
+      if (refreshed.status === 'completed') {
+        Alert.alert(
+          'Outcome completed',
+          `You and ${counterpartyName} independently confirmed the real-world next step.`,
+        );
+      }
     } else {
       Alert.alert('Could not confirm outcome', 'Please try again after refreshing this mutual.');
     }
+    setCompleting(false);
   }
 
   return (
@@ -127,6 +137,22 @@ export default function OutcomeHandshakeCard({
 
       <Text style={styles.headline}>{evaluation.headline}</Text>
       <Text style={styles.explanation}>{evaluation.explanation}</Text>
+
+      {state.status === 'aligned' || state.status === 'completed' ? (
+        <View style={styles.commitRail}>
+          <View style={[styles.commitNode, state.ownConfirmed && styles.commitNodeDone]}>
+            <Text style={[styles.commitNodeText, state.ownConfirmed && styles.commitNodeTextDone]}>
+              YOU {state.ownConfirmed ? '✓' : '○'}
+            </Text>
+          </View>
+          <View style={[styles.commitLine, state.confirmationCount >= 2 && styles.commitLineDone]} />
+          <View style={[styles.commitNode, state.counterpartConfirmed && styles.commitNodeDone]}>
+            <Text style={[styles.commitNodeText, state.counterpartConfirmed && styles.commitNodeTextDone]}>
+              {counterpartyName.toUpperCase()} {state.counterpartConfirmed ? '✓' : '○'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {loading ? (
         <ActivityIndicator color="#F59E0B" style={styles.loader} />
@@ -189,7 +215,9 @@ export default function OutcomeHandshakeCard({
         <View style={styles.alignedPanel}>
           <Text style={styles.alignedLabel}>{getActivationLabel(state.activationType)}</Text>
           <Text style={styles.alignedText}>
-            This alignment has been written into both private Vaults as an actionable next step.
+            {state.counterpartConfirmed
+              ? `${counterpartyName} already confirmed. Your independent confirmation completes the shared outcome.`
+              : 'The alignment is sealed. Completion requires an independent confirmation from each participant.'}
           </Text>
           <Pressable
             disabled={completing}
@@ -199,17 +227,30 @@ export default function OutcomeHandshakeCard({
             {completing ? (
               <ActivityIndicator color="#071018" />
             ) : (
-              <Text style={styles.completeButtonText}>Confirm real-world outcome</Text>
+              <Text style={styles.completeButtonText}>Confirm my side</Text>
             )}
           </Pressable>
         </View>
       ) : null}
 
+      {!loading && evaluation.primaryAction === 'wait_for_confirmation' ? (
+        <View style={styles.waitingConfirmationPanel}>
+          <Text style={styles.waitingConfirmationTitle}>Your confirmation is sealed ✓</Text>
+          <Text style={styles.waitingConfirmationText}>
+            Beacon will not mark this shared outcome complete until {counterpartyName} independently confirms their side.
+          </Text>
+        </View>
+      ) : null}
+
       {state.status === 'completed' ? (
         <View style={styles.completedPanel}>
-          <Text style={styles.completedTitle}>Outcome confirmed</Text>
+          <Text style={styles.completedTitle}>
+            {state.confirmationCount >= 2 ? 'Two-party outcome confirmed' : 'Outcome recorded'}
+          </Text>
           <Text style={styles.completedText}>
-            This connection moved beyond discovery into a completed next step.
+            {state.confirmationCount >= 2
+              ? 'Two independent confirmation receipts now back this completed next step.'
+              : 'This completion predates two-party confirmation receipts; Beacon does not retroactively invent them.'}
           </Text>
         </View>
       ) : null}
@@ -260,6 +301,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  commitRail: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commitNode: {
+    minWidth: 72,
+    minHeight: 28,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.22)',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+  },
+  commitNodeDone: {
+    borderColor: 'rgba(52, 211, 153, 0.42)',
+    backgroundColor: 'rgba(16, 185, 129, 0.10)',
+  },
+  commitNodeText: { color: '#94A3B8', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  commitNodeTextDone: { color: '#6EE7B7' },
+  commitLine: { flex: 1, height: 1, backgroundColor: 'rgba(148, 163, 184, 0.20)' },
+  commitLineDone: { backgroundColor: 'rgba(52, 211, 153, 0.48)' },
   loader: { marginTop: 14 },
   primaryButton: {
     marginTop: 14,
@@ -319,6 +384,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#34D399',
   },
   completeButtonText: { color: '#071018', textAlign: 'center', fontSize: 12, fontWeight: '900' },
+  waitingConfirmationPanel: {
+    marginTop: 14,
+    borderRadius: 14,
+    padding: 13,
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(125, 211, 252, 0.20)',
+  },
+  waitingConfirmationTitle: { color: '#7DD3FC', fontSize: 13, fontWeight: '900' },
+  waitingConfirmationText: { marginTop: 6, color: '#A8B3C5', fontSize: 12, lineHeight: 17 },
   completedPanel: {
     marginTop: 14,
     borderRadius: 12,

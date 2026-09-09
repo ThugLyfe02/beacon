@@ -66,8 +66,11 @@ export function createSpatialInteractionPulse(
 
 /**
  * Detects only a narrow, evidence-backed near miss: a recently visible, close,
- * fresh, non-mutual target disappears from the current verified field. It does
- * not infer rejection, identity intent, or claim that the user "missed" someone.
+ * fresh, non-mutual target disappears from the current verified field.
+ *
+ * Privacy invariant: this mechanic does not infer rejection, identity intent,
+ * or claim that the user "missed" someone. It records only a verified change in
+ * field visibility and uses neutral copy that admits Beacon does not know why.
  */
 export function detectAlmostDiscoveredMoments({
   previousTargets,

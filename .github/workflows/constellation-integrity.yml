@@ -1,0 +1,50 @@
+name: Constellation Integrity
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constellation-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Constellation contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Strict TypeScript
+        run: npx tsc --noEmit --pretty false
+
+      - name: Mission memory contract
+        run: node scripts/validate-constellation-mission-memory.mjs
+
+      - name: Machine and private recipe contract
+        run: node scripts/validate-constellation-machines.mjs
+
+      - name: Entity-quality and canonical persistence contract
+        run: node scripts/validate-constellation-entity-quality.mjs
+
+      - name: Product preservation
+        run: node scripts/validate-product-preservation.mjs

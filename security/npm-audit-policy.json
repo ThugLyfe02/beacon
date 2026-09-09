@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "policyName": "Beacon mobile toolchain advisory boundary",
+  "expiresOn": "2026-08-31",
+  "minimumBlockingSeverity": "high",
+  "alwaysBlockCritical": true,
+  "runtimePackagesNeverExempt": [
+    "@livekit/react-native",
+    "@livekit/react-native-webrtc",
+    "@sentry/react-native",
+    "@supabase/supabase-js",
+    "livekit-client",
+    "react",
+    "react-dom",
+    "react-native-maps",
+    "react-native-webview",
+    "three",
+    "upng-js"
+  ],
+  "toolchainOnlyPackages": [
+    "@expo/cli",
+    "@expo/config",
+    "@expo/config-plugins",
+    "@expo/local-build-cache-provider",
+    "@expo/metro-config",
+    "@expo/prebuild-config",
+    "@jest/transform",
+    "@react-native/babel-plugin-codegen",
+    "@react-native/babel-preset",
+    "@react-native/codegen",
+    "@react-native/community-cli-plugin",
+    "@react-native/dev-middleware",
+    "babel-jest",
+    "babel-plugin-istanbul",
+    "babel-preset-expo",
+    "brace-expansion",
+    "chromium-edge-launcher",
+    "glob",
+    "minimatch",
+    "rimraf",
+    "test-exclude",
+    "xcode"
+  ],
+  "context": {
+    "expoSdk": "55",
+    "reactNative": "0.83.x",
+    "reason": "npm currently reports high-severity advisories through Expo and React Native build, code-generation, test and development-server packages. npm's proposed remediation downgrades Expo to SDK 46 or moves React Native outside the Expo SDK 55 compatibility matrix. These packages are accepted only when every high-severity path resolves exclusively through this explicit toolchain set.",
+    "reviewTrigger": "Re-evaluate immediately when Expo SDK 55 or React Native 0.83 publishes compatible patched transitive versions, when a listed package becomes runtime reachable, or before the expiry date."
+  }
+}
