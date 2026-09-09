@@ -36,6 +36,17 @@ export interface InternalDecisionCalibrationReport {
   operatingRule: string;
 }
 
+export interface InternalDecisionCalibrationAdjustment {
+  decisionKind: InternalOperatorDecisionKind;
+  penalty: number;
+  resolvedCount: number;
+  maturity: InternalDecisionCalibrationMaturity;
+  conservativeSupportFloor: number;
+  calibrationGap: number;
+  reasons: string[];
+  operatingRule: string;
+}
+
 const STATUS_SCORE: Partial<Record<InternalDecisionJournalStatus, number>> = {
   supported: 1,
   weakened: 0.5,
@@ -67,6 +78,13 @@ function maturityForCount(count: number): InternalDecisionCalibrationMaturity {
   if (count < 8) return 'emerging';
   if (count < 20) return 'maturing';
   return 'established';
+}
+
+function maturityWeight(maturity: InternalDecisionCalibrationMaturity): number {
+  if (maturity === 'established') return 1;
+  if (maturity === 'maturing') return 0.82;
+  if (maturity === 'emerging') return 0.55;
+  return 0;
 }
 
 function buildBucket(
@@ -117,6 +135,54 @@ function buildBucket(
     calibrationGap,
     maturity,
     interpretation,
+  };
+}
+
+/**
+ * Converts historical method calibration into a conservative future-authority
+ * adjustment. Calibration can only reduce review authority; a history of being too
+ * conservative is surfaced to humans but never used as an automatic authority boost.
+ */
+export function getInternalDecisionCalibrationAdjustment(
+  report: InternalDecisionCalibrationReport | null | undefined,
+  decisionKind: InternalOperatorDecisionKind,
+): InternalDecisionCalibrationAdjustment {
+  const bucket = report?.byDecisionKind.find((item) => item.key === decisionKind) ?? null;
+  if (!bucket || bucket.resolvedCount < 3) {
+    return {
+      decisionKind,
+      penalty: 0,
+      resolvedCount: bucket?.resolvedCount ?? 0,
+      maturity: bucket?.maturity ?? 'nascent',
+      conservativeSupportFloor: bucket?.conservativeSupportFloor ?? 0.5,
+      calibrationGap: bucket?.calibrationGap ?? 0,
+      reasons: ['Insufficient resolved hypotheses for this decision class; historical calibration does not alter authority.'],
+      operatingRule: 'Decision calibration may only reduce future analytical authority when repeated falsifiable outcomes show overconfidence. It can never increase authority or become graph evidence.',
+    };
+  }
+
+  const weight = maturityWeight(bucket.maturity);
+  const overconfidencePenalty = Math.max(0, bucket.calibrationGap - 0.08) * 0.7 * weight;
+  const weakFloorPenalty = Math.max(0, 0.55 - bucket.conservativeSupportFloor) * 0.22 * weight;
+  const penalty = Math.min(0.22, overconfidencePenalty + weakFloorPenalty);
+  const reasons = [
+    `${bucket.resolvedCount} resolved hypotheses calibrate ${bucket.label.toLowerCase()} at ${bucket.maturity} maturity`,
+    `historical admission authority ${(bucket.averageAdmissionAuthority * 100).toFixed(0)}% vs later evidence support ${(Math.max(0, bucket.averageAdmissionAuthority - bucket.calibrationGap) * 100).toFixed(0)}%`,
+    `conservative posterior support floor ${Math.round(bucket.conservativeSupportFloor * 100)}%`,
+    ...(penalty > 0
+      ? [`historical overconfidence applies a ${Math.round(penalty * 100)} point authority penalty to current review admission`]
+      : ['historical calibration does not justify reducing current authority']),
+  ];
+
+  return {
+    decisionKind,
+    penalty,
+    resolvedCount: bucket.resolvedCount,
+    maturity: bucket.maturity,
+    conservativeSupportFloor: bucket.conservativeSupportFloor,
+    calibrationGap: bucket.calibrationGap,
+    reasons,
+    operatingRule: 'Decision calibration may only reduce future analytical authority when repeated falsifiable outcomes show overconfidence. Historical underconfidence is never an automatic authority boost.',
   };
 }
 
