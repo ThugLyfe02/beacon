@@ -15,6 +15,10 @@ import { analyzeInternalEvidenceDebt } from '../admin/InternalEvidenceDebtEngine
 import { buildInternalTargetRoutingPortfolio } from '../admin/InternalTargetRoutingEngine';
 import { simulateInternalValueOfInformation } from '../admin/InternalValueOfInformationEngine';
 import {
+  loadInternalEvidenceConflicts,
+  type InternalEvidenceConflict,
+} from '../admin/internalEvidenceConflict.service';
+import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
   loadInternalIntelligenceGraph,
@@ -39,6 +43,7 @@ export default function InternalEvidenceDebtScreen() {
   const [payload, setPayload] = useState<Awaited<ReturnType<typeof loadInternalIntelligenceGraph>> | null>(null);
   const [patterns, setPatterns] = useState<Awaited<ReturnType<typeof loadInternalBridgePatternCalibration>>['patterns']>([]);
   const [suppressions, setSuppressions] = useState<Set<string> | null>(null);
+  const [evidenceConflicts, setEvidenceConflicts] = useState<InternalEvidenceConflict[]>([]);
   const [targetQuery, setTargetQuery] = useState('');
   const [sourceNodeId, setSourceNodeId] = useState<string | null>(null);
   const [selectedDebtId, setSelectedDebtId] = useState<string | null>(null);
@@ -48,22 +53,27 @@ export default function InternalEvidenceDebtScreen() {
     if (!operator.allowed || !operator.has('graph_read')) return;
     setLoading(true);
     try {
-      const [graph, calibration, safeSuppressions] = await Promise.all([
+      const [graph, calibration, safeSuppressions, conflictState] = await Promise.all([
         loadInternalIntelligenceGraph({ eventId, includeRestricted: false, limit: 1800 }),
         operator.has('graph_manage')
           ? loadInternalBridgePatternCalibration()
           : Promise.resolve({ generatedAt: new Date().toISOString(), patterns: [], attributionNote: '' }),
         operator.has('graph_manage') ? getInternalBridgeSuppressions() : Promise.resolve(new Set<string>()),
+        operator.has('graph_manage')
+          ? loadInternalEvidenceConflicts({ eventId, includeClosed: false, limit: 160 })
+          : Promise.resolve({ generatedAt: new Date().toISOString(), conflicts: [], operatingRule: '' }),
       ]);
       setPayload(graph);
       setPatterns(calibration.patterns);
       setSuppressions(safeSuppressions);
+      setEvidenceConflicts(conflictState.conflicts);
       const analysis = analyzeInternalGraph(graph);
       setSourceNodeId((current) => current && graph.nodes.some((node) => node.id === current)
         ? current
         : analysis.brokerNodeIds[0] ?? analysis.hubNodeIds[0] ?? graph.nodes[0]?.id ?? null);
     } catch (error) {
       setSuppressions(null);
+      setEvidenceConflicts([]);
       Alert.alert('Evidence Debt unavailable', error instanceof Error ? error.message : 'Unable to assemble verification obligations.');
     } finally {
       setLoading(false);
@@ -90,8 +100,8 @@ export default function InternalEvidenceDebtScreen() {
   );
 
   const report = useMemo(
-    () => payload ? analyzeInternalEvidenceDebt({ payload, routingPortfolio: routing }) : null,
-    [payload, routing],
+    () => payload ? analyzeInternalEvidenceDebt({ payload, routingPortfolio: routing, evidenceConflicts }) : null,
+    [payload, routing, evidenceConflicts],
   );
 
   const selectedDebt = useMemo(
@@ -130,7 +140,7 @@ export default function InternalEvidenceDebtScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · VERIFICATION QUEUE" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Evidence Debt</NeonText>
-              <NeonText variant="bodyMuted">Rank uncertainty by analytical leverage, then bracket confirm-vs-disconfirm scenarios before spending analyst time. No people are scored; no external enrichment is required.</NeonText>
+              <NeonText variant="bodyMuted">Rank uncertainty and explicit evidence conflicts by analytical leverage, then bracket valid counterfactuals before spending analyst time. No people are scored; no external enrichment is required.</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -138,6 +148,7 @@ export default function InternalEvidenceDebtScreen() {
           <View style={styles.metricRow}>
             <Metric label="HIGH PRIORITY" value={`${report.highPriorityCount}`} />
             <Metric label="DEBT ITEMS" value={`${report.items.length}`} />
+            <Metric label="OPEN CONFLICTS" value={`${evidenceConflicts.filter((item) => item.status === 'open').length}`} />
             <Metric label="RECOVERABLE AUTHORITY" value={`~${Math.round(report.expectedRecoverableAuthority * 100)}%`} />
             <Metric label="TOTAL WEIGHT" value={report.totalDebt.toFixed(1)} />
           </View>
@@ -194,13 +205,14 @@ export default function InternalEvidenceDebtScreen() {
           <View style={styles.actionRow}>
             <GlowButton label="Forensics" variant="ghost" onPress={() => navigation.navigate('InternalForensicsLab', { eventId: eventId ?? undefined })} />
             <GlowButton label="Evidence Lens" variant="ghost" onPress={() => navigation.navigate('InternalPerspectiveLab', { eventId: eventId ?? undefined })} />
+            {operator.has('graph_manage') ? <GlowButton label="Conflict Review" variant="ghost" onPress={() => navigation.navigate('InternalEvidenceConflicts', { eventId: eventId ?? undefined })} /> : null}
             {operator.has('graph_manage') ? <GlowButton label="Target Routing" variant="ghost" onPress={() => navigation.navigate('InternalTargetRouting', { eventId: eventId ?? undefined })} /> : null}
             {operator.has('graph_manage') ? <GlowButton label="Decision Journal" variant="ghost" onPress={() => navigation.navigate('InternalDecisionJournal', { eventId: eventId ?? undefined })} /> : null}
           </View>
 
           <View style={styles.section}>
             <NeonText variant="label" tone="accent">VERIFICATION PRIORITY QUEUE</NeonText>
-            <NeonText variant="bodyMuted">Highest-leverage uncertainty first. Expected authority gain is a graph-method heuristic, not a guarantee. Counterfactual simulation is opt-in per item.</NeonText>
+            <NeonText variant="bodyMuted">Highest-leverage uncertainty first. Expected authority gain is a graph-method heuristic, not a guarantee. Counterfactual simulation is opt-in per item; evidence conflicts are reconciled directly rather than collapsed into fake binary scenarios.</NeonText>
             {report.items.map((item, index) => (
               <Surface key={item.id} elevated padded style={[styles.debtCard, selectedDebtId === item.id ? styles.selectedBorder : null]}>
                 <View style={styles.rowBetween}>
