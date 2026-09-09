@@ -30,6 +30,7 @@ import InternalGraphScreen from '../screens/InternalGraphScreen';
 import InternalBridgeLabScreen from '../screens/InternalBridgeLabScreen';
 import InternalStrategyLabScreen from '../screens/InternalStrategyLabScreen';
 import InternalSimulationLabScreen from '../screens/InternalSimulationLabScreen';
+import InternalTransformLabScreen from '../screens/InternalTransformLabScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
 import OfficeHoursRequestScreen from '../screens/OfficeHoursRequestScreen';
@@ -63,25 +64,20 @@ function MainTabs({ userId, isHost, onEventEnded }: Readonly<MainTabsProps>) {
       <Tab.Screen name="Home" options={{ tabBarLabel: 'HOME', headerShown: false }}>
         {(props) => <HomeFeedScreen {...props} userId={userId} />}
       </Tab.Screen>
-
       <Tab.Screen name="Map" options={{ tabBarLabel: 'MAP' }}>
         {(props) => <MapScreen {...props} userId={userId} />}
       </Tab.Screen>
-
       {isHost && (
         <Tab.Screen name="Host" options={{ tabBarLabel: 'HOST', title: 'Event Management' }}>
           {(props) => <HostManagementScreen {...props} userId={userId} onEventEnded={onEventEnded} />}
         </Tab.Screen>
       )}
-
       <Tab.Screen name="Discover" options={{ tabBarLabel: 'DISCOVER' }}>
         {(props) => <DiscoverScreen {...props} userId={userId} />}
       </Tab.Screen>
-
       <Tab.Screen name="Matches" options={{ tabBarLabel: 'MATCHES' }}>
         {(props) => <MatchesScreen {...props} userId={userId} />}
       </Tab.Screen>
-
       <Tab.Screen name="Me" options={{ tabBarLabel: 'ME', headerShown: false }}>
         {() => <ProfileScreen />}
       </Tab.Screen>
@@ -196,13 +192,9 @@ export function RootNavigator() {
         <Stack.Screen name="InternalBridgeLab" component={InternalBridgeLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalStrategyLab" component={InternalStrategyLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalSimulationLab" component={InternalSimulationLabScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalTransformLab" component={InternalTransformLabScreen} options={internalModalOptions} />
 
-        <Stack.Screen
-          name="EditProfile"
-          component={EditProfileScreen}
-          options={{ presentation: 'modal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: palette.void } }}
-        />
-
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: palette.void } }} />
         <Stack.Screen
           name="ChooseAvatar"
           component={ChooseAvatarScreen}
@@ -217,44 +209,16 @@ export function RootNavigator() {
             ),
           })}
         />
-
-        <Stack.Screen
-          name="OfficeHoursRequest" component={OfficeHoursRequestScreen}
-          options={{ presentation: 'modal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: palette.void }, headerShown: true, title: 'Office Hours', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent }}
-        />
-        <Stack.Screen
-          name="OfficeHoursInbox" component={OfficeHoursInboxScreen}
-          options={{ headerShown: true, title: 'Office Hours', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'slide_from_right' }}
-        />
-        <Stack.Screen
-          name="OfficeHoursCall" component={OfficeHoursCallScreen}
-          options={{ presentation: 'fullScreenModal', animation: 'fade', contentStyle: { backgroundColor: '#0a0a0a' }, headerShown: false }}
-        />
-        <Stack.Screen
-          name="ARField" component={ARFieldScreen}
-          options={{ headerShown: true, title: 'AR Field', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'fade' }}
-        />
-        <Stack.Screen
-          name="EscortPanel" component={EscortPanelScreen}
-          options={{ headerShown: true, title: 'Escort Queue', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'slide_from_right' }}
-        />
+        <Stack.Screen name="OfficeHoursRequest" component={OfficeHoursRequestScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: palette.void }, headerShown: true, title: 'Office Hours', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent }} />
+        <Stack.Screen name="OfficeHoursInbox" component={OfficeHoursInboxScreen} options={{ headerShown: true, title: 'Office Hours', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'slide_from_right' }} />
+        <Stack.Screen name="OfficeHoursCall" component={OfficeHoursCallScreen} options={{ presentation: 'fullScreenModal', animation: 'fade', contentStyle: { backgroundColor: '#0a0a0a' }, headerShown: false }} />
+        <Stack.Screen name="ARField" component={ARFieldScreen} options={{ headerShown: true, title: 'AR Field', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'fade' }} />
+        <Stack.Screen name="EscortPanel" component={EscortPanelScreen} options={{ headerShown: true, title: 'Escort Queue', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'slide_from_right' }} />
         <Stack.Screen name="EventFeed" component={EventFeedScreen} options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen
-          name="EventLobby" component={EventLobbyScreen}
-          options={{ headerShown: true, title: 'Lobby', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'slide_from_right' }}
-        />
-        <Stack.Screen
-          name="SpatialField" component={SpatialFieldScreen}
-          options={{ headerShown: true, title: 'Field', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'fade' }}
-        />
-        <Stack.Screen
-          name="Compose" component={ComposePostScreen}
-          options={{ presentation: 'modal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: palette.void } }}
-        />
-        <Stack.Screen
-          name="Radar" component={RadarScreen}
-          options={{ presentation: 'modal', animation: 'fade', contentStyle: { backgroundColor: palette.void } }}
-        />
+        <Stack.Screen name="EventLobby" component={EventLobbyScreen} options={{ headerShown: true, title: 'Lobby', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'slide_from_right' }} />
+        <Stack.Screen name="SpatialField" component={SpatialFieldScreen} options={{ headerShown: true, title: 'Field', headerStyle: { backgroundColor: palette.space }, headerTitleStyle: { color: palette.text, fontWeight: '700' }, headerTintColor: palette.accent, animation: 'fade' }} />
+        <Stack.Screen name="Compose" component={ComposePostScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: palette.void } }} />
+        <Stack.Screen name="Radar" component={RadarScreen} options={{ presentation: 'modal', animation: 'fade', contentStyle: { backgroundColor: palette.void } }} />
 
         <Stack.Screen name="JoinEvent" options={{ presentation: 'modal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: palette.void } }}>
           {(props) => (
