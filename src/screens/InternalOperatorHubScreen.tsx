@@ -49,6 +49,14 @@ const LABS: LabDefinition[] = [
     accent: 'accent',
   },
   {
+    route: 'InternalMissionLedger',
+    title: 'Mission Ledger',
+    code: 'MEMORY',
+    description: 'Persistent agent memory that distinguishes new, persistent, revised, reopened and resolved strategic conditions.',
+    capability: 'graph_manage',
+    accent: 'accent',
+  },
+  {
     route: 'InternalSimulationLab',
     title: 'Simulation Lab',
     code: 'WHAT IF',
@@ -180,7 +188,7 @@ export default function InternalOperatorHubScreen() {
           <Surface padded style={styles.autonomyCard}>
             <Pill label="AUTONOMY BOUNDARY" tone="neutral" dot />
             <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>
-              Constellation agents may analyze, diff, checkpoint finalized topology and refresh internal findings. They cannot message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.
+              Constellation agents may analyze, diff, checkpoint finalized topology, reconcile bounded mission memory and refresh internal findings. They cannot message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.
             </NeonText>
           </Surface>
         </ScrollView>
