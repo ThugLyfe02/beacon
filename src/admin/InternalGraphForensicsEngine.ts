@@ -36,6 +36,7 @@ export interface InternalGraphStructuralForensics {
   structuralDependence: number;
   largestBrokerDependence: number;
   summary: string;
+  methodologyNote: string;
 }
 
 interface Neighbor {
@@ -165,7 +166,6 @@ function effectiveSize(nodeId: string, graph: Map<string, Neighbor[]>): number {
       if (neighborSet.has(second.nodeId)) neighborNeighborLinks += 1;
     }
   }
-  // Each undirected neighbor-neighbor edge was counted twice.
   const redundantTies = neighborNeighborLinks / 2;
   return Math.max(1, degree - (2 * redundantTies) / degree);
 }
@@ -178,11 +178,15 @@ function edgeSurprisal(
   if (edgeCount <= 0) return 0;
   const leftDegree = degree.get(edge.source) ?? 1;
   const rightDegree = degree.get(edge.target) ?? 1;
-  // Configuration-model expectation: k_i k_j / (2m). Clamp to probability range.
   const expected = Math.max(1e-6, Math.min(0.999999, (leftDegree * rightDegree) / (2 * edgeCount)));
   return -Math.log2(expected);
 }
 
+/**
+ * Structural forensics describes graph topology only. `forensicScore` is not a
+ * human-value score and must never be interpreted as trustworthiness, compatibility,
+ * social worth, or influence outside the bounded evidence graph.
+ */
 export function analyzeInternalGraphForensics(
   payload: InternalGraphPayload,
   analysis = analyzeInternalGraph(payload),
@@ -281,5 +285,6 @@ export function analyzeInternalGraphForensics(
     summary: critical.articulation.size > 0
       ? `${critical.articulation.size} articulation point${critical.articulation.size === 1 ? '' : 's'} and ${critical.bridgePairs.size} graph bridge${critical.bridgePairs.size === 1 ? '' : 's'} create measurable structural dependence.`
       : 'No single articulation point currently disconnects the explainable graph.',
+    methodologyNote: 'Structural position only: this is not a human-value score and does not estimate trust, compatibility, consent, or importance outside the bounded evidence graph.',
   };
 }
