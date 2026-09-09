@@ -14,6 +14,11 @@ import { analyzeInternalGraph, type InternalGraphPayload } from '../admin/Intern
 import { runAdaptiveInternalGraphAgentOrchestrator } from '../admin/InternalAdaptiveAgentOrchestrator';
 import { triageInternalWatchtower } from '../admin/InternalWatchtowerTriageEngine';
 import { evaluateInternalOperatorDecisionAdmission } from '../admin/InternalOperatorDecisionAdmission';
+import { analyzeInternalEvidenceDebt } from '../admin/InternalEvidenceDebtEngine';
+import {
+  buildInternalNextBestAnalysisPlan,
+  type InternalAnalysisCapability,
+} from '../admin/InternalNextBestAnalysisEngine';
 import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
@@ -131,6 +136,35 @@ export default function InternalAdaptiveCommandScreen() {
     [adaptiveRun, watchtowerTriage, suppressions, operator.manage, operator.restricted, operator.export],
   );
 
+  const evidenceDebt = useMemo(
+    () => payload && adaptiveRun
+      ? analyzeInternalEvidenceDebt({ payload, routingPortfolio: adaptiveRun.routingPortfolio })
+      : null,
+    [payload, adaptiveRun],
+  );
+
+  const analysisCapabilities = useMemo(() => {
+    const result = new Set<InternalAnalysisCapability>();
+    if (operator.read) result.add('graph_read');
+    if (operator.manage) result.add('graph_manage');
+    if (operator.restricted) result.add('graph_restricted');
+    if (operator.export) result.add('graph_export');
+    return result;
+  }, [operator.read, operator.manage, operator.restricted, operator.export]);
+
+  const nextAnalysis = useMemo(
+    () => adaptiveRun && evidenceDebt
+      ? buildInternalNextBestAnalysisPlan({
+          epistemicHealth: adaptiveRun.epistemicHealth,
+          evidenceDebt,
+          watchtowerTriage,
+          routingPortfolio: adaptiveRun.routingPortfolio,
+          capabilities: analysisCapabilities,
+        })
+      : null,
+    [adaptiveRun, evidenceDebt, watchtowerTriage, analysisCapabilities],
+  );
+
   if (operator.loading || loading) {
     return (
       <View style={styles.centered}>
@@ -154,7 +188,7 @@ export default function InternalAdaptiveCommandScreen() {
     );
   }
 
-  if (!payload || !suppressions || !adaptiveRun || !decisionAdmission) return null;
+  if (!payload || !suppressions || !adaptiveRun || !decisionAdmission || !evidenceDebt || !nextAnalysis) return null;
   const health = adaptiveRun.epistemicHealth;
   const routing = adaptiveRun.routingPortfolio;
 
@@ -167,18 +201,39 @@ export default function InternalAdaptiveCommandScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · ADAPTIVE NETWORK COMMAND" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Operator Command</NeonText>
-              <NeonText variant="bodyMuted">Watchtower incident triage · epistemic authority · decision admission · diversified target routing · adaptive mission queue · human approval boundary</NeonText>
+              <NeonText variant="bodyMuted">Next-best analysis · Watchtower incident triage · evidence debt · epistemic authority · decision admission · diversified target routing · adaptive mission queue</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
 
           <View style={styles.metricRow}>
             <Metric label="GRAPH HEALTH" value={`${Math.round(health.score * 100)}%`} />
-            <Metric label="POSTURE" value={adaptiveRun.decisionPosture.replaceAll('_', ' ').toUpperCase()} />
+            <Metric label="EVIDENCE DEBT" value={`${evidenceDebt.highPriorityCount} HIGH`} />
             <Metric label="OPEN INCIDENTS" value={`${watchtowerTriage?.openIncidentCount ?? 0}`} />
             <Metric label="ADMISSION BLOCKS" value={`${decisionAdmission.blockedCount}`} />
             <Metric label="MISSIONS" value={`${adaptiveRun.missionCount}`} />
           </View>
+
+          <Section title="NEXT BEST ANALYSIS" subtitle="Highest expected information gain first; these are workbench transitions, never social actions or person recommendations">
+            {nextAnalysis.actions.slice(0, 6).map((action, index) => (
+              <Surface key={action.id} elevated padded style={[styles.nextActionCard, index === 0 ? styles.topActionBorder : null]}>
+                <View style={styles.rowBetween}>
+                  <View style={{ flex: 1 }}>
+                    <Pill label={`P${index + 1} · ${action.category.toUpperCase()}`} tone={index === 0 ? 'accent' : 'neutral'} dot={index === 0} />
+                    <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{action.title}</NeonText>
+                  </View>
+                  <View style={styles.scoreBlock}>
+                    <NeonText variant="mono" tone="accent">{action.priority.toFixed(1)}</NeonText>
+                    <NeonText variant="label" tone="muted">INFO +~{Math.round(action.expectedInformationGain * 100)}%</NeonText>
+                  </View>
+                </View>
+                {action.rationale.slice(0, 5).map((reason, reasonIndex) => <NeonText key={`${action.id}-${reasonIndex}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
+                <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{action.operatingConstraint}</NeonText>
+                <GlowButton label="Run next analysis" variant="ghost" onPress={() => navigation.navigate(action.destination, { eventId: eventId ?? undefined })} />
+              </Surface>
+            ))}
+            <NeonText variant="bodyMuted">{nextAnalysis.operatingRule}</NeonText>
+          </Section>
 
           <Surface elevated padded style={[styles.healthCard, health.band === 'degraded' || health.band === 'fragile' ? styles.warningBorder : null]}>
             <View style={styles.rowBetween}>
@@ -199,6 +254,7 @@ export default function InternalAdaptiveCommandScreen() {
           </Surface>
 
           <View style={styles.actionRow}>
+            <GlowButton label="Evidence Debt" variant="ghost" onPress={() => navigation.navigate('InternalEvidenceDebt', { eventId: eventId ?? undefined })} />
             <GlowButton label="Watchtower" variant="ghost" onPress={() => navigation.navigate('InternalWatchtower', { eventId: eventId ?? undefined })} />
             <GlowButton label="Target Routing" variant="ghost" onPress={() => navigation.navigate('InternalTargetRouting', { eventId: eventId ?? undefined })} />
             <GlowButton label="Evidence Health" variant="ghost" onPress={() => navigation.navigate('InternalGraphHealth', { eventId: eventId ?? undefined })} />
@@ -329,13 +385,16 @@ const styles = StyleSheet.create({
   metric: { minWidth: 132, flexGrow: 1, borderRadius: radii.lg, borderColor: palette.hairline },
   healthCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   warningBorder: { borderColor: '#F59E0B' },
+  topActionBorder: { borderColor: palette.accent },
   boundaryCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   section: { gap: spacing.sm },
+  nextActionCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   smallCard: { borderRadius: radii.lg, borderColor: palette.hairline },
   incidentCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   admissionCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   missionCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
+  scoreBlock: { alignItems: 'flex-end', gap: 2 },
   input: { borderWidth: 1, borderColor: palette.hairlineStrong, borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: palette.text, backgroundColor: 'rgba(15,23,42,0.72)' },
 });
