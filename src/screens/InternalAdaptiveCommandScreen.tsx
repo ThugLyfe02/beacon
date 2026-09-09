@@ -19,6 +19,7 @@ import {
   buildInternalNextBestAnalysisPlan,
   type InternalAnalysisCapability,
 } from '../admin/InternalNextBestAnalysisEngine';
+import { buildInternalAnalystAttentionBudget } from '../admin/InternalAnalystAttentionGovernor';
 import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
@@ -165,6 +166,18 @@ export default function InternalAdaptiveCommandScreen() {
     [adaptiveRun, evidenceDebt, watchtowerTriage, analysisCapabilities],
   );
 
+  const attentionBudget = useMemo(
+    () => adaptiveRun && evidenceDebt && nextAnalysis
+      ? buildInternalAnalystAttentionBudget({
+          nextAnalysis,
+          watchtowerTriage,
+          evidenceDebt,
+          missions: adaptiveRun.missions,
+        })
+      : null,
+    [adaptiveRun, evidenceDebt, nextAnalysis, watchtowerTriage],
+  );
+
   if (operator.loading || loading) {
     return (
       <View style={styles.centered}>
@@ -188,7 +201,7 @@ export default function InternalAdaptiveCommandScreen() {
     );
   }
 
-  if (!payload || !suppressions || !adaptiveRun || !decisionAdmission || !evidenceDebt || !nextAnalysis) return null;
+  if (!payload || !suppressions || !adaptiveRun || !decisionAdmission || !evidenceDebt || !nextAnalysis || !attentionBudget) return null;
   const health = adaptiveRun.epistemicHealth;
   const routing = adaptiveRun.routingPortfolio;
 
@@ -201,7 +214,7 @@ export default function InternalAdaptiveCommandScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · ADAPTIVE NETWORK COMMAND" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Operator Command</NeonText>
-              <NeonText variant="bodyMuted">Next-best analysis · Watchtower incident triage · evidence debt · epistemic authority · decision admission · diversified target routing · adaptive mission queue</NeonText>
+              <NeonText variant="bodyMuted">Attention budget · next-best analysis · Watchtower triage · evidence debt · decision admission · diversified routing · adaptive missions</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -210,29 +223,46 @@ export default function InternalAdaptiveCommandScreen() {
             <Metric label="GRAPH HEALTH" value={`${Math.round(health.score * 100)}%`} />
             <Metric label="EVIDENCE DEBT" value={`${evidenceDebt.highPriorityCount} HIGH`} />
             <Metric label="OPEN INCIDENTS" value={`${watchtowerTriage?.openIncidentCount ?? 0}`} />
-            <Metric label="ADMISSION BLOCKS" value={`${decisionAdmission.blockedCount}`} />
+            <Metric label="FOCUS THREADS" value={`${(attentionBudget.primary ? 1 : 0) + attentionBudget.supporting.length}`} />
             <Metric label="MISSIONS" value={`${adaptiveRun.missionCount}`} />
           </View>
 
-          <Section title="NEXT BEST ANALYSIS" subtitle="Highest expected information gain first; these are workbench transitions, never social actions or person recommendations">
-            {nextAnalysis.actions.slice(0, 6).map((action, index) => (
-              <Surface key={action.id} elevated padded style={[styles.nextActionCard, index === 0 ? styles.topActionBorder : null]}>
+          <Section title="ATTENTION BUDGET · NEXT BEST ANALYSIS" subtitle="One primary analytical thread, at most two supporting threads; critical evidence/safety conditions may preempt">
+            {attentionBudget.primary ? (
+              <Surface elevated padded style={[styles.nextActionCard, styles.topActionBorder]}>
                 <View style={styles.rowBetween}>
                   <View style={{ flex: 1 }}>
-                    <Pill label={`P${index + 1} · ${action.category.toUpperCase()}`} tone={index === 0 ? 'accent' : 'neutral'} dot={index === 0} />
-                    <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{action.title}</NeonText>
+                    <Pill label={`FOCUS NOW · ${attentionBudget.primary.source.replaceAll('_', ' ').toUpperCase()}`} tone="accent" dot />
+                    <NeonText variant="h1" style={{ marginTop: spacing.sm }}>{attentionBudget.primary.title}</NeonText>
                   </View>
-                  <View style={styles.scoreBlock}>
-                    <NeonText variant="mono" tone="accent">{action.priority.toFixed(1)}</NeonText>
-                    <NeonText variant="label" tone="muted">INFO +~{Math.round(action.expectedInformationGain * 100)}%</NeonText>
-                  </View>
+                  <NeonText variant="mono" tone="accent">P{attentionBudget.primary.priority.toFixed(1)}</NeonText>
                 </View>
-                {action.rationale.slice(0, 5).map((reason, reasonIndex) => <NeonText key={`${action.id}-${reasonIndex}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
-                <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{action.operatingConstraint}</NeonText>
-                <GlowButton label="Run next analysis" variant="ghost" onPress={() => navigation.navigate(action.destination, { eventId: eventId ?? undefined })} />
+                {attentionBudget.primary.rationale.slice(0, 5).map((reason, index) => <NeonText key={`primary-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
+                {attentionBudget.primary.destination ? <GlowButton label="Run primary analysis" variant="ghost" onPress={() => navigation.navigate(attentionBudget.primary!.destination!, { eventId: eventId ?? undefined })} /> : null}
+              </Surface>
+            ) : null}
+
+            {attentionBudget.supporting.map((thread, index) => (
+              <Surface key={thread.id} padded style={styles.supportCard}>
+                <View style={styles.rowBetween}>
+                  <View style={{ flex: 1 }}>
+                    <Pill label={`SUPPORT ${index + 1}`} tone="neutral" />
+                    <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{thread.title}</NeonText>
+                  </View>
+                  <NeonText variant="mono" tone="muted">P{thread.priority.toFixed(1)}</NeonText>
+                </View>
+                {thread.rationale.slice(0, 3).map((reason, reasonIndex) => <NeonText key={`${thread.id}-${reasonIndex}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
+                {thread.destination ? <GlowButton label="Open supporting analysis" variant="ghost" onPress={() => navigation.navigate(thread.destination!, { eventId: eventId ?? undefined })} /> : null}
               </Surface>
             ))}
-            <NeonText variant="bodyMuted">{nextAnalysis.operatingRule}</NeonText>
+
+            {attentionBudget.later.length > 0 ? (
+              <Surface padded style={styles.laterCard}>
+                <Pill label={`LATER QUEUE · ${attentionBudget.later.length}${attentionBudget.suppressedCount > 0 ? ` + ${attentionBudget.suppressedCount} SUPPRESSED` : ''}`} tone="neutral" />
+                {attentionBudget.later.slice(0, 5).map((thread) => <NeonText key={thread.id} variant="bodyMuted" style={{ marginTop: 3 }}>• {thread.title}</NeonText>)}
+              </Surface>
+            ) : null}
+            <NeonText variant="bodyMuted">{attentionBudget.operatingRule}</NeonText>
           </Section>
 
           <Surface elevated padded style={[styles.healthCard, health.band === 'degraded' || health.band === 'fragile' ? styles.warningBorder : null]}>
@@ -278,11 +308,7 @@ export default function InternalAdaptiveCommandScreen() {
                   {incident.eventCount} SIGNALS · {incident.openEventCount} OPEN · LAST {new Date(incident.lastSeenAt).toLocaleString()}
                 </NeonText>
                 <View style={styles.actionRow}>
-                  <GlowButton
-                    label="Open evidence"
-                    variant="ghost"
-                    onPress={() => navigation.navigate(incident.recommendedReviewSurface, { eventId: incident.eventId ?? eventId ?? undefined })}
-                  />
+                  <GlowButton label="Open evidence" variant="ghost" onPress={() => navigation.navigate(incident.recommendedReviewSurface, { eventId: incident.eventId ?? eventId ?? undefined })} />
                 </View>
               </Surface>
             ))}
@@ -314,14 +340,7 @@ export default function InternalAdaptiveCommandScreen() {
           </Section>
 
           <Section title="TARGET ROUTING OBJECTIVE" subtitle="Routing changes mission evidence only; it never authorizes outreach, predicts consent or bypasses blocks">
-            <TextInput
-              value={targetQuery}
-              onChangeText={setTargetQuery}
-              placeholder="Target ecosystem: defense, climate, investor, university…"
-              placeholderTextColor="#64748B"
-              style={styles.input}
-              autoCapitalize="none"
-            />
+            <TextInput value={targetQuery} onChangeText={setTargetQuery} placeholder="Target ecosystem: defense, climate, investor, university…" placeholderTextColor="#64748B" style={styles.input} autoCapitalize="none" />
             {sourceNodeId ? <NeonText variant="bodyMuted">Source: {nodeLabel(payload, sourceNodeId)}</NeonText> : null}
             {routing ? (
               <View style={styles.metricRow}>
@@ -390,11 +409,12 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   section: { gap: spacing.sm },
   nextActionCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
+  supportCard: { borderRadius: radii.lg, borderColor: palette.hairline },
+  laterCard: { borderRadius: radii.lg, borderColor: palette.hairline },
   smallCard: { borderRadius: radii.lg, borderColor: palette.hairline },
   incidentCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   admissionCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   missionCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
-  scoreBlock: { alignItems: 'flex-end', gap: 2 },
   input: { borderWidth: 1, borderColor: palette.hairlineStrong, borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: palette.text, backgroundColor: 'rgba(15,23,42,0.72)' },
 });
