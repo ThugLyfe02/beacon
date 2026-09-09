@@ -16,8 +16,12 @@ import {
   appendInternalCaseMemory,
   assignInternalGraphCase,
   loadInternalCaseCollaboration,
+  loadInternalCaseRehydration,
+  markInternalCaseSeen,
+  resolveInternalCaseQuestion,
   type InternalCaseCollaborationState,
   type InternalCaseMemoryKind,
+  type InternalCaseRehydrationState,
 } from '../admin/internalCaseMemory.service';
 import { loadInternalGraphCases, type InternalGraphCase } from '../admin/internalGraphCasebook.service';
 import { loadInternalHandoffOperatorDirectory, type InternalHandoffOperator } from '../admin/internalGraphHandoff.service';
@@ -30,6 +34,15 @@ const ENTRY_KINDS: InternalCaseMemoryKind[] = [
   'checkpoint', 'question', 'verification', 'decision', 'timeline', 'note',
 ];
 
+function kindCountLabel(state: InternalCaseRehydrationState): string {
+  return Object.entries(state.newMemoryByKind)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 5)
+    .map(([kind, count]) => `${count} ${kind.replaceAll('_', ' ')}`)
+    .join(' · ');
+}
+
 export default function InternalCollaborativeCaseMemoryScreen() {
   const navigation = useNavigation<NavigationProp<Record<string, object | undefined>>>();
   const operator = useInternalOperator();
@@ -37,12 +50,15 @@ export default function InternalCollaborativeCaseMemoryScreen() {
   const [operators, setOperators] = useState<InternalHandoffOperator[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [collaboration, setCollaboration] = useState<InternalCaseCollaborationState | null>(null);
+  const [rehydration, setRehydration] = useState<InternalCaseRehydrationState | null>(null);
   const [graph, setGraph] = useState<Awaited<ReturnType<typeof loadInternalIntelligenceGraph>> | null>(null);
   const [entryKind, setEntryKind] = useState<InternalCaseMemoryKind>('checkpoint');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [acknowledging, setAcknowledging] = useState(false);
+  const [resolvingQuestionId, setResolvingQuestionId] = useState<string | null>(null);
 
   const selectedCase = useMemo(
     () => cases.find((item) => item.id === selectedCaseId) ?? null,
@@ -76,16 +92,19 @@ export default function InternalCollaborativeCaseMemoryScreen() {
   const loadSelected = useCallback(async () => {
     if (!selectedCase || !operator.allowed || !operator.has('graph_manage')) {
       setCollaboration(null);
+      setRehydration(null);
       setGraph(null);
       return;
     }
     try {
-      const [memory, payload] = await Promise.all([
+      const [memory, payload, brief] = await Promise.all([
         loadInternalCaseCollaboration(selectedCase.id),
         loadInternalIntelligenceGraph({ eventId: selectedCase.scopeEventId, includeRestricted: false, limit: 1800 }),
+        loadInternalCaseRehydration(selectedCase.id),
       ]);
       setCollaboration(memory);
       setGraph(payload);
+      setRehydration(brief);
     } catch (error) {
       Alert.alert('Unable to load selected case', error instanceof Error ? error.message : 'Case collaboration load failed.');
     }
@@ -145,6 +164,32 @@ export default function InternalCollaborativeCaseMemoryScreen() {
     }
   };
 
+  const acknowledge = async () => {
+    if (!selectedCase || !graph) return;
+    setAcknowledging(true);
+    try {
+      await markInternalCaseSeen(selectedCase.id, graph.graphVersion);
+      await loadSelected();
+    } catch (error) {
+      Alert.alert('Unable to acknowledge case state', error instanceof Error ? error.message : 'Case rehydration acknowledgement failed.');
+    } finally {
+      setAcknowledging(false);
+    }
+  };
+
+  const resolveQuestion = async (entryId: string) => {
+    if (!selectedCase) return;
+    setResolvingQuestionId(entryId);
+    try {
+      await resolveInternalCaseQuestion(selectedCase.id, entryId);
+      await loadSelected();
+    } catch (error) {
+      Alert.alert('Unable to resolve question', error instanceof Error ? error.message : 'Question resolution failed.');
+    } finally {
+      setResolvingQuestionId(null);
+    }
+  };
+
   if (operator.loading || loading) {
     return <View style={styles.centered}><GridBackground /><ActivityIndicator color={palette.accent} size="large" /><NeonText variant="label" tone="accent" style={{ marginTop: spacing.md }}>LOADING COLLABORATIVE MEMORY</NeonText></View>;
   }
@@ -161,14 +206,14 @@ export default function InternalCollaborativeCaseMemoryScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · COLLABORATIVE INVESTIGATION MEMORY" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Case Memory</NeonText>
-              <NeonText variant="bodyMuted">Assignment · canonical checkpoints · falsifiable questions · verification notes · timeline findings · decision memory · handoff continuity</NeonText>
+              <NeonText variant="bodyMuted">Rehydrate → orient → assign → verify → question → decide → resolve → hand off. Canonical memory without graph-payload duplication.</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
 
           <Surface padded style={styles.ruleCard}>
             <Pill label="COLLABORATION CONTRACT" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>Case memory stores bounded operator reasoning tied to canonical graph versions and evidence digests. It does not clone graph payloads, create relationship truth, or authorize social action.</NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>Case memory stores bounded operator reasoning tied to canonical graph versions and evidence digests. Rehydration stores only last-seen pointers/version metadata; it does not clone old graph snapshots or infer hidden relationships.</NeonText>
           </Surface>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -179,8 +224,35 @@ export default function InternalCollaborativeCaseMemoryScreen() {
             ))}
           </ScrollView>
 
-          {selectedCase && collaboration && graph ? (
+          {selectedCase && collaboration && graph && rehydration ? (
             <>
+              <Surface elevated padded style={[styles.rehydrationCard, (rehydration.graphVersionChanged || rehydration.newMemoryCount > 0) && styles.attentionBorder]}>
+                <View style={styles.rowBetween}>
+                  <View style={{ flex: 1 }}>
+                    <Pill label="CASE REHYDRATION" tone="accent" dot />
+                    <NeonText variant="h1" style={{ marginTop: spacing.sm }}>
+                      {rehydration.lastSeenAt ? `${rehydration.newMemoryCount} changes since your last review` : 'First review baseline'}
+                    </NeonText>
+                  </View>
+                  <Pill label={rehydration.graphVersionChanged ? 'GRAPH CHANGED' : 'GRAPH STABLE'} tone={rehydration.graphVersionChanged ? 'accent' : 'neutral'} />
+                </View>
+                <View style={styles.metricRow}>
+                  <Metric label="NEW MEMORY" value={`${rehydration.newMemoryCount}`} />
+                  <Metric label="OPEN QUESTIONS" value={`${rehydration.openQuestionCount}`} />
+                  <Metric label="ASSIGNMENT" value={rehydration.assignmentChanged ? 'CHANGED' : 'STABLE'} />
+                  <Metric label="LAST REVIEW" value={rehydration.lastSeenAt ? new Date(rehydration.lastSeenAt).toLocaleDateString() : 'NONE'} />
+                </View>
+                {kindCountLabel(rehydration) ? <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{kindCountLabel(rehydration)}</NeonText> : null}
+                {rehydration.latestNewEntries.slice(0, 6).map((entry) => (
+                  <NeonText key={entry.id} variant="bodyMuted" style={{ marginTop: 3 }}>• {entry.kind.toUpperCase()} · {entry.title} · {entry.authorLabel}</NeonText>
+                ))}
+                <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{rehydration.operatingRule}</NeonText>
+                <View style={styles.actionRow}>
+                  {rehydration.recommendedSurface !== 'InternalCollaborativeCaseMemory' ? <GlowButton label="Open recommended analysis" variant="ghost" onPress={() => navigation.navigate(rehydration.recommendedSurface, { eventId: selectedCase.scopeEventId ?? undefined })} /> : null}
+                  <GlowButton label={acknowledging ? 'Acknowledging…' : 'Acknowledge current state'} variant="ghost" disabled={acknowledging} onPress={() => void acknowledge()} />
+                </View>
+              </Surface>
+
               <Surface elevated padded style={styles.card}>
                 <View style={styles.rowBetween}>
                   <View style={{ flex: 1 }}>
@@ -225,13 +297,15 @@ export default function InternalCollaborativeCaseMemoryScreen() {
                   <Surface key={entry.id} elevated padded style={styles.card}>
                     <View style={styles.rowBetween}>
                       <View style={{ flex: 1 }}>
-                        <Pill label={entry.kind.toUpperCase()} tone={entry.kind === 'decision' || entry.kind === 'verification' ? 'accent' : 'neutral'} dot />
+                        <Pill label={`${entry.kind.toUpperCase()}${entry.kind === 'question' && entry.resolvedAt ? ' · RESOLVED' : ''}`} tone={entry.kind === 'decision' || entry.kind === 'verification' ? 'accent' : 'neutral'} dot />
                         <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{entry.title}</NeonText>
                         <NeonText variant="bodyMuted" style={{ marginTop: 4 }}>{entry.body}</NeonText>
                       </View>
                       <NeonText variant="label" tone="muted">{entry.authorLabel}</NeonText>
                     </View>
                     <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{new Date(entry.createdAt).toLocaleString()} · evidence {entry.evidenceDigest.slice(0, 12)}… · graph {entry.graphVersion.slice(0, 16)}…</NeonText>
+                    {entry.resolvedAt ? <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>Resolved {new Date(entry.resolvedAt).toLocaleString()} by {entry.resolvedByLabel ?? 'operator'}.</NeonText> : null}
+                    {entry.kind === 'question' && !entry.resolvedAt ? <GlowButton label={resolvingQuestionId === entry.id ? 'Resolving…' : 'Resolve analytical question'} variant="ghost" disabled={resolvingQuestionId === entry.id} onPress={() => void resolveQuestion(entry.id)} /> : null}
                   </Surface>
                 ))}
                 {collaboration.entries.length === 0 ? <NeonText variant="bodyMuted">No collaborative memory yet. Handoff transitions will also appear here automatically.</NeonText> : null}
@@ -244,6 +318,10 @@ export default function InternalCollaborativeCaseMemoryScreen() {
   );
 }
 
+function Metric({ label, value }: Readonly<{ label: string; value: string }>) {
+  return <View style={styles.metric}><NeonText variant="h2" tone="accent">{value}</NeonText><NeonText variant="label" tone="muted">{label}</NeonText></View>;
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#02050D' },
   centered: { flex: 1, backgroundColor: '#02050D', alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
@@ -252,6 +330,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   title: { marginTop: spacing.sm, fontSize: 40 },
   ruleCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
+  rehydrationCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
+  attentionBorder: { borderColor: palette.accent },
   card: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm },
   chipRow: { gap: spacing.sm },
@@ -260,4 +340,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   input: { borderWidth: 1, borderColor: palette.hairlineStrong, borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: palette.text, backgroundColor: 'rgba(15,23,42,0.72)' },
   multiline: { minHeight: 90, textAlignVertical: 'top' },
+  metricRow: { marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  metric: { minWidth: 112, flexGrow: 1, padding: spacing.sm, borderRadius: radii.md, backgroundColor: palette.space },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
 });
