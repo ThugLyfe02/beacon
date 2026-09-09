@@ -147,7 +147,7 @@ function adjacency(payload: InternalGraphPayload): Map<string, Array<{ nodeId: s
 }
 
 function degreeMap(payload: InternalGraphPayload): Map<string, number> {
-  const degree = new Map(payload.nodes.map((node) => [node.id, 0] as const));
+  const degree = new Map<string, number>(payload.nodes.map((node) => [node.id, 0]));
   for (const edge of payload.edges) {
     degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
     degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
@@ -178,7 +178,7 @@ export function detectInternalGraphCommunities(
     [...degrees.entries()].filter(([, degree]) => degree > cutoff && degree >= 5).map(([id]) => id),
   );
 
-  const labels = new Map(payload.nodes.map((node) => [node.id, node.id] as const));
+  const labels = new Map<string, string>(payload.nodes.map((node) => [node.id, node.id]));
   const ordered = [...payload.nodes].sort((a, b) => stableCompare(a.id, b.id));
 
   for (let iteration = 0; iteration < 10; iteration += 1) {
@@ -269,9 +269,11 @@ function computeMetrics(
     for (const nodeId of community.nodeIds) communityByNode.set(nodeId, community.id);
   }
 
-  const weightedDegree = new Map(payload.nodes.map((node) => [node.id, 0] as const));
-  const crossCommunityWeight = new Map(payload.nodes.map((node) => [node.id, 0] as const));
-  const neighborCommunities = new Map(payload.nodes.map((node) => [node.id, new Set<number>()] as const));
+  const weightedDegree = new Map<string, number>(payload.nodes.map((node) => [node.id, 0]));
+  const crossCommunityWeight = new Map<string, number>(payload.nodes.map((node) => [node.id, 0]));
+  const neighborCommunities = new Map<string, Set<number>>(
+    payload.nodes.map((node) => [node.id, new Set<number>()]),
+  );
 
   for (const edge of payload.edges) {
     const weight = edgeWeight(edge);
@@ -361,10 +363,10 @@ function bridgeCandidates(
 
   const best = new Map<string, InternalBridgeCandidate>();
   const people = payload.nodes.filter((node) => node.kind === 'person').sort((a, b) => stableCompare(a.id, b.id));
+  const personIds = new Set(people.map((person) => person.id));
 
   for (const via of payload.nodes) {
-    const neighbors = (graph.get(via.id) ?? [])
-      .filter((entry) => people.some((person) => person.id === entry.nodeId));
+    const neighbors = (graph.get(via.id) ?? []).filter((entry) => personIds.has(entry.nodeId));
     if (neighbors.length < 2 || neighbors.length > 80) continue;
 
     for (let leftIndex = 0; leftIndex < neighbors.length; leftIndex += 1) {
