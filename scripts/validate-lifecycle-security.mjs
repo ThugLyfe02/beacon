@@ -28,9 +28,13 @@ const requiredFiles = [
   'supabase/migrations/033_security_definer_audit_closure.sql',
   'supabase/migrations/034_user_write_and_location_boundary.sql',
   'supabase/migrations/035_two_party_outcome_commit.sql',
+  'supabase/migrations/036_atomic_event_creation_and_access_secrets.sql',
+  'supabase/migrations/037_event_column_and_membership_oracle_lockdown.sql',
   'src/services/proximity.service.ts',
   'src/services/premium.service.ts',
   'src/services/outcome-handshake.service.ts',
+  'src/services/event.service.ts',
+  'src/types/database.ts',
   'src/components/OutcomeHandshakeCard.tsx',
   'src/screens/HostManagementScreen.tsx',
   'src/screens/MapScreen.tsx',
@@ -86,6 +90,27 @@ for (const [text, explanation] of [
   ['revoke execute on function public.complete_outcome_handshake', 'legacy one-party completion must remain retired'],
 ]) requireText('supabase/migrations/035_two_party_outcome_commit.sql', text, explanation);
 
+for (const [text, explanation] of [
+  ['event_access_secrets', 'event bypass secrets must live outside the readable event row'],
+  ["crypt(upper(trim(e.access_code)), gen_salt('bf', 10))", 'historical plaintext access codes must migrate to bcrypt hashes'],
+  ['revoke insert on table public.events from authenticated', 'event creation must not remain a direct client table insert'],
+  ['revoke insert on table public.event_participants from authenticated', 'participants must not be able to self-insert an approved row'],
+  ['create_hosted_event', 'host event and host membership creation must be atomic'],
+  ['generate_human_join_code', 'join-code entropy must move to the trusted database transaction'],
+  ['set_event_access_code', 'access-code rotation must remain an RPC-only secret operation'],
+  ["crypt(upper(trim(p_access_code)), v_hash) = v_hash", 'access-code approval must compare bcrypt hashes rather than plaintext'],
+  ['then e.latitude else null::numeric', 'pre-membership event lookup must withhold precise latitude'],
+  ['then e.address else null::text', 'pre-membership event lookup must withhold exact address'],
+]) requireText('supabase/migrations/036_atomic_event_creation_and_access_secrets.sql', text, explanation);
+
+for (const [text, explanation] of [
+  ['revoke update on table public.events from authenticated', 'generic event UPDATE must not imply all-column ownership'],
+  ['revoke update (access_code, host_id, join_code, finalized_at)', 'secret/identity/lifecycle event columns must remain server owned'],
+  ['p_user_id is distinct from auth.uid()', 'host/participant helpers must not answer arbitrary actor queries'],
+  ['Pending/rejected state remains', 'membership helper semantics must not expose pending/rejected membership'],
+  ['Caller-scoped approved-membership predicate', 'membership oracle lockdown must remain documented'],
+]) requireText('supabase/migrations/037_event_column_and_membership_oracle_lockdown.sql', text, explanation);
+
 requireText(
   'supabase/migrations/031_atomic_event_finalization.sql',
   "set_config('beacon.finalization_event_id'",
@@ -129,6 +154,20 @@ forbidText(
   "rpc('complete_outcome_handshake'",
   'legacy single-party completion RPC must not return to the client',
 );
+
+for (const [text, explanation] of [
+  ["rpc('create_hosted_event'", 'mobile event creation must use the atomic server transaction'],
+  ['setEventAccessCode', 'access-secret rotation must use its dedicated RPC service'],
+]) requireText('src/services/event.service.ts', text, explanation);
+forbidText('src/services/event.service.ts', ".from('events')\n      .insert", 'direct client event inserts must remain retired');
+forbidText('src/services/event.service.ts', ".from('event_participants')\n      .insert", 'host membership must remain part of the atomic creation RPC');
+
+for (const [text, explanation] of [
+  ['export type EventInsert = never', 'domain types must forbid direct event inserts'],
+  ['export type EventParticipantInsert = never', 'domain types must forbid direct participant inserts'],
+  ['export type ConnectionRequestInsert = never', 'domain types must preserve RPC-only high-intent signals'],
+  ["| 'ends_at'", 'event update type must enumerate host-owned mutable columns'],
+]) requireText('src/types/database.ts', text, explanation);
 
 for (const [text, explanation] of [
   ['Confirm my side', 'outcome UI must frame completion as independent confirmation'],
