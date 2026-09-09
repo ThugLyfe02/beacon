@@ -63,7 +63,8 @@ function initialFeedState(): FeedState {
  * - refreshes immediately when the app returns;
  * - preserves the last verified snapshot during short outages;
  * - expires stale proximity data rather than presenting it as live;
- * - uses bounded exponential backoff with jitter after failures.
+ * - uses bounded exponential backoff with jitter after failures;
+ * - publishes location only through the event-scoped database boundary.
  */
 export function usePresenceFeed(eventId: string, observerId: string): PresenceFeed {
   const [feed, setFeed] = useState<FeedState>(initialFeedState);
@@ -142,7 +143,7 @@ export function usePresenceFeed(eventId: string, observerId: string): PresenceFe
         const latitude = location.coords.latitude;
         const longitude = location.coords.longitude;
 
-        await pushMyLocation(observerId, latitude, longitude);
+        await pushMyLocation(eventId, latitude, longitude);
 
         const [signals, signalsSent, matches] = await Promise.all([
           getEventProximitySignals(eventId, observerId, latitude, longitude),
