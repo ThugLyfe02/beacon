@@ -43,6 +43,7 @@ import InternalWatchtowerScreen from '../screens/InternalWatchtowerScreen';
 import InternalTargetRoutingScreen from '../screens/InternalTargetRoutingScreen';
 import InternalGraphHealthScreen from '../screens/InternalGraphHealthScreen';
 import InternalEvidenceDebtScreen from '../screens/InternalEvidenceDebtScreen';
+import InternalEvidenceConflictScreen from '../screens/InternalEvidenceConflictScreen';
 import InternalOntologyObservatoryScreen from '../screens/InternalOntologyObservatoryScreen';
 import InternalAgenticTimelineScreen from '../screens/InternalAgenticTimelineScreen';
 import InternalCollaborativeCaseMemoryScreen from '../screens/InternalCollaborativeCaseMemoryScreen';
@@ -145,6 +146,7 @@ export function RootNavigator() {
         <Stack.Screen name="InternalTargetRouting" component={InternalTargetRoutingScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalGraphHealth" component={InternalGraphHealthScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalEvidenceDebt" component={InternalEvidenceDebtScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalEvidenceConflicts" component={InternalEvidenceConflictScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalOntologyObservatory" component={InternalOntologyObservatoryScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalAgenticTimeline" component={InternalAgenticTimelineScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalBridgeLab" component={InternalBridgeLabScreen} options={internalModalOptions} />
