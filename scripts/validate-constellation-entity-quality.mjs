@@ -72,7 +72,7 @@ for (const [text, why] of [
   ['Person identity resolution is prohibited', 'database must reject person canonicalization explicitly'],
   ['Entity canonicalization requires matching node kinds', 'database must prevent cross-kind merges'],
   ['Canonical target is itself an alias; flatten the mapping first', 'alias chains must remain prohibited'],
-  ['Chained canonicalization is prohibited', 'canonical alias graph must remain one-hop'],
+  ['chained canonicalization is prohibited', 'canonical alias graph must remain one-hop'],
   ['get_internal_intelligence_graph(p_event_id, false, 2000)', 'approval must revalidate nodes against the authorized graph'],
   ['revoke all on table public.internal_graph_entity_aliases from anon, authenticated', 'alias table must not have direct client access'],
   ['prune_internal_graph_entity_aliases', 'canonicalization memory must have bounded service-only pruning'],
