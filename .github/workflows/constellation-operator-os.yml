@@ -59,5 +59,8 @@ jobs:
       - name: Watchtower baseline and epistemic-health contract
         run: node scripts/validate-constellation-epistemic-health.mjs
 
+      - name: Portable export privacy and receipt contract
+        run: node scripts/validate-constellation-export-boundary.mjs
+
       - name: Strategy/privacy boundary
         run: node scripts/validate-constellation-strategy.mjs
