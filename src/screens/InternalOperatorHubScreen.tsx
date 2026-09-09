@@ -16,102 +16,19 @@ interface LabDefinition {
 }
 
 const LABS: LabDefinition[] = [
-  {
-    route: 'InternalGraph',
-    title: 'Constellation',
-    code: 'GRAPH',
-    description: '3D evidence graph, communities, explainable paths, structural holes, surprising edges and Bridge Builder.',
-    capability: 'graph_read',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalForensicsLab',
-    title: 'Forensics Lab',
-    code: 'FORENSICS',
-    description: 'Articulation points, graph bridges, effective size, participation coefficient and unexpected-edge surprisal.',
-    capability: 'graph_read',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalTransformLab',
-    title: 'Transform Lab',
-    code: 'PIVOT',
-    description: 'Maltego-style first-party transforms, reverse pivots, provenance timelines and bounded multi-hop expansion.',
-    capability: 'graph_read',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalMachineLab',
-    title: 'Machine Lab',
-    code: 'MACHINES',
-    description: 'Composable deterministic playbooks combining transforms, blast-radius traversal, forensics, motifs, drift and target-path analysis.',
-    capability: 'graph_read',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalMachineRegistry',
-    title: 'Machine Registry',
-    code: 'RECIPES',
-    description: 'Private ordered Machine pipelines, deterministic replay and digest-only run manifests for graph-version comparison.',
-    capability: 'graph_manage',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalStrategyLab',
-    title: 'Strategy Lab',
-    code: 'ORCHESTRATE',
-    description: 'Event drift, target-ecosystem pathfinder, intervention frontier and analysis-agent mission queue.',
-    capability: 'graph_read',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalMissionLedger',
-    title: 'Mission Ledger',
-    code: 'MEMORY',
-    description: 'Persistent agent memory that distinguishes new, persistent, revised, reopened and resolved strategic conditions.',
-    capability: 'graph_manage',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalSimulationLab',
-    title: 'Simulation Lab',
-    code: 'WHAT IF',
-    description: 'Non-persistent hypothetical bridge and node-removal scenarios for topology leverage and resilience.',
-    capability: 'graph_read',
-    accent: 'neutral',
-  },
-  {
-    route: 'InternalEpochLab',
-    title: 'Epoch Lab',
-    code: 'LINEAGE',
-    description: 'Durable finalized-event checkpoints, community lineage, broker trajectories and motif evolution.',
-    capability: 'graph_read',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalCasebook',
-    title: 'Casebook',
-    code: 'CASES',
-    description: 'Saved investigations with erasable graph pins, target ecosystems and agent-refreshable internal findings.',
-    capability: 'graph_manage',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalBridgeLab',
-    title: 'Bridge Lab',
-    code: 'INTERVENE',
-    description: 'Block-safe structural-hole watches, introduction marking and downstream evidence calibration.',
-    capability: 'graph_manage',
-    accent: 'accent',
-  },
-  {
-    route: 'InternalPatternLab',
-    title: 'Pattern Lab',
-    code: 'CALIBRATE',
-    description: 'Empirical-Bayes bridge archetypes with shrinkage, conservative evidence floors and anti-overfitting safeguards.',
-    capability: 'graph_manage',
-    accent: 'accent',
-  },
+  { route: 'InternalGraph', title: 'Constellation', code: 'GRAPH', description: '3D evidence graph, communities, explainable paths, structural holes, surprising edges and Bridge Builder.', capability: 'graph_read', accent: 'accent' },
+  { route: 'InternalForensicsLab', title: 'Forensics Lab', code: 'FORENSICS', description: 'Articulation points, graph bridges, effective size, participation coefficient and unexpected-edge surprisal.', capability: 'graph_read', accent: 'accent' },
+  { route: 'InternalTransformLab', title: 'Transform Lab', code: 'PIVOT', description: 'Maltego-style first-party transforms, reverse pivots, provenance timelines and bounded multi-hop expansion.', capability: 'graph_read', accent: 'accent' },
+  { route: 'InternalEntityResolutionLab', title: 'Entity Resolution Lab', code: 'CANONICALIZE', description: 'Operator-approved non-person duplicate resolution so organizations, domains, projects, topics, venues and roles stop fragmenting graph truth.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalMachineLab', title: 'Machine Lab', code: 'MACHINES', description: 'Composable deterministic playbooks combining transforms, blast-radius traversal, forensics, motifs, drift and target-path analysis.', capability: 'graph_read', accent: 'accent' },
+  { route: 'InternalMachineRegistry', title: 'Machine Registry', code: 'RECIPES', description: 'Private ordered Machine pipelines, deterministic replay and digest-only run manifests for graph-version comparison.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalStrategyLab', title: 'Strategy Lab', code: 'ORCHESTRATE', description: 'Event drift, target-ecosystem pathfinder, intervention frontier and analysis-agent mission queue.', capability: 'graph_read', accent: 'accent' },
+  { route: 'InternalMissionLedger', title: 'Mission Ledger', code: 'MEMORY', description: 'Persistent agent memory that distinguishes new, persistent, revised, reopened and resolved strategic conditions.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalSimulationLab', title: 'Simulation Lab', code: 'WHAT IF', description: 'Non-persistent hypothetical bridge and node-removal scenarios for topology leverage and resilience.', capability: 'graph_read', accent: 'neutral' },
+  { route: 'InternalEpochLab', title: 'Epoch Lab', code: 'LINEAGE', description: 'Durable finalized-event checkpoints, community lineage, broker trajectories and motif evolution.', capability: 'graph_read', accent: 'accent' },
+  { route: 'InternalCasebook', title: 'Casebook', code: 'CASES', description: 'Saved investigations with erasable graph pins, target ecosystems and agent-refreshable internal findings.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalBridgeLab', title: 'Bridge Lab', code: 'INTERVENE', description: 'Block-safe structural-hole watches, introduction marking and downstream evidence calibration.', capability: 'graph_manage', accent: 'accent' },
+  { route: 'InternalPatternLab', title: 'Pattern Lab', code: 'CALIBRATE', description: 'Empirical-Bayes bridge archetypes with shrinkage, conservative evidence floors and anti-overfitting safeguards.', capability: 'graph_manage', accent: 'accent' },
 ];
 
 export default function InternalOperatorHubScreen() {
@@ -125,9 +42,7 @@ export default function InternalOperatorHubScreen() {
         <Surface elevated padded style={styles.lockedCard}>
           <Pill label="CONSTELLATION OPS · SEALED" tone="neutral" dot />
           <NeonText variant="h1" style={{ marginTop: spacing.md }}>Operator capability required.</NeonText>
-          <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
-            This control surface cannot be enabled by client state and is absent from normal Beacon accounts.
-          </NeonText>
+          <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>This control surface cannot be enabled by client state and is absent from normal Beacon accounts.</NeonText>
         </Surface>
       </View>
     );
@@ -144,27 +59,15 @@ export default function InternalOperatorHubScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · OPERATOR CONTROL DECK" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Constellation Ops</NeonText>
-              <NeonText variant="bodyMuted">
-                Evidence graph · forensic pivots · composable machines · reproducible private recipes · longitudinal memory · calibrated strategy · human-approved intervention
-              </NeonText>
+              <NeonText variant="bodyMuted">Evidence graph · entity-quality control · forensic pivots · composable machines · reproducible private recipes · longitudinal memory · calibrated strategy · human-approved intervention</NeonText>
             </View>
-            <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-              <NeonText variant="label" tone="muted">CLOSE</NeonText>
-            </Pressable>
+            <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
 
           <Surface padded style={styles.capabilityCard}>
             <Pill label="CAPABILITY ENVELOPE" tone="neutral" dot />
-            <View style={styles.capabilityRow}>
-              {operator.capabilities.map((capability) => (
-                <Pill key={capability} label={capability.replaceAll('_', ' ').toUpperCase()} tone="accent" />
-              ))}
-            </View>
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>
-              {operator.expiresAt
-                ? `Access expires ${new Date(operator.expiresAt).toLocaleString()}.`
-                : 'No client-side privilege escalation path exists; every lab rechecks its required capability server-side.'}
-            </NeonText>
+            <View style={styles.capabilityRow}>{operator.capabilities.map((capability) => <Pill key={capability} label={capability.replaceAll('_', ' ').toUpperCase()} tone="accent" />)}</View>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{operator.expiresAt ? `Access expires ${new Date(operator.expiresAt).toLocaleString()}.` : 'No client-side privilege escalation path exists; every lab rechecks its required capability server-side.'}</NeonText>
           </Surface>
 
           <View style={styles.grid}>
@@ -174,38 +77,18 @@ export default function InternalOperatorHubScreen() {
                   <Pill label={lab.code} tone={lab.accent} dot={lab.accent === 'accent'} />
                   <NeonText variant="h1" style={{ marginTop: spacing.sm }}>{lab.title}</NeonText>
                   <NeonText variant="bodyMuted" style={{ marginTop: 5, lineHeight: 19 }}>{lab.description}</NeonText>
-                  <View style={styles.cardFooter}>
-                    <NeonText variant="label" tone="muted">REQUIRES {lab.capability.toUpperCase()}</NeonText>
-                    <NeonText variant="label" tone="accent">OPEN →</NeonText>
-                  </View>
+                  <View style={styles.cardFooter}><NeonText variant="label" tone="muted">REQUIRES {lab.capability.toUpperCase()}</NeonText><NeonText variant="label" tone="accent">OPEN →</NeonText></View>
                 </Surface>
               </Pressable>
             ))}
           </View>
 
-          {operator.has('graph_restricted') ? (
-            <Surface padded style={styles.restrictedCard}>
-              <Pill label="RESTRICTED FORENSICS AVAILABLE" tone="accent" dot />
-              <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>
-                Your capability envelope permits safety topology where a specific lab exposes it. Block suppression still governs bridge eligibility even when restricted edges are visually hidden.
-              </NeonText>
-            </Surface>
-          ) : null}
-
-          {operator.has('graph_export') ? (
-            <Surface padded style={styles.exportCard}>
-              <Pill label="EXPORT CAPABILITY ACTIVE" tone="neutral" dot />
-              <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>
-                Strategy Lab can generate sanitized GraphML and deterministic Neo4j Cypher artifacts. Export remains a separate privilege from graph management.
-              </NeonText>
-            </Surface>
-          ) : null}
+          {operator.has('graph_restricted') ? <Surface padded style={styles.restrictedCard}><Pill label="RESTRICTED FORENSICS AVAILABLE" tone="accent" dot /><NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Your capability envelope permits safety topology where a specific lab exposes it. Block suppression still governs bridge eligibility even when restricted edges are visually hidden.</NeonText></Surface> : null}
+          {operator.has('graph_export') ? <Surface padded style={styles.exportCard}><Pill label="EXPORT CAPABILITY ACTIVE" tone="neutral" dot /><NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Strategy Lab can generate sanitized GraphML and deterministic Neo4j Cypher artifacts. Export remains a separate privilege from graph management.</NeonText></Surface> : null}
 
           <Surface padded style={styles.autonomyCard}>
             <Pill label="AUTONOMY BOUNDARY" tone="neutral" dot />
-            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>
-              Constellation agents and Machines may analyze, diff, checkpoint finalized topology, reconcile bounded mission memory, replay private recipes and refresh internal findings. They cannot message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.
-            </NeonText>
+            <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm, lineHeight: 19 }}>Constellation agents and Machines may analyze, diff, checkpoint finalized canonical topology, reconcile bounded mission memory, replay private recipes and refresh internal findings. Entity canonicalization is limited to non-person context nodes and requires explicit operator approval. None of these systems may message attendees, manufacture relationships, bypass blocks, or execute social interventions without explicit human approval.</NeonText>
           </Surface>
         </ScrollView>
       </SafeAreaView>
@@ -214,19 +97,5 @@ export default function InternalOperatorHubScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#02050D' },
-  centered: { flex: 1, backgroundColor: '#02050D', alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
-  lockedCard: { width: '100%', maxWidth: 520, borderRadius: radii.xl },
-  scroll: { padding: spacing.lg, paddingBottom: 100, gap: spacing.lg },
-  header: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
-  title: { marginTop: spacing.sm, fontSize: 40 },
-  capabilityCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
-  capabilityRow: { marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  grid: { gap: spacing.sm },
-  labPressable: { width: '100%' },
-  labCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
-  cardFooter: { marginTop: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
-  restrictedCard: { borderRadius: radii.xl, borderColor: palette.accent },
-  exportCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
-  autonomyCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
+  container: { flex: 1, backgroundColor: '#02050D' }, centered: { flex: 1, backgroundColor: '#02050D', alignItems: 'center', justifyContent: 'center', padding: spacing.xl }, lockedCard: { width: '100%', maxWidth: 520, borderRadius: radii.xl }, scroll: { padding: spacing.lg, paddingBottom: 100, gap: spacing.lg }, header: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }, title: { marginTop: spacing.sm, fontSize: 40 }, capabilityCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong }, capabilityRow: { marginTop: spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, grid: { gap: spacing.sm }, labPressable: { width: '100%' }, labCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong }, cardFooter: { marginTop: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm }, restrictedCard: { borderRadius: radii.xl, borderColor: palette.accent }, exportCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong }, autonomyCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
 });
