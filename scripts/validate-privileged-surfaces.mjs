@@ -27,6 +27,7 @@ const files = [
   'supabase/migrations/040_office_hours_state_machine.sql',
   'supabase/migrations/041_office_hours_call_authorization.sql',
   'supabase/migrations/042_escort_notification_idempotency.sql',
+  'supabase/migrations/043_account_erasure_event_history_boundary.sql',
   'supabase/functions/livekit-token/index.ts',
   'supabase/functions/escort-notify/index.ts',
   'src/services/escort.service.ts',
@@ -86,6 +87,19 @@ requireText(
   'supabase/migrations/042_escort_notification_idempotency.sql',
   'No client policies',
   'notification delivery ledger must remain service-only',
+);
+
+for (const [text, explanation] of [
+  ['seal_hosted_events_before_account_erasure', 'host account erasure must seal unfinalized events before ownership disappears'],
+  ['delete from public.event_access_secrets', 'account erasure must remove dormant access bypass secrets'],
+  ['on delete set null', 'event ownership must not remain a cascade-delete vector'],
+  ['event_outcome_snapshots_host_id_fkey', 'aggregate snapshots must survive host erasure with a null host reference'],
+  ['Organizer-learning memory remains', 'personal organizer memory must remain distinct from aggregate event retention'],
+]) requireText('supabase/migrations/043_account_erasure_event_history_boundary.sql', text, explanation);
+forbidText(
+  'supabase/migrations/043_account_erasure_event_history_boundary.sql',
+  'on delete cascade;\n\ncomment on function public.seal_hosted_events_before_account_erasure',
+  'host ownership boundary must not revert to cascading event deletion',
 );
 
 for (const [text, explanation] of [
@@ -157,4 +171,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('Privileged escort, Office Hours, LiveKit, and notification contract passed.');
+console.log('Privileged lifecycle, escort, Office Hours, LiveKit, notification, and account-erasure contract passed.');
