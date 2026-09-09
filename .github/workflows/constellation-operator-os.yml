@@ -56,5 +56,8 @@ jobs:
       - name: Adaptive operator OS contract
         run: node scripts/validate-constellation-operator-os.mjs
 
+      - name: Watchtower baseline and epistemic-health contract
+        run: node scripts/validate-constellation-epistemic-health.mjs
+
       - name: Strategy/privacy boundary
         run: node scripts/validate-constellation-strategy.mjs
