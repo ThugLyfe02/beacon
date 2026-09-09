@@ -40,6 +40,10 @@ const protectedFiles = [
   'src/screens/InternalBridgeLabScreen.tsx',
   'src/screens/InternalStrategyLabScreen.tsx',
   'src/screens/InternalSimulationLabScreen.tsx',
+  'src/screens/InternalTransformLabScreen.tsx',
+  'src/screens/InternalEpochLabScreen.tsx',
+  'src/screens/InternalCasebookScreen.tsx',
+  'src/screens/InternalPatternLabScreen.tsx',
   'src/spatial/SpatialFieldScreen.tsx',
   'src/spatial/ARFieldScreen.tsx',
   'src/screens/ChooseAvatarScreen.tsx',
@@ -49,9 +53,16 @@ const protectedFiles = [
   'src/admin/InternalGraphCanvas.tsx',
   'src/admin/InternalGraphStrategyEngine.ts',
   'src/admin/InternalGraphSimulationEngine.ts',
+  'src/admin/InternalGraphForensicsEngine.ts',
+  'src/admin/InternalGraphMotifEngine.ts',
+  'src/admin/InternalGraphEpochEngine.ts',
+  'src/admin/InternalGraphCalibrationEngine.ts',
+  'src/admin/InternalGraphCasebookEngine.ts',
   'src/admin/InternalGraphExportEngine.ts',
   'src/admin/InternalGraphExportService.ts',
   'src/admin/internalGraph.service.ts',
+  'src/admin/internalGraphEpoch.service.ts',
+  'src/admin/internalGraphCasebook.service.ts',
   'src/admin/useInternalOperator.ts',
   'src/services/networkPulse.service.ts',
   'src/services/event.service.ts',
@@ -114,17 +125,36 @@ requireAll('src/admin/internalGraph.service.ts', [
 requireAll('src/admin/InternalGraphEngine.ts', ['detectInternalGraphCommunities', 'findInternalGraphPath', 'diffInternalGraphs', 'brokerScore', 'bridgeCandidates'], 'Constellation graph-analysis regression');
 requireAll('src/admin/InternalGraphStrategyEngine.ts', ['analyzeInternalGraphDrift', 'runInternalGraphAgentOrchestrator', "autonomy: 'analysis_only'", 'requiresHumanApproval: true'], 'Constellation temporal/agent strategy regression');
 requireAll('src/admin/InternalGraphSimulationEngine.ts', ['simulateInternalBridge', 'simulateInternalNodeRemoval', 'rankInternalGraphResilienceRisks'], 'Constellation counterfactual simulation regression');
+requireAll('src/admin/InternalGraphForensicsEngine.ts', ['criticalStructure', 'participationCoefficient', 'effectiveSize', 'edgeSurprisal', 'articulation'], 'Constellation forensic brokerage regression');
+requireAll('src/admin/InternalGraphMotifEngine.ts', ['triadic_closure', 'cross_community_context_bridge', 'relationship_outcome_ladder', 'multi_community_broker'], 'Constellation motif-memory regression');
+requireAll('src/admin/InternalGraphEpochEngine.ts', ['analyzeInternalEpochTransition', 'brokerTrajectories', 'motifTrajectories', 'split_fragment'], 'Constellation longitudinal lineage regression');
+requireAll('src/admin/InternalGraphCalibrationEngine.ts', ['calibrateInternalBridgePatterns', 'posteriorOutcomeMean', 'outcomeLowerBound90', 'priorStrength'], 'Constellation Bayesian bridge calibration regression');
+requireAll('src/admin/InternalGraphCasebookEngine.ts', ['evaluateInternalGraphCase', 'ecosystem_gap', 'findInternalGraphPath'], 'Constellation Casebook evaluator regression');
 requireAll('src/admin/InternalGraphExportEngine.ts', ['internalGraphToGraphML', 'internalGraphToNeo4jCypher', 'PRIVATE_ATTRIBUTE_KEYS'], 'Constellation export regression');
 
 requireAll('src/screens/InternalGraphScreen.tsx', ['Constellation', 'STRUCTURAL-HOLE BRIDGES', 'SURPRISING CONNECTIONS', 'BRIDGE BUILDER', 'RETENTION CONTRACT'], 'Exclusive operator workbench regression');
 requireAll('src/screens/InternalBridgeLabScreen.tsx', ['ATTRIBUTION FIREWALL', 'SAFE STRUCTURAL HOLES', 'Mark introduced'], 'Bridge Lab regression');
 requireAll('src/screens/InternalStrategyLabScreen.tsx', ['AGENT MISSION QUEUE', 'EVENT-TO-EVENT GRAPH DRIFT', 'TARGET ECOSYSTEM PATHFINDER', 'OPERATOR INTERVENTION FRONTIER'], 'Strategy Lab regression');
 requireAll('src/screens/InternalSimulationLabScreen.tsx', ['COUNTERFACTUAL CONTRACT', 'HYPOTHETICAL BRIDGE IMPACT', 'NETWORK RESILIENCE / SINGLE-POINT DEPENDENCE'], 'Simulation Lab regression');
+requireAll('src/screens/InternalTransformLabScreen.tsx', ['MALTEGO-STYLE TRANSFORMS', 'RELATIONSHIP LADDER', 'PROVENANCE TIMELINE'], 'Transform Lab regression');
+requireAll('src/screens/InternalEpochLabScreen.tsx', ['LONGITUDINAL MEMORY', 'COMMUNITY LINEAGE', 'BROKER TRAJECTORIES', 'MOTIF EVOLUTION'], 'Epoch Lab regression');
+requireAll('src/screens/InternalCasebookScreen.tsx', ['SAVED INVESTIGATIONS', 'PIN GRAPH EVIDENCE', 'LIVE CASE FINDINGS', 'CASE AUTONOMY CONTRACT'], 'Casebook regression');
+requireAll('src/screens/InternalPatternLabScreen.tsx', ['BAYESIAN BRIDGE MEMORY', 'ANTI-OVERFITTING CONTRACT', 'BRIDGE ARCHETYPE POSTERIORS'], 'Pattern Lab regression');
+
+requireAll('src/admin/internalGraphEpoch.service.ts', ["rpc('record_internal_graph_epoch'", "rpc('get_internal_graph_epoch_history'"], 'Epoch service regression');
+requireAll('src/admin/internalGraphCasebook.service.ts', ["rpc('get_internal_graph_cases'", "rpc('create_internal_graph_case'", "rpc('pin_internal_graph_case_node'", "rpc('upsert_internal_graph_case_finding'"], 'Casebook service regression');
 
 requireAll('src/services/networkPulse.service.ts', ["rpc('get_my_network_pulse'"], 'Network Pulse service regression');
 requireAll('src/components/NetworkPulseCard.tsx', ['NETWORK PULSE · YOUR VIEW', 'The deeper Constellation system is not exposed here'], 'Limited user graph preview regression');
 forbidAll('src/components/NetworkPulseCard.tsx', ['brokerScore', 'bridgeCandidates'], 'User preview must not expose operator intelligence');
 requireAll('src/screens/ProfileScreen.tsx', ['CONSTELLATION', 'NetworkPulseCard', "internalOperator.has('graph_read')", "internalOperator.has('graph_manage')"], 'Operator/private-preview entry regression');
+
+for (const route of [
+  'InternalGraph', 'InternalBridgeLab', 'InternalStrategyLab', 'InternalSimulationLab',
+  'InternalTransformLab', 'InternalEpochLab', 'InternalCasebook', 'InternalPatternLab',
+]) {
+  requireAll('src/navigation/RootNavigator.tsx', [`name="${route}"`], `${route} route regression`);
+}
 
 requireAll('src/types/database.ts', ['export type EventInsert = never', 'export type EventParticipantInsert = never', 'export type ConnectionRequestInsert = never'], 'RPC-only mutation type contract regression');
 requireAll('src/config/featureFlags.ts', ['vault: true', 'signalScarcity: true', 'securityControlPlane: true', 'outcomeHandshakeProtocol: true', 'decisionProvenance: true'], 'Integrated feature flag regression');
@@ -134,7 +164,7 @@ const requiredMigrationPrefixes = [
   '019_', '020_', '021_', '022_', '023_', '024_', '025_', '026_',
   '027_', '028_', '029_', '030_', '031_', '032_', '033_', '034_', '035_',
   '036_', '037_', '038_', '039_', '040_', '041_', '042_', '043_', '044_',
-  '045_', '046_', '047_', '048_', '049_', '050_', '051_', '052_',
+  '045_', '046_', '047_', '048_', '049_', '050_', '051_', '052_', '053_', '054_',
 ];
 for (const prefix of requiredMigrationPrefixes) {
   if (!migrations.some((file) => file.startsWith(prefix))) failures.push(`Missing protected migration prefix: ${prefix}`);
