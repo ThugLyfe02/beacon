@@ -8,6 +8,7 @@ on:
       - 'src/navigation/RootNavigator.tsx'
       - 'src/components/NetworkPulseCard.tsx'
       - 'supabase/migrations/06*.sql'
+      - 'supabase/migrations/07*.sql'
       - 'scripts/validate-constellation-*.mjs'
       - '.github/workflows/constellation-operator-os.yml'
   push:
@@ -70,6 +71,9 @@ jobs:
 
       - name: Cognitive workbench contract
         run: node scripts/validate-constellation-cognitive-workbench.mjs
+
+      - name: Investigation handoff contract
+        run: node scripts/validate-constellation-handoff.mjs
 
       - name: Strategy/privacy boundary
         run: node scripts/validate-constellation-strategy.mjs
