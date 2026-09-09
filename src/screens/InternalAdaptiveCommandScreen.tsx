@@ -13,6 +13,7 @@ import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@r
 import { analyzeInternalGraph, type InternalGraphPayload } from '../admin/InternalGraphEngine';
 import { runAdaptiveInternalGraphAgentOrchestrator } from '../admin/InternalAdaptiveAgentOrchestrator';
 import { triageInternalWatchtower } from '../admin/InternalWatchtowerTriageEngine';
+import { evaluateInternalOperatorDecisionAdmission } from '../admin/InternalOperatorDecisionAdmission';
 import {
   getInternalBridgeSuppressions,
   loadInternalBridgePatternCalibration,
@@ -29,6 +30,10 @@ type AdaptiveCommandRoute = {
 
 function nodeLabel(payload: InternalGraphPayload | null, nodeId: string): string {
   return payload?.nodes.find((node) => node.id === nodeId)?.label ?? nodeId;
+}
+
+function admissionLabel(state: string): string {
+  return state.replaceAll('_', ' ').toUpperCase();
 }
 
 export default function InternalAdaptiveCommandScreen() {
@@ -110,6 +115,22 @@ export default function InternalAdaptiveCommandScreen() {
     [watchtowerTriage],
   );
 
+  const decisionAdmission = useMemo(
+    () => adaptiveRun && suppressions
+      ? evaluateInternalOperatorDecisionAdmission({
+          adaptiveRun,
+          watchtowerTriage,
+          suppressionsEstablished: true,
+          capabilities: {
+            manage: operator.manage,
+            restricted: operator.restricted,
+            export: operator.export,
+          },
+        })
+      : null,
+    [adaptiveRun, watchtowerTriage, suppressions, operator.manage, operator.restricted, operator.export],
+  );
+
   if (operator.loading || loading) {
     return (
       <View style={styles.centered}>
@@ -133,7 +154,7 @@ export default function InternalAdaptiveCommandScreen() {
     );
   }
 
-  if (!payload || !suppressions || !adaptiveRun) return null;
+  if (!payload || !suppressions || !adaptiveRun || !decisionAdmission) return null;
   const health = adaptiveRun.epistemicHealth;
   const routing = adaptiveRun.routingPortfolio;
 
@@ -146,7 +167,7 @@ export default function InternalAdaptiveCommandScreen() {
             <View style={{ flex: 1 }}>
               <Pill label="INTERNAL · ADAPTIVE NETWORK COMMAND" tone="accent" dot />
               <NeonText variant="display" tone="text" glow style={styles.title}>Operator Command</NeonText>
-              <NeonText variant="bodyMuted">Watchtower incident triage · epistemic authority · diversified target routing · adaptive mission queue · human approval boundary</NeonText>
+              <NeonText variant="bodyMuted">Watchtower incident triage · epistemic authority · decision admission · diversified target routing · adaptive mission queue · human approval boundary</NeonText>
             </View>
             <Pressable onPress={() => navigation.goBack()} hitSlop={12}><NeonText variant="label" tone="muted">CLOSE</NeonText></Pressable>
           </View>
@@ -155,7 +176,7 @@ export default function InternalAdaptiveCommandScreen() {
             <Metric label="GRAPH HEALTH" value={`${Math.round(health.score * 100)}%`} />
             <Metric label="POSTURE" value={adaptiveRun.decisionPosture.replaceAll('_', ' ').toUpperCase()} />
             <Metric label="OPEN INCIDENTS" value={`${watchtowerTriage?.openIncidentCount ?? 0}`} />
-            <Metric label="CRITICAL" value={`${watchtowerTriage?.criticalIncidentCount ?? 0}`} />
+            <Metric label="ADMISSION BLOCKS" value={`${decisionAdmission.blockedCount}`} />
             <Metric label="MISSIONS" value={`${adaptiveRun.missionCount}`} />
           </View>
 
@@ -211,6 +232,29 @@ export default function InternalAdaptiveCommandScreen() {
             ))}
             {openIncidents.length === 0 ? <NeonText variant="bodyMuted">No open correlated Watchtower incidents.</NeonText> : null}
             {watchtowerTriage ? <NeonText variant="bodyMuted">{watchtowerTriage.operatingRule}</NeonText> : null}
+          </Section>
+
+          <Section title="DECISION ADMISSION" subtitle="Evidence can enter operator review only when graph quality, block truth and exact capability boundaries support that level of review; admission never authorizes action">
+            {decisionAdmission.admissions.map((admission) => (
+              <Surface key={admission.kind} padded style={[styles.admissionCard, admission.state === 'safety_blocked' || admission.state === 'evidence_remediation_required' ? styles.warningBorder : null]}>
+                <View style={styles.rowBetween}>
+                  <View style={{ flex: 1 }}>
+                    <Pill label={admissionLabel(admission.state)} tone={admission.state === 'admitted_to_review' ? 'accent' : 'neutral'} dot={admission.state === 'admitted_to_review'} />
+                    <NeonText variant="h2" style={{ marginTop: spacing.sm }}>{admission.title}</NeonText>
+                  </View>
+                  <NeonText variant="mono" tone="accent">A{Math.round(admission.authority * 100)}</NeonText>
+                </View>
+                {admission.reasons.slice(0, 5).map((reason, index) => <NeonText key={`${admission.kind}-reason-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {reason}</NeonText>)}
+                {admission.requiredRemediation.length > 0 ? (
+                  <View style={{ marginTop: spacing.sm }}>
+                    <NeonText variant="label" tone="muted">REQUIRED BEFORE ESCALATION</NeonText>
+                    {admission.requiredRemediation.slice(0, 4).map((item, index) => <NeonText key={`${admission.kind}-remediation-${index}`} variant="bodyMuted" style={{ marginTop: 3 }}>• {item}</NeonText>)}
+                  </View>
+                ) : null}
+                <NeonText variant="bodyMuted" style={{ marginTop: spacing.sm }}>{admission.operatingRule}</NeonText>
+              </Surface>
+            ))}
+            <NeonText variant="bodyMuted">{decisionAdmission.operatingRule}</NeonText>
           </Section>
 
           <Section title="TARGET ROUTING OBJECTIVE" subtitle="Routing changes mission evidence only; it never authorizes outreach, predicts consent or bypasses blocks">
@@ -290,6 +334,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   smallCard: { borderRadius: radii.lg, borderColor: palette.hairline },
   incidentCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
+  admissionCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   missionCard: { borderRadius: radii.xl, borderColor: palette.hairlineStrong },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
   input: { borderWidth: 1, borderColor: palette.hairlineStrong, borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: palette.text, backgroundColor: 'rgba(15,23,42,0.72)' },
