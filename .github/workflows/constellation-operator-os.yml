@@ -65,5 +65,8 @@ jobs:
       - name: Adaptive command and JIT access contract
         run: node scripts/validate-constellation-adaptive-command.mjs
 
+      - name: Decision admission contract
+        run: node scripts/validate-constellation-decision-admission.mjs
+
       - name: Strategy/privacy boundary
         run: node scripts/validate-constellation-strategy.mjs
