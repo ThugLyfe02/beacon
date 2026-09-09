@@ -37,6 +37,7 @@ import InternalPatternLabScreen from '../screens/InternalPatternLabScreen';
 import InternalForensicsLabScreen from '../screens/InternalForensicsLabScreen';
 import InternalMissionLedgerScreen from '../screens/InternalMissionLedgerScreen';
 import InternalMachineLabScreen from '../screens/InternalMachineLabScreen';
+import InternalMachineRegistryScreen from '../screens/InternalMachineRegistryScreen';
 import InternalOperatorHubScreen from '../screens/InternalOperatorHubScreen';
 import SpatialFieldScreen from '../spatial/SpatialFieldScreen';
 import ChooseAvatarScreen from '../screens/ChooseAvatarScreen';
@@ -200,6 +201,7 @@ export function RootNavigator() {
         <Stack.Screen name="InternalForensicsLab" component={InternalForensicsLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalMissionLedger" component={InternalMissionLedgerScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalMachineLab" component={InternalMachineLabScreen} options={internalModalOptions} />
+        <Stack.Screen name="InternalMachineRegistry" component={InternalMachineRegistryScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalBridgeLab" component={InternalBridgeLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalStrategyLab" component={InternalStrategyLabScreen} options={internalModalOptions} />
         <Stack.Screen name="InternalSimulationLab" component={InternalSimulationLabScreen} options={internalModalOptions} />
