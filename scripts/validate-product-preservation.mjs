@@ -199,7 +199,7 @@ const migrations = fs.readdirSync(path.join(root, 'supabase/migrations'));
 const requiredMigrationPrefixes = [
   '019_', '020_', '021_', '022_', '023_', '024_', '025_', '026_',
   '027_', '028_', '029_', '030_', '031_', '032_', '033_', '034_', '035_',
-  '036_', '037_', '038_', '039_', '040_', '041_', '042_',
+  '036_', '037_', '038_', '039_', '040_', '041_', '042_', '043_',
 ];
 for (const prefix of requiredMigrationPrefixes) {
   if (!migrations.some((file) => file.startsWith(prefix))) {
