@@ -31,6 +31,7 @@ const requiredFiles = [
   'supabase/migrations/036_atomic_event_creation_and_access_secrets.sql',
   'supabase/migrations/037_event_column_and_membership_oracle_lockdown.sql',
   'supabase/migrations/038_secure_escort_orchestration.sql',
+  'supabase/migrations/039_secure_escort_orchestration_runtime.sql',
   'src/services/proximity.service.ts',
   'src/services/premium.service.ts',
   'src/services/outcome-handshake.service.ts',
@@ -114,15 +115,30 @@ for (const [text, explanation] of [
   ['Caller-scoped approved-membership predicate', 'membership oracle lockdown must remain documented'],
 ]) requireText('supabase/migrations/037_event_column_and_membership_oracle_lockdown.sql', text, explanation);
 
+requireText(
+  'supabase/migrations/038_secure_escort_orchestration.sql',
+  "add value if not exists 'escort_assignment'",
+  'physical handoff must reserve its control-plane enum action before runtime installation',
+);
+requireText(
+  'supabase/migrations/038_secure_escort_orchestration.sql',
+  'actual escort RPCs therefore live in migration 039',
+  'enum creation and enum consumption must remain split across committed migrations',
+);
+forbidText(
+  'supabase/migrations/038_secure_escort_orchestration.sql',
+  'assign_escort_room_secure',
+  'migration 038 must remain enum-only so PostgreSQL never consumes a newly-added enum value in the same transaction',
+);
+
 for (const [text, explanation] of [
-  ["add value if not exists 'escort_assignment'", 'physical handoff must be part of the security control plane'],
   ['revoke insert, update, delete on table public.venue_rooms from authenticated', 'venue rooms must not retain broad direct host mutation'],
   ['create_venue_room_secure', 'room creation must be host and live-window scoped'],
   ['get_host_escort_queue', 'host queue identity disclosure must use a narrow RPC'],
   ['assign_escort_room_secure', 'room assignment must be an atomic secure RPC'],
   ['authorize_sensitive_action', 'escort assignment must retain replay/security-mode authorization'],
   ['existing.proposed_start < v_request.proposed_end', 'overlapping room commitments must be rejected server-side'],
-]) requireText('supabase/migrations/038_secure_escort_orchestration.sql', text, explanation);
+]) requireText('supabase/migrations/039_secure_escort_orchestration_runtime.sql', text, explanation);
 
 requireText(
   'supabase/migrations/031_atomic_event_finalization.sql',
