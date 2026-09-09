@@ -93,6 +93,9 @@ jobs:
       - name: Reasoning lineage contract
         run: node scripts/validate-constellation-reasoning-lineage.mjs
 
+      - name: Durable reasoning revalidation contract
+        run: node scripts/validate-constellation-revalidation-queue.mjs
+
       - name: Investigation handoff contract
         run: node scripts/validate-constellation-handoff.mjs
 
