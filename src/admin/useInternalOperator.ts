@@ -11,6 +11,28 @@ const EMPTY: InternalOperatorContext = {
   expiresAt: null,
 };
 
+/**
+ * Client mirror of migration 049's server capability lattice.
+ *
+ * `graph_manage` is intentionally NOT a super-capability for restricted topology
+ * or bulk export. Any UI surface that exposes those actions must see the exact
+ * independent capability the server will require. `graph_read` is the only
+ * implied baseline because every specialized graph capability necessarily needs
+ * to read the ordinary graph to be useful.
+ */
+function hasCapability(
+  capabilities: ReadonlySet<InternalGraphCapability>,
+  capability: InternalGraphCapability,
+): boolean {
+  if (capability === 'graph_read') {
+    return capabilities.has('graph_read')
+      || capabilities.has('graph_manage')
+      || capabilities.has('graph_restricted')
+      || capabilities.has('graph_export');
+  }
+  return capabilities.has(capability);
+}
+
 export function useInternalOperator() {
   const [context, setContext] = useState<InternalOperatorContext>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -28,9 +50,12 @@ export function useInternalOperator() {
     refresh();
   }, [refresh]);
 
-  const capabilities = useMemo(() => new Set(context.capabilities), [context.capabilities]);
+  const capabilities = useMemo(
+    () => new Set<InternalGraphCapability>(context.capabilities),
+    [context.capabilities],
+  );
   const has = useCallback(
-    (capability: InternalGraphCapability) => capabilities.has('graph_manage') || capabilities.has(capability),
+    (capability: InternalGraphCapability) => hasCapability(capabilities, capability),
     [capabilities],
   );
 
