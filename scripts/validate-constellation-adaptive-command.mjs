@@ -16,6 +16,7 @@ const forbidText = (path, text, why) => { if (read(path).includes(text)) failure
 
 const files = [
   'src/admin/InternalAdaptiveAgentOrchestrator.ts',
+  'src/admin/InternalWatchtowerTriageEngine.ts',
   'src/screens/InternalAdaptiveCommandScreen.tsx',
   'supabase/migrations/067_internal_operator_capability_leases.sql',
   'src/admin/internalOperatorSecurity.service.ts',
@@ -44,8 +45,27 @@ forbidText('src/admin/InternalAdaptiveAgentOrchestrator.ts', 'supabase', 'adapti
 forbidText('src/admin/InternalAdaptiveAgentOrchestrator.ts', 'fetch(', 'adaptive orchestrator must not perform external enrichment');
 
 for (const [text, why] of [
+  ['triageInternalWatchtower', 'Watchtower incident correlation entrypoint must remain available'],
+  ["'fragility'", 'fragility incidents must remain classifiable'],
+  ["'topology_change'", 'topology-change incidents must remain classifiable'],
+  ["'brokerage'", 'brokerage incidents must remain classifiable'],
+  ["'machine_change'", 'Machine-result incidents must remain classifiable'],
+  ['14 * 86_400_000', 'incident correlation must remain bounded to a recent replay window'],
+  ['epistemicHealth', 'incident review urgency may account for graph evidence health'],
+  ['recommendedReviewSurface', 'incidents must route operators toward evidence workbenches'],
+  ['review urgency only', 'incident severity must remain graph-review urgency rather than human risk'],
+  ['do not target people, predict misconduct, or execute actions', 'Watchtower incidents must preserve non-surveillance/non-action semantics'],
+]) requireText('src/admin/InternalWatchtowerTriageEngine.ts', text, why);
+forbidText('src/admin/InternalWatchtowerTriageEngine.ts', 'supabase', 'Watchtower correlation must remain replayable in-memory analysis');
+forbidText('src/admin/InternalWatchtowerTriageEngine.ts', 'fetch(', 'Watchtower triage must not perform enrichment or outbound requests');
+
+for (const [text, why] of [
   ['ADAPTIVE NETWORK COMMAND', 'operator command surface must be explicit'],
-  ['WATCHTOWER TRIAGE', 'Watchtower signals must be visible in command context'],
+  ['WATCHTOWER INCIDENT TRIAGE', 'correlated Watchtower incidents must be visible in command context'],
+  ['triageInternalWatchtower', 'Command must consume replayable Watchtower incident correlation'],
+  ['OPEN INCIDENTS', 'Command must summarize incident workload'],
+  ['CRITICAL', 'Command must surface high-urgency correlated conditions'],
+  ['Open evidence', 'incident triage must deep-link to evidence rather than claim an answer'],
   ['TARGET ROUTING OBJECTIVE', 'diversified routing must be visible in command context'],
   ['ADAPTIVE MISSION QUEUE', 'health-calibrated missions must be visible'],
   ["operator.has('graph_manage')", 'adaptive command must remain graph-manage gated'],
@@ -90,10 +110,11 @@ for (const route of ['InternalAdaptiveCommand', 'InternalPrivateAccess']) {
 forbidText('src/components/NetworkPulseCard.tsx', 'InternalAdaptiveCommand', 'normal-user Network Pulse must not expose adaptive command');
 forbidText('src/components/NetworkPulseCard.tsx', 'InternalPrivateAccess', 'normal-user Network Pulse must not expose private operator access');
 forbidText('src/components/NetworkPulseCard.tsx', 'activeLeases', 'normal-user preview must not expose operator lease state');
+forbidText('src/components/NetworkPulseCard.tsx', 'InternalWatchtowerTriageEngine', 'normal-user preview must not expose correlated operator incidents');
 
 if (failures.length) {
   console.error('\nConstellation adaptive command / JIT access validation failed:\n');
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
-console.log('Constellation adaptive command, evidence authority, JIT lease, and private-access boundary passed.');
+console.log('Constellation adaptive command, Watchtower incident correlation, evidence authority, JIT lease, and private-access boundary passed.');
