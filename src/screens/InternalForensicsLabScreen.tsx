@@ -105,7 +105,9 @@ export default function InternalForensicsLabScreen() {
             {forensics.brokers.slice(0, 24).map((broker, index) => (
               <Surface key={broker.nodeId} elevated padded style={styles.card}>
                 <View style={styles.rowBetween}>
-                  <View style={styles.rank}>{index + 1}</View>
+                  <View style={styles.rank}>
+                    <NeonText variant="label" tone="accent">{index + 1}</NeonText>
+                  </View>
                   <View style={{ flex: 1 }}>
                     <NeonText variant="h2">{nodeLabel(broker.nodeId)}</NeonText>
                     <NeonText variant="bodyMuted" style={{ marginTop: 3 }}>
