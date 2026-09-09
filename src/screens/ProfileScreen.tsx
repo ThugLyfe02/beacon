@@ -27,6 +27,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFollow } from '../hooks/useFollow';
 import { usePremium } from '../hooks/usePremium';
 import { useFeed } from '../hooks/useFeed';
+import { useInternalOperator } from '../admin/useInternalOperator';
 import { getCurrentUser } from '../services/user.service';
 import { deletePost } from '../services/post.service';
 import { palette, radii, spacing } from '../theme';
@@ -48,6 +49,10 @@ export default function ProfileScreen() {
   const follow = useFollow(viewerId, targetId);
   const premium = usePremium(isSelf ? viewerId : null);
   const feed = useFeed({ kind: 'user', userId: targetId });
+  const internalOperator = useInternalOperator();
+  const internalGraphAvailable = isSelf
+    && internalOperator.allowed
+    && internalOperator.has('graph_read');
 
   const loadUser = useCallback(async () => {
     setLoadingUser(true);
@@ -102,11 +107,18 @@ export default function ProfileScreen() {
               {navigation.canGoBack() ? '← BACK' : 'PROFILE'}
             </NeonText>
           </Pressable>
-          {isSelf ? (
-            <Pressable onPress={() => setDrawerOpen(true)} hitSlop={12}>
-              <NeonText variant="label" tone="accent">PREMIUM</NeonText>
-            </Pressable>
-          ) : <View style={{ width: 1 }} />}
+          <View style={styles.headerActions}>
+            {internalGraphAvailable ? (
+              <Pressable onPress={() => navigation.navigate('InternalGraph')} hitSlop={12}>
+                <NeonText variant="label" tone="accent" glow>CONSTELLATION</NeonText>
+              </Pressable>
+            ) : null}
+            {isSelf ? (
+              <Pressable onPress={() => setDrawerOpen(true)} hitSlop={12}>
+                <NeonText variant="label" tone="accent">PREMIUM</NeonText>
+              </Pressable>
+            ) : <View style={{ width: 1 }} />}
+          </View>
         </View>
 
         {loadingUser ? (
@@ -136,6 +148,7 @@ export default function ProfileScreen() {
                   feed.refresh();
                   follow.refresh();
                   loadUser();
+                  internalOperator.refresh();
                 }}
                 tintColor={palette.accent}
               />
@@ -155,6 +168,7 @@ export default function ProfileScreen() {
                 }}
                 isSelf={isSelf}
                 onEdit={() => navigation.navigate('EditProfile')}
+                onOpenInternalGraph={internalGraphAvailable ? () => navigation.navigate('InternalGraph') : null}
                 onSignOut={() => {
                   Alert.alert(
                     'Drop signal?',
@@ -214,6 +228,7 @@ interface HeaderProps {
   onFollowPress: () => void;
   isSelf: boolean;
   onEdit: () => void;
+  onOpenInternalGraph: (() => void) | null;
   onSignOut: () => void;
   postCount: number;
 }
@@ -226,6 +241,7 @@ function ProfileHeader({
   onFollowPress,
   isSelf,
   onEdit,
+  onOpenInternalGraph,
   onSignOut,
   postCount,
 }: Readonly<HeaderProps>) {
@@ -271,6 +287,15 @@ function ProfileHeader({
 
       {isSelf ? (
         <View style={styles.selfActions}>
+          {onOpenInternalGraph ? (
+            <GlowButton
+              label="Open Constellation"
+              onPress={onOpenInternalGraph}
+              variant="ghost"
+              fullWidth
+              style={styles.internalGraphBtn}
+            />
+          ) : null}
           <GlowButton
             label="Edit profile"
             onPress={onEdit}
@@ -310,6 +335,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { padding: spacing.lg, paddingBottom: 120 },
   profileCard: {
@@ -349,5 +375,6 @@ const styles = StyleSheet.create({
   divider: { height: spacing.sm },
   emptyCard: { borderRadius: radii.lg, marginTop: spacing.md },
   selfActions: { gap: spacing.sm, marginTop: spacing.md },
+  internalGraphBtn: { borderColor: palette.accent },
   signOutBtn: { borderColor: palette.danger },
 });
