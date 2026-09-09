@@ -9,7 +9,7 @@ export interface InternalAgentMissionSyncResult {
   createdCount: number;
   reopenedCount: number;
   revisedCount: number;
-  resolvedCandidateCount: number;
+  newlyResolvedCount: number;
   activeCount: number;
   totalCount: number;
 }
@@ -75,7 +75,7 @@ export async function syncInternalAgentMissions(input: {
   graphVersion: string;
   missions: InternalAgentMission[];
 }): Promise<InternalAgentMissionSyncResult> {
-  const { data, error } = await supabase.rpc('sync_internal_agent_missions', {
+  const { data, error } = await supabase.rpc('sync_internal_agent_missions_v2', {
     p_event_id: input.eventId ?? null,
     p_objective: input.objective?.trim() || null,
     p_graph_version: input.graphVersion,
@@ -94,7 +94,7 @@ export async function syncInternalAgentMissions(input: {
     createdCount: finiteNumber(raw.createdCount),
     reopenedCount: finiteNumber(raw.reopenedCount),
     revisedCount: finiteNumber(raw.revisedCount),
-    resolvedCandidateCount: finiteNumber(raw.resolvedCandidateCount),
+    newlyResolvedCount: finiteNumber(raw.newlyResolvedCount),
     activeCount: finiteNumber(raw.activeCount),
     totalCount: finiteNumber(raw.totalCount),
   };
