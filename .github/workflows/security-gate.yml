@@ -80,6 +80,27 @@ jobs:
         if: steps.architecture.outcome == 'failure'
         run: exit 1
 
+      - name: Validate lifecycle and SECURITY DEFINER contract
+        id: lifecycle-security
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/validate-lifecycle-security.mjs 2>&1 | tee lifecycle-security-validation.txt
+
+      - name: Upload lifecycle security diagnostics
+        if: steps.lifecycle-security.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lifecycle-security-diagnostics
+          path: lifecycle-security-validation.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on lifecycle security contract violations
+        if: steps.lifecycle-security.outcome == 'failure'
+        run: exit 1
+
       - name: Validate product preservation contract
         run: node scripts/validate-product-preservation.mjs
 
